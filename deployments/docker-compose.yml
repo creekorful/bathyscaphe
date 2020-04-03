@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  nats:
+    image: nats:2.1.6-alpine3.11
+    logging:
+      driver: none
+  proxy:
+    image: dperson/torproxy:latest
+    logging:
+      driver: none
+  crawler:
+    image: trandoshan.io/crawler:latest
+    command: --nats-uri nats --tor-uri torproxy
+    restart: always
+    depends_on:
+      - nats
+      - proxy
+  feeder:
+    image: trandoshan.io/feeder:latest
+    command: --nats-uri nats --url https://google.com
+    depends_on:
+      - nats
