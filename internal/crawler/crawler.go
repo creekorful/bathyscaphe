@@ -4,15 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"github.com/valyala/fasthttp"
+	"mvdan.cc/xurls/v2"
 )
 
 const (
 	TodoSubject = "todo"
+	DoneSubject = "done"
 )
 
+// UrlMessage represent an URL as read by the crawler process
 type UrlMessage struct {
 	Url string `json:"url"`
 }
@@ -54,7 +59,7 @@ func execute(ctx *cli.Context) error {
 	logrus.Infof("Starting trandoshan-crawler v%s", ctx.App.Version)
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
-	logrus.Debugf("Using tor proxy at: %s", ctx.String("tor-uri"))
+	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
 
 	// Connect to the NATS server
 	nc, err := nats.Connect(ctx.String("nats-uri"))
@@ -82,7 +87,7 @@ func execute(ctx *cli.Context) error {
 		}
 
 		// ... And process it
-		if err := handleMessage(msg); err != nil {
+		if err := handleMessage(nc, msg); err != nil {
 			logrus.Warnf("Skipping current message because of error: %s", err)
 			continue
 		}
@@ -91,13 +96,32 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(msg *nats.Msg) error {
+func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 	var urlMsg UrlMessage
 	if err := json.Unmarshal(msg.Data, &urlMsg); err != nil {
 		return fmt.Errorf("error while decoding message: %s", err)
 	}
 
-	logrus.Infof("Processing url: %s", urlMsg.Url)
+	logrus.Debugf("Processing URL: %s", urlMsg.Url)
+
+	httpClient := fasthttp.Client{}
+	_, body, err := httpClient.Get(nil, urlMsg.Url)
+	if err != nil {
+		return err
+	}
+
+	// Extract URLs
+	xu := xurls.Strict()
+	urls := xu.FindAllString(string(body), -1)
+
+	// Publish found URLs
+	for _, url := range urls {
+		logrus.Debugf("Found URL: %s", url)
+
+		if err := natsutil.PublishJson(nc, DoneSubject, &UrlMessage{Url: url}); err != nil {
+			logrus.Warnf("Error while publishing URL: %s", err)
+		}
+	}
 
 	return nil // TODO
 }

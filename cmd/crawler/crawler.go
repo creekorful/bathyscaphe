@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/creekorful/trandoshan-crawler/internal/crawler"
+	"github.com/creekorful/trandoshan/internal/crawler"
 	"os"
 )
 

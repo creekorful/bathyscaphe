@@ -11,13 +11,8 @@ services:
       driver: none
   crawler:
     image: trandoshan.io/crawler:latest
-    command: --nats-uri nats --tor-uri torproxy
+    command: --log-level debug --nats-uri nats --tor-uri torproxy
     restart: always
     depends_on:
       - nats
       - proxy
-  feeder:
-    image: trandoshan.io/feeder:latest
-    command: --nats-uri nats --url https://google.com
-    depends_on:
-      - nats

@@ -1,8 +1,8 @@
 package feeder
 
 import (
-	"encoding/json"
-	"github.com/creekorful/trandoshan-crawler/internal/crawler"
+	"github.com/creekorful/trandoshan/internal/crawler"
+	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -54,20 +54,13 @@ func execute(ctx *cli.Context) error {
 	}
 	defer nc.Close()
 
-	// Marshal the message
-	msg, err := json.Marshal(&crawler.UrlMessage{Url: ctx.String("url")})
-	if err != nil {
-		logrus.Errorf("Unable to marshal message: %s", err)
-		return err
-	}
-
 	// Publish the message
-	if err := nc.Publish(crawler.TodoSubject, msg); err != nil {
-		logrus.Errorf("Unable to publish message: %s", err)
+	if err := natsutil.PublishJson(nc, crawler.TodoSubject, &crawler.UrlMessage{Url: ctx.String("url")}); err != nil {
+		logrus.Errorf("Unable to publish URL: %s", err)
 		return err
 	}
 
-	logrus.Infof("Url %s successfully sent to the crawler", ctx.String("url"))
+	logrus.Infof("URL %s successfully sent to the crawler", ctx.String("url"))
 
 	return nil
 }

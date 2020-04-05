@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 
 # Test then build app
-RUN go build -v github.com/creekorful/trandoshan-crawler/cmd/crawler
+RUN go build -v github.com/creekorful/trandoshan/cmd/crawler
 
 # runtime image
 FROM alpine:latest
