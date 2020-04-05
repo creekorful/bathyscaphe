@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
@@ -86,6 +87,16 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 	}
 
 	logrus.Debugf("Processing URL: %s", urlMsg.URL)
+
+	// Normalized received URL
+	normalizedURL, err := purell.NormalizeURLString(urlMsg.URL, purell.FlagsUsuallySafeGreedy|
+		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+
+	if err != nil {
+		return fmt.Errorf("error while normalizing URL %s: %s", urlMsg.URL, err)
+	}
+
+	logrus.Debugf("Normalizing URL: %s", normalizedURL)
 
 	// TODO implement scheduling logic
 
