@@ -7,5 +7,5 @@ require (
 	github.com/sirupsen/logrus v1.5.0
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/valyala/fasthttp v1.9.0
-	mvdan.cc/xurls/v2 v2.1.0 // indirect
+	mvdan.cc/xurls/v2 v2.1.0
 )

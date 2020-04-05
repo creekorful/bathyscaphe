@@ -72,7 +72,7 @@ func execute(ctx *cli.Context) error {
 	// Create the HTTP client
 	httpClient := &fasthttp.Client{
 		// Use given TOR proxy to reach the hidden services
-		Dial:         fasthttpproxy.FasthttpSocksDialer(ctx.String("tor-uri")),
+		Dial: fasthttpproxy.FasthttpSocksDialer(ctx.String("tor-uri")),
 		// Disable SSL verification since we do not really care about this
 		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
 		ReadTimeout:  time.Second * 5,
