@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
@@ -82,8 +81,8 @@ func execute(ctx *cli.Context) error {
 
 func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 	var urlMsg proto.URLDoneMessage
-	if err := json.Unmarshal(msg.Data, &urlMsg); err != nil {
-		return fmt.Errorf("error while decoding message: %s", err)
+	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
+		return err
 	}
 
 	logrus.Debugf("Processing URL: %s", urlMsg.URL)
