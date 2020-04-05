@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"crypto/tls"
+	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
@@ -21,11 +22,7 @@ func GetApp() *cli.App {
 		Version: "0.0.1",
 		Usage:   "", // TODO
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "log-level",
-				Usage: "Set the application log level",
-				Value: "info",
-			},
+			log.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -42,12 +39,7 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	// Set application log level
-	if lvl, err := logrus.ParseLevel(ctx.String("log-level")); err == nil {
-		logrus.SetLevel(lvl)
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
-	}
+	log.ConfigureLogger(ctx)
 
 	logrus.Infof("Starting trandoshan-crawler v%s", ctx.App.Version)
 
