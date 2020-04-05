@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"context"
 	"crypto/tls"
 	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/creekorful/trandoshan/internal/natsutil"
@@ -46,21 +45,6 @@ func execute(ctx *cli.Context) error {
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
 
-	// Connect to the NATS server
-	nc, err := nats.Connect(ctx.String("nats-uri"))
-	if err != nil {
-		logrus.Errorf("Error while connecting to NATS server %s: %s", ctx.String("nats-uri"), err)
-		return err
-	}
-	defer nc.Close()
-
-	// Create the subscriber
-	sub, err := nc.QueueSubscribeSync(proto.URLTodoSubject, "crawlers")
-	if err != nil {
-		logrus.Errorf("Error while reading message from NATS server: %s", err)
-		return err
-	}
-
 	// Create the HTTP client
 	httpClient := &fasthttp.Client{
 		// Use given TOR proxy to reach the hidden services
@@ -71,58 +55,56 @@ func execute(ctx *cli.Context) error {
 		WriteTimeout: time.Second * 5,
 	}
 
+	// Create the NATS subscriber
+	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
+	if err != nil {
+		return err
+	}
+	defer sub.Close()
+
 	logrus.Info("Successfully initialized trandoshan-crawler. Waiting for URLs")
 
-	for {
-		// Read incoming message
-		msg, err := sub.NextMsgWithContext(context.Background())
-		if err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
-			continue
-		}
-
-		// ... And process it
-		if err := handleMessage(nc, httpClient, msg); err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
-			continue
-		}
+	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient)); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func handleMessage(nc *nats.Conn, httpClient *fasthttp.Client, msg *nats.Msg) error {
-	var urlMsg proto.URLTodoMsg
-	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
-		return err
-	}
-
-	logrus.Debugf("Processing URL: %s", urlMsg.URL)
-
-	// Query the website
-	_, bytes, err := httpClient.Get(nil, urlMsg.URL)
-	if err != nil {
-		return err
-	}
-	body := string(bytes)
-
-	// Publish resource body
-	if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &proto.ResourceMsg{URL: urlMsg.URL, Body: body}); err != nil {
-		logrus.Warnf("Error while publishing resource body: %s", err)
-	}
-
-	// Extract URLs
-	xu := xurls.Strict()
-	urls := xu.FindAllString(body, -1)
-
-	// Publish found URLs
-	for _, url := range urls {
-		logrus.Debugf("Found URL: %s", url)
-
-		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
-			logrus.Warnf("Error while publishing URL: %s", err)
+func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
+	return func(nc *nats.Conn, msg *nats.Msg) error {
+		var urlMsg proto.URLTodoMsg
+		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
+			return err
 		}
-	}
 
-	return nil // TODO
+		logrus.Debugf("Processing URL: %s", urlMsg.URL)
+
+		// Query the website
+		_, bytes, err := httpClient.Get(nil, urlMsg.URL)
+		if err != nil {
+			return err
+		}
+		body := string(bytes)
+
+		// Publish resource body
+		if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &proto.ResourceMsg{URL: urlMsg.URL, Body: body}); err != nil {
+			logrus.Warnf("Error while publishing resource body: %s", err)
+		}
+
+		// Extract URLs
+		xu := xurls.Strict()
+		urls := xu.FindAllString(body, -1)
+
+		// Publish found URLs
+		for _, url := range urls {
+			logrus.Debugf("Found URL: %s", url)
+
+			if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
+				logrus.Warnf("Error while publishing URL: %s", err)
+			}
+		}
+
+		return nil // TODO
+	}
 }

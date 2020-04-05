@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"context"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/internal/log"
@@ -37,64 +36,47 @@ func execute(ctx *cli.Context) error {
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 
-	// Connect to the NATS server
-	nc, err := nats.Connect(ctx.String("nats-uri"))
+	// Create the NATS subscriber
+	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
 	if err != nil {
-		logrus.Errorf("Error while connecting to NATS server %s: %s", ctx.String("nats-uri"), err)
 		return err
 	}
-	defer nc.Close()
-
-	// Create the subscriber
-	sub, err := nc.QueueSubscribeSync(proto.URLFoundSubject, "schedulers")
-	if err != nil {
-		logrus.Errorf("Error while reading message from NATS server: %s", err)
-		return err
-	}
+	defer sub.Close()
 
 	logrus.Info("Successfully initialized trandoshan-scheduler. Waiting for URLs")
 
-	for {
-		// Read incoming message
-		msg, err := sub.NextMsgWithContext(context.Background())
-		if err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
-			continue
-		}
-
-		// ... And process it
-		if err := handleMessage(nc, msg); err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
-			continue
-		}
+	if err := sub.QueueSubscribe(proto.URLFoundSubject, "schedulers", handleMessage()); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
-	var urlMsg proto.URLFoundMsg
-	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
-		return err
+func handleMessage() natsutil.MsgHandler {
+	return func(nc *nats.Conn, msg *nats.Msg) error {
+		var urlMsg proto.URLFoundMsg
+		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
+			return err
+		}
+
+		logrus.Debugf("Processing URL: %s", urlMsg.URL)
+
+		// Normalized received URL
+		normalizedURL, err := purell.NormalizeURLString(urlMsg.URL, purell.FlagsUsuallySafeGreedy|
+			purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+
+		if err != nil {
+			return fmt.Errorf("error while normalizing URL %s: %s", urlMsg.URL, err)
+		}
+
+		logrus.Debugf("Normalized URL: %s", normalizedURL)
+
+		// TODO implement scheduling logic
+
+		if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
+			return fmt.Errorf("error while publishing URL: %s", err)
+		}
+
+		return nil
 	}
-
-	logrus.Debugf("Processing URL: %s", urlMsg.URL)
-
-	// Normalized received URL
-	normalizedURL, err := purell.NormalizeURLString(urlMsg.URL, purell.FlagsUsuallySafeGreedy|
-		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
-
-	if err != nil {
-		return fmt.Errorf("error while normalizing URL %s: %s", urlMsg.URL, err)
-	}
-
-	logrus.Debugf("Normalized URL: %s", normalizedURL)
-
-	// TODO implement scheduling logic
-
-	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
-		return fmt.Errorf("error while publishing URL: %s", err)
-	}
-
-	return nil
 }
