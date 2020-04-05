@@ -1,4 +1,4 @@
-package crawler
+package scheduler
 
 import (
 	"context"
@@ -9,13 +9,11 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"github.com/valyala/fasthttp"
-	"mvdan.cc/xurls/v2"
 )
 
 func GetApp() *cli.App {
 	return &cli.App{
-		Name:    "trandoshan-crawler",
+		Name:    "trandoshan-scheduler",
 		Version: "0.0.1",
 		Usage:   "", // TODO
 		Flags: []cli.Flag{
@@ -27,11 +25,6 @@ func GetApp() *cli.App {
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "tor-uri",
-				Usage:    "URI to the TOR SOCKS proxy",
 				Required: true,
 			},
 		},
@@ -47,10 +40,9 @@ func execute(ctx *cli.Context) error {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
 
-	logrus.Infof("Starting trandoshan-crawler v%s", ctx.App.Version)
+	logrus.Infof("Starting trandoshan-scheduler v%s", ctx.App.Version)
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
-	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
 
 	// Connect to the NATS server
 	nc, err := nats.Connect(ctx.String("nats-uri"))
@@ -61,13 +53,13 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Create the subscriber
-	sub, err := nc.QueueSubscribeSync(proto.URLTodoSubject, "crawlers")
+	sub, err := nc.QueueSubscribeSync(proto.URLDoneSubject, "schedulers")
 	if err != nil {
 		logrus.Errorf("Error while reading message from NATS server: %s", err)
 		return err
 	}
 
-	logrus.Info("Successfully initialized trandoshan-crawler. Waiting for URLs")
+	logrus.Info("Successfully initialized trandoshan-scheduler. Waiting for URLs")
 
 	for {
 		// Read incoming message
@@ -88,31 +80,18 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
-	var urlMsg proto.URLTodoMessage
+	var urlMsg proto.URLDoneMessage
 	if err := json.Unmarshal(msg.Data, &urlMsg); err != nil {
 		return fmt.Errorf("error while decoding message: %s", err)
 	}
 
 	logrus.Debugf("Processing URL: %s", urlMsg.Url)
 
-	httpClient := fasthttp.Client{}
-	_, body, err := httpClient.Get(nil, urlMsg.Url)
-	if err != nil {
-		return err
+	// TODO implement scheduling logic
+
+	if err := natsutil.PublishJson(nc, proto.URLTodoSubject, &proto.URLTodoMessage{Url: urlMsg.Url}); err != nil {
+		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 
-	// Extract URLs
-	xu := xurls.Strict()
-	urls := xu.FindAllString(string(body), -1)
-
-	// Publish found URLs
-	for _, url := range urls {
-		logrus.Debugf("Found URL: %s", url)
-
-		if err := natsutil.PublishJson(nc, proto.URLDoneSubject, &proto.URLDoneMessage{Url: url}); err != nil {
-			logrus.Warnf("Error while publishing URL: %s", err)
-		}
-	}
-
-	return nil // TODO
+	return nil
 }

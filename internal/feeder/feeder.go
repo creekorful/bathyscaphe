@@ -1,8 +1,8 @@
 package feeder
 
 import (
-	"github.com/creekorful/trandoshan/internal/crawler"
 	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -15,6 +15,11 @@ func GetApp() *cli.App {
 		Usage:   "", // TODO
 		Flags: []cli.Flag{
 			&cli.StringFlag{
+				Name:  "log-level",
+				Usage: "Set the application log level",
+				Value: "info",
+			},
+			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
 				Required: true,
@@ -23,11 +28,6 @@ func GetApp() *cli.App {
 				Name:     "url",
 				Usage:    "URL to send to the crawler",
 				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "log-level",
-				Usage: "Set the application log level",
-				Value: "info",
 			},
 		},
 		Action: execute,
@@ -55,7 +55,7 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Publish the message
-	if err := natsutil.PublishJson(nc, crawler.TodoSubject, &crawler.UrlMessage{Url: ctx.String("url")}); err != nil {
+	if err := natsutil.PublishJson(nc, proto.URLTodoSubject, &proto.URLTodoMessage{Url: ctx.String("url")}); err != nil {
 		logrus.Errorf("Unable to publish URL: %s", err)
 		return err
 	}

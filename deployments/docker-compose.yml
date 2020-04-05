@@ -16,3 +16,9 @@ services:
     depends_on:
       - nats
       - proxy
+  scheduler:
+    image: trandoshan.io/scheduler:latest
+    command: --log-level debug --nats-uri nats
+    restart: always
+    depends_on:
+      - nats
