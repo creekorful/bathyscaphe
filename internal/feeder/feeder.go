@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// GetApp return the feeder app
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-feeder",
@@ -55,7 +56,7 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Publish the message
-	if err := natsutil.PublishJson(nc, proto.URLTodoSubject, &proto.URLTodoMessage{Url: ctx.String("url")}); err != nil {
+	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMessage{URL: ctx.String("url")}); err != nil {
 		logrus.Errorf("Unable to publish URL: %s", err)
 		return err
 	}

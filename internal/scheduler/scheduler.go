@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// GetApp return the scheduler app
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-scheduler",
@@ -85,11 +86,11 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 		return fmt.Errorf("error while decoding message: %s", err)
 	}
 
-	logrus.Debugf("Processing URL: %s", urlMsg.Url)
+	logrus.Debugf("Processing URL: %s", urlMsg.URL)
 
 	// TODO implement scheduling logic
 
-	if err := natsutil.PublishJson(nc, proto.URLTodoSubject, &proto.URLTodoMessage{Url: urlMsg.Url}); err != nil {
+	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMessage{URL: urlMsg.URL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 

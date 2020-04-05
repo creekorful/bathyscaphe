@@ -13,6 +13,7 @@ import (
 	"mvdan.cc/xurls/v2"
 )
 
+// GetApp return the crawler app
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-crawler",
@@ -93,10 +94,10 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 		return fmt.Errorf("error while decoding message: %s", err)
 	}
 
-	logrus.Debugf("Processing URL: %s", urlMsg.Url)
+	logrus.Debugf("Processing URL: %s", urlMsg.URL)
 
 	httpClient := fasthttp.Client{}
-	_, body, err := httpClient.Get(nil, urlMsg.Url)
+	_, body, err := httpClient.Get(nil, urlMsg.URL)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 	for _, url := range urls {
 		logrus.Debugf("Found URL: %s", url)
 
-		if err := natsutil.PublishJson(nc, proto.URLDoneSubject, &proto.URLDoneMessage{Url: url}); err != nil {
+		if err := natsutil.PublishJSON(nc, proto.URLDoneSubject, &proto.URLDoneMessage{URL: url}); err != nil {
 			logrus.Warnf("Error while publishing URL: %s", err)
 		}
 	}
