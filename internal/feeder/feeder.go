@@ -56,7 +56,7 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Publish the message
-	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMessage{URL: ctx.String("url")}); err != nil {
+	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: ctx.String("url")}); err != nil {
 		logrus.Errorf("Unable to publish URL: %s", err)
 		return err
 	}

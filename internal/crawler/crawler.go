@@ -100,7 +100,7 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(nc *nats.Conn, httpClient *fasthttp.Client, msg *nats.Msg) error {
-	var urlMsg proto.URLTodoMessage
+	var urlMsg proto.URLTodoMsg
 	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
 		return err
 	}
@@ -108,20 +108,26 @@ func handleMessage(nc *nats.Conn, httpClient *fasthttp.Client, msg *nats.Msg) er
 	logrus.Debugf("Processing URL: %s", urlMsg.URL)
 
 	// Query the website
-	_, body, err := httpClient.Get(nil, urlMsg.URL)
+	_, bytes, err := httpClient.Get(nil, urlMsg.URL)
 	if err != nil {
 		return err
+	}
+	body := string(bytes)
+
+	// Publish resource body
+	if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &proto.ResourceMsg{URL: urlMsg.URL, Body: body}); err != nil {
+		logrus.Warnf("Error while publishing resource body: %s", err)
 	}
 
 	// Extract URLs
 	xu := xurls.Strict()
-	urls := xu.FindAllString(string(body), -1)
+	urls := xu.FindAllString(body, -1)
 
 	// Publish found URLs
 	for _, url := range urls {
 		logrus.Debugf("Found URL: %s", url)
 
-		if err := natsutil.PublishJSON(nc, proto.URLDoneSubject, &proto.URLDoneMessage{URL: url}); err != nil {
+		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
 			logrus.Warnf("Error while publishing URL: %s", err)
 		}
 	}

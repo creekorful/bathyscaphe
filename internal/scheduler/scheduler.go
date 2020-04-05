@@ -54,7 +54,7 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Create the subscriber
-	sub, err := nc.QueueSubscribeSync(proto.URLDoneSubject, "schedulers")
+	sub, err := nc.QueueSubscribeSync(proto.URLFoundSubject, "schedulers")
 	if err != nil {
 		logrus.Errorf("Error while reading message from NATS server: %s", err)
 		return err
@@ -81,7 +81,7 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
-	var urlMsg proto.URLDoneMessage
+	var urlMsg proto.URLFoundMsg
 	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
 		return err
 	}
@@ -96,11 +96,11 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 		return fmt.Errorf("error while normalizing URL %s: %s", urlMsg.URL, err)
 	}
 
-	logrus.Debugf("Normalizing URL: %s", normalizedURL)
+	logrus.Debugf("Normalized URL: %s", normalizedURL)
 
 	// TODO implement scheduling logic
 
-	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMessage{URL: urlMsg.URL}); err != nil {
+	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 

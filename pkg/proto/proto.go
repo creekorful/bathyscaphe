@@ -3,16 +3,24 @@ package proto
 const (
 	// URLTodoSubject represent the subject used by the crawler process to read the URL to crawl
 	URLTodoSubject = "url.todo"
-	// URLDoneSubject represent the subject used by the scheduler process to read the URL to schedule
-	URLDoneSubject = "url.done"
+	// URLFoundSubject represent the subject used by the scheduler process to read the URL to schedule
+	URLFoundSubject = "url.found"
+	// ResourceSubject represent the subject used by the persister process to store the resource body
+	ResourceSubject = "resource"
 )
 
-// URLTodoMessage represent the URL read by the crawler process as input
-type URLTodoMessage struct {
+// URLTodoMsg represent an URL to crawl
+type URLTodoMsg struct {
 	URL string `json:"url"`
 }
 
-// URLDoneMessage represent the URL read by the scheduler process as input
-type URLDoneMessage struct {
+// URLFoundMsg represent a found URL
+type URLFoundMsg struct {
 	URL string `json:"url"`
+}
+
+// ResourceMsg represent the body of a crawled resource
+type ResourceMsg struct {
+	URL  string `json:"url"`
+	Body string `json:"body"`
 }
