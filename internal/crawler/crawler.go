@@ -2,13 +2,16 @@ package crawler
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpproxy"
 	"mvdan.cc/xurls/v2"
+	"time"
 )
 
 // GetApp return the crawler app
@@ -66,6 +69,16 @@ func execute(ctx *cli.Context) error {
 		return err
 	}
 
+	// Create the HTTP client
+	httpClient := &fasthttp.Client{
+		// Use given TOR proxy to reach the hidden services
+		Dial:         fasthttpproxy.FasthttpSocksDialer(ctx.String("tor-uri")),
+		// Disable SSL verification since we do not really care about this
+		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
+		ReadTimeout:  time.Second * 5,
+		WriteTimeout: time.Second * 5,
+	}
+
 	logrus.Info("Successfully initialized trandoshan-crawler. Waiting for URLs")
 
 	for {
@@ -77,7 +90,7 @@ func execute(ctx *cli.Context) error {
 		}
 
 		// ... And process it
-		if err := handleMessage(nc, msg); err != nil {
+		if err := handleMessage(nc, httpClient, msg); err != nil {
 			logrus.Warnf("Skipping current message because of error: %s", err)
 			continue
 		}
@@ -86,7 +99,7 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
+func handleMessage(nc *nats.Conn, httpClient *fasthttp.Client, msg *nats.Msg) error {
 	var urlMsg proto.URLTodoMessage
 	if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
 		return err
@@ -94,7 +107,7 @@ func handleMessage(nc *nats.Conn, msg *nats.Msg) error {
 
 	logrus.Debugf("Processing URL: %s", urlMsg.URL)
 
-	httpClient := fasthttp.Client{}
+	// Query the website
 	_, body, err := httpClient.Get(nil, urlMsg.URL)
 	if err != nil {
 		return err

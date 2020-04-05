@@ -5,17 +5,20 @@ services:
     image: nats:2.1.6-alpine3.11
     logging:
       driver: none
-  proxy:
+  torproxy:
     image: dperson/torproxy:latest
     logging:
       driver: none
   crawler:
     image: trandoshan.io/crawler:latest
-    command: --log-level debug --nats-uri nats --tor-uri torproxy
+    command: --log-level debug --nats-uri nats --tor-uri torproxy:9050
     restart: always
     depends_on:
       - nats
-      - proxy
+      - torproxy
+  #feeder:
+  #  image: trandoshan.io/feeder:latest
+  #  command: --log-level debug --nats-uri nats --url https://www.facebookcorewwwi.onion
   scheduler:
     image: trandoshan.io/scheduler:latest
     command: --log-level debug --nats-uri nats
