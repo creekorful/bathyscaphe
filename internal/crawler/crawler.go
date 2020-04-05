@@ -105,6 +105,6 @@ func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
 			}
 		}
 
-		return nil // TODO
+		return nil
 	}
 }

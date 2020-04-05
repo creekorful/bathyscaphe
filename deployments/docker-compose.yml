@@ -9,6 +9,21 @@ services:
     image: dperson/torproxy:latest
     logging:
       driver: none
+  elasticsearch:
+    image: elasticsearch:7.5.1
+    logging:
+      driver: none
+    environment:
+      - discovery.type=single-node
+      - JAVA_OPTS=-Xms2g -Xmx2g
+  kibana:
+    image: kibana:7.5.1
+    logging:
+      driver: none
+    depends_on:
+      - elasticsearch
+    ports:
+      - 15004:5601
   crawler:
     image: trandoshan.io/crawler:latest
     command: --log-level debug --nats-uri nats --tor-uri torproxy:9050
@@ -27,7 +42,7 @@ services:
       - nats
   persister:
     image: trandoshan.io/persister:latest
-    command: --log-level debug --nats-uri nats
+    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
     restart: always
     depends_on:
       - nats
