@@ -25,3 +25,9 @@ services:
     restart: always
     depends_on:
       - nats
+  persister:
+    image: trandoshan.io/persister:latest
+    command: --log-level debug --nats-uri nats
+    restart: always
+    depends_on:
+      - nats
