@@ -36,13 +36,13 @@ services:
   #  command: --log-level debug --nats-uri nats --url https://www.facebookcorewwwi.onion
   scheduler:
     image: trandoshan.io/scheduler:latest
-    command: --log-level debug --nats-uri nats
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080
     restart: always
     depends_on:
       - nats
   persister:
     image: trandoshan.io/persister:latest
-    command: --log-level debug --nats-uri nats --api-uri api:8080
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080
     restart: always
     depends_on:
       - nats

@@ -53,6 +53,7 @@ func execute(ctx *cli.Context) error {
 		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
+		Name:         "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
 	}
 
 	// Create the NATS subscriber
@@ -83,13 +84,18 @@ func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
 		// Query the website
 		_, bytes, err := httpClient.Get(nil, urlMsg.URL)
 		if err != nil {
+			logrus.Errorf("Error while querying website: %s", err)
 			return err
 		}
 		body := string(bytes)
 
 		// Publish resource body
-		if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &proto.ResourceMsg{URL: urlMsg.URL, Body: body}); err != nil {
-			logrus.Warnf("Error while publishing resource body: %s", err)
+		res := proto.ResourceMsg{
+			URL:  urlMsg.URL,
+			Body: body,
+		}
+		if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &res); err != nil {
+			logrus.Errorf("Error while publishing resource body: %s", err)
 		}
 
 		// Extract URLs
@@ -101,7 +107,7 @@ func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
 			logrus.Debugf("Found URL: %s", url)
 
 			if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
-				logrus.Warnf("Error while publishing URL: %s", err)
+				logrus.Errorf("Error while publishing URL: %s", err)
 			}
 		}
 
