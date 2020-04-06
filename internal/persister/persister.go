@@ -17,7 +17,7 @@ import (
 )
 
 type resourceIndex struct {
-	Url   string    `json:"url"`
+	URL   string    `json:"url"`
 	Body  string    `json:"body"`
 	Title string    `json:"title"`
 	Time  time.Time `json:"time"`
@@ -37,8 +37,8 @@ func GetApp() *cli.App {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "elasticsearch-uri",
-				Usage:    "URI to the Elasticsearch server",
+				Name:     "api-uri",
+				Usage:    "URI to the API server",
 				Required: true,
 			},
 		},
@@ -89,7 +89,7 @@ func handleMessage(es *elasticsearch.Client) natsutil.MsgHandler {
 
 		// Create Elasticsearch document
 		doc := resourceIndex{
-			Url:   resMsg.URL,
+			URL:   resMsg.URL,
 			Body:  resMsg.Body,
 			Title: extractTitle(resMsg.Body),
 			Time:  time.Now(),

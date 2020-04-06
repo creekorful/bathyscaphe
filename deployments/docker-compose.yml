@@ -42,7 +42,14 @@ services:
       - nats
   persister:
     image: trandoshan.io/persister:latest
-    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
+    command: --log-level debug --nats-uri nats --api-uri api:8080
     restart: always
     depends_on:
       - nats
+      - api
+  api:
+    image: trandoshan.io/api:latest
+    command: --log-level debug --elasticsearch-uri http://elasticsearch:9200
+    restart: always
+    depends_on:
+      - elasticsearch
