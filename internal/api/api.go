@@ -5,7 +5,6 @@ import (
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -48,7 +47,7 @@ func execute(ctx *cli.Context) error {
 	// Create Elasticsearch client
 	es, err := elasticsearch.NewClient(elasticsearch.Config{Addresses: []string{ctx.String("elasticsearch-uri")}})
 	if err != nil {
-		logrus.Errorf("Error while creating elasticsearch client: %s", err)
+		e.Logger.Errorf("Error while creating elasticsearch client: %s", err)
 		return err
 	}
 
@@ -56,7 +55,7 @@ func execute(ctx *cli.Context) error {
 	e.GET("/resources", getResources(es))
 	e.POST("/resources", addResource(es))
 
-	logrus.Info("Successfully initialized trandoshan-api. Waiting for requests")
+	e.Logger.Info("Successfully initialized trandoshan-api. Waiting for requests")
 
 	return e.Start(":8080")
 }
