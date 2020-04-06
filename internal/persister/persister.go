@@ -64,7 +64,7 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(httpClient *http.Client, apiUri string) natsutil.MsgHandler {
+func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var resMsg proto.ResourceMsg
 		if err := natsutil.ReadJSON(msg, &resMsg); err != nil {
@@ -83,7 +83,7 @@ func handleMessage(httpClient *http.Client, apiUri string) natsutil.MsgHandler {
 			return err
 		}
 
-		url := fmt.Sprintf("%s/v1/resources", apiUri)
+		url := fmt.Sprintf("%s/v1/resources", apiURI)
 		logrus.Tracef("Posting on API URL: %s", url)
 
 		resp, err := httpClient.Post(url, "application/json", bytes.NewBuffer(body))

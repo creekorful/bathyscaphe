@@ -132,7 +132,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 				URL:   rawSrc["url"].(string),
 				Body:  rawSrc["body"].(string),
 				Title: rawSrc["title"].(string),
-				Time:  time.Time{},
+				Time:  time.Time{}, // TODO
 			}
 
 			urls = append(urls, res)

@@ -66,7 +66,7 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(httpClient *http.Client, apiUri string) natsutil.MsgHandler {
+func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var urlMsg proto.URLFoundMsg
 		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
@@ -97,10 +97,10 @@ func handleMessage(httpClient *http.Client, apiUri string) natsutil.MsgHandler {
 			return err
 		}
 
-		apiUrl := fmt.Sprintf("%s/v1/resources?url=%s", apiUri, normalizedURL)
-		logrus.Tracef("Using API URL: %s", apiUrl)
+		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, normalizedURL)
+		logrus.Tracef("Using API URL: %s", apiURL)
 
-		resp, err := httpClient.Get(apiUrl)
+		resp, err := httpClient.Get(apiURI)
 		if err != nil || resp.StatusCode != 200 {
 			logrus.Errorf("Error while searching URL: %s", err)
 			logrus.Errorf("Received status code: %d", resp.StatusCode)
