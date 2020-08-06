@@ -24,3 +24,38 @@ The crawler can be started using the start script:
 ```shell script
 ./scripts/start.sh
 ```
+## Note
+
+Ensure your server has at least 3GB of memory as the Elasticsearch stack docker will require 2GB.
+
+## Prepare the feeder process
+
+The feeder process is commented in: /deployments/docker-compose.yml 
+ 
+ ```#feeder:
+  #  image: trandoshan.io/feeder:latest
+  #  command: --log-level debug --nats-uri nats --url https://www.facebookcorewwwi.onion
+ ```
+  
+Un-comment it, and set an appropriate URL.
+
+## Start the crawler
+
+Execute the ``/scripts/start.sh`` and wait for all containers to start.
+You should see the crawling process in action.
+
+## Note
+
+Sometimes the crawling process may not start, this is because the feeder process is starting before the rest of the dependencies are online. In that case wait for all processes to be online, then execute the following command:
+
+```
+docker-compose run feeder
+```
+
+this will manually restart the feeder.
+
+# Access the Kibana UI to view results
+
+Now head out to http://localhost:15004
+
+You will need to create an index pattern named &#39;resources&#39;, and when it asks for the time field, choose &#39;time&#39;.
