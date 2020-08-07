@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	tlog "github.com/creekorful/trandoshan/internal/log"
+	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"net/http"
 	"regexp"
@@ -43,7 +43,7 @@ func GetApp() *cli.App {
 		Version: "0.0.1",
 		Usage:   "", // TODO
 		Flags: []cli.Flag{
-			tlog.GetLogFlag(),
+			log.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "elasticsearch-uri",
 				Usage:    "URI to the Elasticsearch server",
@@ -55,29 +55,19 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
+	log.ConfigureLogger(ctx)
+
 	e := echo.New()
 	e.HideBanner = true
 
-	// Configure logger
-	switch ctx.String("log-level") {
-	case "debug":
-		e.Logger.SetLevel(log.DEBUG)
-	case "info":
-		e.Logger.SetLevel(log.INFO)
-	case "warn":
-		e.Logger.SetLevel(log.WARN)
-	case "error":
-		e.Logger.SetLevel(log.ERROR)
-	}
+	logrus.Infof("Starting trandoshan-api v%s", ctx.App.Version)
 
-	e.Logger.Infof("Starting trandoshan-api v%s", ctx.App.Version)
-
-	e.Logger.Debugf("Using elasticsearch server at: %s", ctx.String("elasticsearch-uri"))
+	logrus.Debugf("Using elasticsearch server at: %s", ctx.String("elasticsearch-uri"))
 
 	// Create Elasticsearch client
 	es, err := elasticsearch.NewClient(elasticsearch.Config{Addresses: []string{ctx.String("elasticsearch-uri")}})
 	if err != nil {
-		e.Logger.Errorf("Error while creating elasticsearch client: %s", err)
+		logrus.Errorf("Error while creating elasticsearch client: %s", err)
 		return err
 	}
 
@@ -85,7 +75,7 @@ func execute(ctx *cli.Context) error {
 	e.GET("/v1/resources", searchResources(es))
 	e.POST("/v1/resources", addResource(es))
 
-	e.Logger.Info("Successfully initialized trandoshan-api. Waiting for requests")
+	logrus.Info("Successfully initialized trandoshan-api. Waiting for requests")
 
 	return e.Start(":8080")
 }
@@ -103,7 +93,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			},
 		}
 		if err := json.NewEncoder(&buf).Encode(query); err != nil {
-			c.Logger().Errorf("Error encoding query: %s", err)
+			logrus.Errorf("Error encoding query: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -114,13 +104,13 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			es.Search.WithBody(&buf),
 		)
 		if err != nil || res.IsError() {
-			c.Logger().Errorf("Error getting response: %s", err)
+			logrus.Errorf("Error getting response: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
 		var resp map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
-			c.Logger().Errorf("Error parsing the response body: %s", err)
+			logrus.Errorf("Error parsing the response body: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -146,11 +136,11 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var resourceDto ResourceDto
 		if err := json.NewDecoder(c.Request().Body).Decode(&resourceDto); err != nil {
-			c.Logger().Errorf("Error while un-marshaling resource: %s", err)
+			logrus.Errorf("Error while un-marshaling resource: %s", err)
 			return c.NoContent(http.StatusUnprocessableEntity)
 		}
 
-		c.Logger().Debugf("Saving resource %s", resourceDto.URL)
+		logrus.Debugf("Saving resource %s", resourceDto.URL)
 
 		// TODO store on file system
 
@@ -165,7 +155,7 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 		// Serialize document into json
 		docBytes, err := json.Marshal(&doc)
 		if err != nil {
-			c.Logger().Errorf("Error while serializing document into json: %s", err)
+			logrus.Errorf("Error while serializing document into json: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -177,12 +167,12 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 		}
 		res, err := req.Do(context.Background(), es)
 		if err != nil {
-			c.Logger().Errorf("Error while creating elasticsearch index: %s", err)
+			logrus.Errorf("Error while creating elasticsearch index: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 		defer res.Body.Close()
 
-		c.Logger().Debugf("Successfully saved resource %s", resourceDto.URL)
+		logrus.Debugf("Successfully saved resource %s", resourceDto.URL)
 
 		return c.NoContent(http.StatusCreated)
 	}
