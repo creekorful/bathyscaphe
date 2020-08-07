@@ -1,12 +1,12 @@
 package feeder
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/creekorful/trandoshan/internal/log"
-	"github.com/creekorful/trandoshan/internal/natsutil"
-	"github.com/creekorful/trandoshan/pkg/proto"
-	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"net/http"
 )
 
 // GetApp return the feeder app
@@ -18,8 +18,8 @@ func GetApp() *cli.App {
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
 			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
+				Name:     "api-uri",
+				Usage:    "URI to the API server",
 				Required: true,
 			},
 			&cli.StringFlag{
@@ -37,18 +37,10 @@ func execute(ctx *cli.Context) error {
 
 	logrus.Infof("Starting trandoshan-feeder v%s", ctx.App.Version)
 
-	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
+	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
 
-	// Connect to the NATS server
-	nc, err := nats.Connect(ctx.String("nats-uri"))
-	if err != nil {
-		logrus.Errorf("Error while connecting to NATS server %s: %s", ctx.String("nats-uri"), err)
-		return err
-	}
-	defer nc.Close()
-
-	// Publish the message
-	if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: ctx.String("url")}); err != nil {
+	apiURL := fmt.Sprintf("%s/v1/urls", ctx.String("api-uri"))
+	if _, err := http.Post(apiURL, "application/json", bytes.NewBufferString(ctx.String("api-uri"))); err != nil {
 		logrus.Errorf("Unable to publish URL: %s", err)
 		return err
 	}

@@ -33,7 +33,7 @@ services:
       - torproxy
   #feeder:
   #  image: trandoshan.io/feeder:latest
-  #  command: --log-level debug --nats-uri nats --url https://www.facebookcorewwwi.onion
+  #  command: --log-level debug --api-uri http://api:8080 --url https://www.facebookcorewwwi.onion
   scheduler:
     image: trandoshan.io/scheduler:latest
     command: --log-level debug --nats-uri nats --api-uri http://api:8080
@@ -49,7 +49,9 @@ services:
       - api
   api:
     image: trandoshan.io/api:latest
-    command: --log-level debug --elasticsearch-uri http://elasticsearch:9200
+    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
     restart: always
     depends_on:
       - elasticsearch
+    ports:
+      - 15005:8080

@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/creekorful/trandoshan/internal/log"
+	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/labstack/echo/v4"
+	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"net/http"
@@ -45,6 +48,11 @@ func GetApp() *cli.App {
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
 			&cli.StringFlag{
+				Name:     "nats-uri",
+				Usage:    "URI to the NATS server",
+				Required: true,
+			},
+			&cli.StringFlag{
 				Name:     "elasticsearch-uri",
 				Usage:    "URI to the Elasticsearch server",
 				Required: true,
@@ -63,6 +71,15 @@ func execute(ctx *cli.Context) error {
 	logrus.Infof("Starting trandoshan-api v%s", ctx.App.Version)
 
 	logrus.Debugf("Using elasticsearch server at: %s", ctx.String("elasticsearch-uri"))
+	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
+
+	// Connect to the NATS server
+	nc, err := nats.Connect(ctx.String("nats-uri"))
+	if err != nil {
+		logrus.Errorf("Error while connecting to NATS server %s: %s", ctx.String("nats-uri"), err)
+		return err
+	}
+	defer nc.Close()
 
 	// Create Elasticsearch client
 	es, err := elasticsearch.NewClient(elasticsearch.Config{Addresses: []string{ctx.String("elasticsearch-uri")}})
@@ -74,6 +91,7 @@ func execute(ctx *cli.Context) error {
 	// Add endpoints
 	e.GET("/v1/resources", searchResources(es))
 	e.POST("/v1/resources", addResource(es))
+	e.POST("/v1/urls", addURL(nc))
 
 	logrus.Info("Successfully initialized trandoshan-api. Waiting for requests")
 
@@ -175,6 +193,26 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 		logrus.Debugf("Successfully saved resource %s", resourceDto.URL)
 
 		return c.NoContent(http.StatusCreated)
+	}
+}
+
+func addURL(nc *nats.Conn) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var url string
+		if err := json.NewDecoder(c.Request().Body).Decode(&url); err != nil {
+			logrus.Errorf("Error while un-marshaling url: %s", err)
+			return c.NoContent(http.StatusUnprocessableEntity)
+		}
+
+		// Publish the URL
+		if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: url}); err != nil {
+			logrus.Errorf("Unable to publish URL: %s", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		logrus.Debugf("Successfully published URL: %s", url)
+
+		return nil
 	}
 }
 
