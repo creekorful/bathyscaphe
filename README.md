@@ -32,7 +32,7 @@ Ensure you have at least 3GB of memory as the Elasticsearch stack docker will re
 Since the API is explosed on localhost:15005, one can use it to start the crawling process:
 
 ```sh
-curl --request POST --header "Content-Type: application/json" http://localhost:15005/v1/urls --data "\"URL\""
+feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
 ```
 
 this will 'force' the API to publish given URL in crawling queue.
