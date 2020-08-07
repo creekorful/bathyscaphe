@@ -22,7 +22,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-scheduler",
 		Version: "0.0.1",
-		Usage:   "", // TODO
+		Usage:   "Trandoshan scheduler process",
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
 			&cli.StringFlag{

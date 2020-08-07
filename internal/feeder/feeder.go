@@ -14,7 +14,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-feeder",
 		Version: "0.0.1",
-		Usage:   "", // TODO
+		Usage:   "Trandoshan feeder process",
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
 			&cli.StringFlag{

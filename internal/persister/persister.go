@@ -19,7 +19,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-persister",
 		Version: "0.0.1",
-		Usage:   "", // TODO
+		Usage:   "Trandoshan persister process",
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
 			&cli.StringFlag{
