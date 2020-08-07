@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0"
+
 // GetApp return the crawler app
 func GetApp() *cli.App {
 	return &cli.App{
@@ -31,6 +33,11 @@ func GetApp() *cli.App {
 				Name:     "tor-uri",
 				Usage:    "URI to the TOR SOCKS proxy",
 				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "user-agent",
+				Usage: "User agent to use",
+				Value: defaultUserAgent,
 			},
 		},
 		Action: execute,
@@ -53,7 +60,7 @@ func execute(ctx *cli.Context) error {
 		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
-		Name:         "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
+		Name:         ctx.String("user-agent"),
 	}
 
 	// Create the NATS subscriber

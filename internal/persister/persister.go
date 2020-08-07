@@ -87,7 +87,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		logrus.Tracef("Posting on API URL: %s", url)
 
 		resp, err := httpClient.Post(url, "application/json", bytes.NewBuffer(body))
-		if err != nil || resp.StatusCode != 201 {
+		if err != nil || resp.StatusCode != http.StatusCreated {
 			logrus.Errorf("Error while sending resource to the API: %s", err)
 			logrus.Errorf("Received status code: %d", resp.StatusCode)
 			return err

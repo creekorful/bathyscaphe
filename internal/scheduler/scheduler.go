@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"net/http"
-	url2 "net/url"
+	"net/url"
 	"strings"
 )
 
@@ -87,13 +87,13 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		logrus.Tracef("Normalized URL: %s", normalizedURL)
 
 		// Make sure URL is valid .onion
-		url, err := url2.Parse(normalizedURL)
+		u, err := url.Parse(normalizedURL)
 		if err != nil {
 			logrus.Errorf("Error while parsing URL: %s", err)
 			return err
 		}
 
-		if !strings.Contains(url.Host, ".onion") {
+		if !strings.Contains(u.Host, ".onion") {
 			logrus.Debugf("Url %s is not a valid hidden service", normalizedURL)
 			return err
 		}
@@ -103,7 +103,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		logrus.Tracef("Using API URL: %s", apiURL)
 
 		resp, err := httpClient.Get(apiURL)
-		if err != nil || resp.StatusCode != 200 {
+		if err != nil || resp.StatusCode != http.StatusOK {
 			logrus.Errorf("Error while searching URL: %s", err)
 			logrus.Errorf("Received status code: %d", resp.StatusCode)
 			return err
