@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/creekorful/trandoshan/internal/natsutil"
@@ -100,13 +101,18 @@ func execute(ctx *cli.Context) error {
 
 func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url := c.QueryParam("url")
+		b64URL := c.QueryParam("url")
+		b, err := base64.URLEncoding.DecodeString(b64URL)
+		if err != nil {
+			logrus.Errorf("Error while decoding URL: %s", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
 
 		var buf bytes.Buffer
 		query := map[string]interface{}{
 			"query": map[string]interface{}{
 				"match": map[string]interface{}{
-					"url": url,
+					"url": string(b),
 				},
 			},
 		}

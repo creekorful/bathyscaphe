@@ -11,50 +11,33 @@ not really professional, the code start to be a mess, hard to manage since split
 I have therefore decided to create & maintain the project in this specific directory, where all process code will be available
 (as a Go module).
 
-## How to start the crawler
+# How build the crawler
 
 Since the docker image are not available yet, one must run the following script in order to build the crawler fully.
 
-```shell script
+```sh
 ./scripts/build.sh
 ```
 
-The crawler can be started using the start script:
+# How to start the crawler
 
-```shell script
-./scripts/start.sh
-```
+Execute the ``/scripts/start.sh`` and wait for all containers to start.
+
 ## Note
 
 Ensure you have at least 3GB of memory as the Elasticsearch stack docker will require 2GB.
 
-## Prepare the feeder process
+# How to start the crawling process
 
-The feeder process is used to send the first URL to the crawler.  By default it's commented out in: /deployments/docker-compose.yml 
- 
- ```#feeder:
-  #  image: trandoshan.io/feeder:latest
-  #  command: --log-level debug --nats-uri nats --url https://www.facebookcorewwwi.onion
- ```
-  
-Un-comment it, and set an appropriate URL.
+Since the API is explosed on localhost:15005, one can use it to start the crawling process:
 
-## Start the crawler
-
-Execute the ``/scripts/start.sh`` and wait for all containers to start.
-You should see the crawling process in action.
-
-## Note
-
-Sometimes the crawling process may not start, this is because the feeder process is starting before the others are online. In that case wait for all processes to be online, then execute the following command:
-
-```
-docker-compose run feeder
+```sh
+curl --request POST --header "Content-Type: application/json" http://localhost:15005/v1/urls --data "\"URL\""
 ```
 
-this will manually restart the feeder.
+this will 'force' the API to publish given URL in crawling queue.
 
-# Access the Kibana UI to view results
+## How to access the Kibana UI
 
 Now head out to http://localhost:15004
 

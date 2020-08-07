@@ -31,9 +31,6 @@ services:
     depends_on:
       - nats
       - torproxy
-  #feeder:
-  #  image: trandoshan.io/feeder:latest
-  #  command: --log-level debug --api-uri http://api:8080 --url https://www.facebookcorewwwi.onion
   scheduler:
     image: trandoshan.io/scheduler:latest
     command: --log-level debug --nats-uri nats --api-uri http://api:8080

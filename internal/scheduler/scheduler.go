@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
@@ -97,10 +98,11 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 			return err
 		}
 
-		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, normalizedURL)
+		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL))
+		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
 		logrus.Tracef("Using API URL: %s", apiURL)
 
-		resp, err := httpClient.Get(apiURI)
+		resp, err := httpClient.Get(apiURL)
 		if err != nil || resp.StatusCode != 200 {
 			logrus.Errorf("Error while searching URL: %s", err)
 			logrus.Errorf("Received status code: %d", resp.StatusCode)
