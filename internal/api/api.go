@@ -211,7 +211,7 @@ func addURL(nc *nats.Conn) echo.HandlerFunc {
 		}
 
 		// Publish the URL
-		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLTodoMsg{URL: url}); err != nil {
+		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
 			logrus.Errorf("Unable to publish URL: %s", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
