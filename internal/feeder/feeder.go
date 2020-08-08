@@ -2,6 +2,7 @@ package feeder
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/sirupsen/logrus"
@@ -40,8 +41,16 @@ func execute(ctx *cli.Context) error {
 	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
 
 	apiURL := fmt.Sprintf("%s/v1/urls", ctx.String("api-uri"))
-	if _, err := http.Post(apiURL, "application/json", bytes.NewBufferString(ctx.String("api-uri"))); err != nil {
+	b, err := json.Marshal(ctx.String("url"))
+	if err != nil {
+		logrus.Errorf("Error while serializing URL into json: %s", err)
+		return err
+	}
+
+	res, err := http.Post(apiURL, "application/json", bytes.NewBuffer(b))
+	if err != nil || res.StatusCode != http.StatusOK {
 		logrus.Errorf("Unable to publish URL: %s", err)
+		logrus.Errorf("Received status code: %d", res.StatusCode)
 		return err
 	}
 
