@@ -127,9 +127,16 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			es.Search.WithIndex("resources"),
 			es.Search.WithBody(&buf),
 		)
-		if err != nil || res.IsError() {
-			logrus.Errorf("Error getting response: %s", err)
+		if err != nil || (res.IsError() && res.StatusCode != http.StatusNotFound) {
+			logrus.Errorf("Error getting response from ES: %s", err)
+			logrus.Errorf("Received status code: %d", res.StatusCode)
 			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		// In case the collection does not already exist
+		// ES will return 404 NOT FOUND
+		if res.StatusCode == http.StatusNotFound {
+			return c.JSON(http.StatusOK, []ResourceDto{})
 		}
 
 		var resp map[string]interface{}
