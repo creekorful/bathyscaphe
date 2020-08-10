@@ -71,14 +71,16 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		logrus.Debugf("Processing resource: %s", resMsg.URL)
 
 		url := fmt.Sprintf("%s/v1/resources", apiURI)
-		r, err := httpClient.JsonPost(url, &proto.ResourceDto{
+		r, err := httpClient.JSONPost(url, &proto.ResourceDto{
 			URL:  resMsg.URL,
 			Body: resMsg.Body,
 		}, nil)
 
 		if err != nil || r.StatusCode != http.StatusCreated {
 			logrus.Errorf("Error while sending resource to the API: %s", err)
-			logrus.Errorf("Received status code: %d", r.StatusCode)
+			if r != nil {
+				logrus.Errorf("Received status code: %d", r.StatusCode)
+			}
 			return err
 		}
 

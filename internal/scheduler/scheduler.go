@@ -100,7 +100,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
 
 		var urls []proto.ResourceDto
-		r, err := httpClient.JsonGet(apiURL, &urls)
+		r, err := httpClient.JSONGet(apiURL, &urls)
 		if err != nil {
 			logrus.Errorf("Error while searching URL: %s", err)
 			if r != nil {

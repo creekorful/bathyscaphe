@@ -41,10 +41,12 @@ func execute(ctx *cli.Context) error {
 	apiURL := fmt.Sprintf("%s/v1/urls", ctx.String("api-uri"))
 
 	c := http.Client{}
-	res, err := c.JsonPost(apiURL, ctx.String("url"), nil)
+	res, err := c.JSONPost(apiURL, ctx.String("url"), nil)
 	if err != nil {
 		logrus.Errorf("Unable to publish URL: %s", err)
-		logrus.Errorf("Received status code: %d", res.StatusCode)
+		if res != nil {
+			logrus.Errorf("Received status code: %d", res.StatusCode)
+		}
 		return err
 	}
 
