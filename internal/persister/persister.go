@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/api"
 	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
@@ -73,7 +72,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 
 		logrus.Debugf("Processing resource: %s", resMsg.URL)
 
-		body, err := json.Marshal(&api.ResourceDto{
+		body, err := json.Marshal(&proto.ResourceDto{
 			URL:  resMsg.URL,
 			Body: resMsg.Body,
 		})

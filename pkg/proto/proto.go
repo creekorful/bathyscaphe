@@ -1,5 +1,7 @@
 package proto
 
+import "time"
+
 const (
 	// URLTodoSubject represent the subject used by the crawler process to read the URL to crawl
 	URLTodoSubject = "url.todo"
@@ -23,4 +25,12 @@ type URLFoundMsg struct {
 type ResourceMsg struct {
 	URL  string `json:"url"`
 	Body string `json:"body"`
+}
+
+// ResourceDto represent a resource as given by the API
+type ResourceDto struct {
+	URL   string    `json:"url"`
+	Body  string    `json:"body"`
+	Title string    `json:"title"`
+	Time  time.Time `json:"time"`
 }

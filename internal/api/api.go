@@ -32,14 +32,6 @@ type resourceIndex struct {
 	Time  time.Time `json:"time"`
 }
 
-// ResourceDto represent a resource as given by the API
-type ResourceDto struct {
-	URL   string    `json:"url"`
-	Body  string    `json:"body"`
-	Title string    `json:"title"`
-	Time  time.Time `json:"time"`
-}
-
 // GetApp return the api app
 func GetApp() *cli.App {
 	return &cli.App{
@@ -136,7 +128,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 		// In case the collection does not already exist
 		// ES will return 404 NOT FOUND
 		if res.StatusCode == http.StatusNotFound {
-			return c.JSON(http.StatusOK, []ResourceDto{})
+			return c.JSON(http.StatusOK, []proto.ResourceDto{})
 		}
 
 		var resp map[string]interface{}
@@ -145,11 +137,11 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-		var urls []ResourceDto
+		var urls []proto.ResourceDto
 		for _, rawHit := range resp["hits"].(map[string]interface{})["hits"].([]interface{}) {
 			rawSrc := rawHit.(map[string]interface{})["_source"].(map[string]interface{})
 
-			res := ResourceDto{
+			res := proto.ResourceDto{
 				URL:   rawSrc["url"].(string),
 				Body:  rawSrc["body"].(string),
 				Title: rawSrc["title"].(string),
@@ -165,7 +157,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 
 func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var resourceDto ResourceDto
+		var resourceDto proto.ResourceDto
 		if err := json.NewDecoder(c.Request().Body).Decode(&resourceDto); err != nil {
 			logrus.Errorf("Error while un-marshaling resource: %s", err)
 			return c.NoContent(http.StatusUnprocessableEntity)

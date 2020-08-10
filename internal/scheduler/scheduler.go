@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
-	"github.com/creekorful/trandoshan/internal/api"
 	"github.com/creekorful/trandoshan/internal/log"
 	"github.com/creekorful/trandoshan/internal/natsutil"
 	"github.com/creekorful/trandoshan/pkg/proto"
@@ -110,7 +109,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		}
 		defer resp.Body.Close()
 
-		var urls []api.ResourceDto
+		var urls []proto.ResourceDto
 		if err := json.NewDecoder(resp.Body).Decode(&urls); err != nil {
 			logrus.Errorf("Error while un-marshaling urls: %s", err)
 			return err
