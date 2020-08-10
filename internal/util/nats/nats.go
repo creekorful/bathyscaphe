@@ -1,4 +1,4 @@
-package natsutil
+package nats
 
 import (
 	"encoding/json"

@@ -2,16 +2,15 @@ package scheduler
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
-	"github.com/creekorful/trandoshan/internal/log"
-	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/internal/util/http"
+	"github.com/creekorful/trandoshan/internal/util/log"
+	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -99,19 +98,14 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 
 		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL))
 		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
-		logrus.Tracef("Using API URL: %s", apiURL)
-
-		resp, err := httpClient.Get(apiURL)
-		if err != nil || resp.StatusCode != http.StatusOK {
-			logrus.Errorf("Error while searching URL: %s", err)
-			logrus.Errorf("Received status code: %d", resp.StatusCode)
-			return err
-		}
-		defer resp.Body.Close()
 
 		var urls []proto.ResourceDto
-		if err := json.NewDecoder(resp.Body).Decode(&urls); err != nil {
-			logrus.Errorf("Error while un-marshaling urls: %s", err)
+		r, err := httpClient.JsonGet(apiURL, &urls)
+		if err != nil {
+			logrus.Errorf("Error while searching URL: %s", err)
+			if r != nil {
+				logrus.Errorf("Received status code: %d", r.StatusCode)
+			}
 			return err
 		}
 

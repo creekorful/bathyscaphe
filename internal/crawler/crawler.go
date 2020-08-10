@@ -2,8 +2,8 @@ package crawler
 
 import (
 	"crypto/tls"
-	"github.com/creekorful/trandoshan/internal/log"
-	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/internal/util/log"
+	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"

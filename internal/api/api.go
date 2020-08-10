@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/creekorful/trandoshan/internal/log"
-	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/internal/util/log"
+	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
@@ -121,7 +121,9 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 		)
 		if err != nil || (res.IsError() && res.StatusCode != http.StatusNotFound) {
 			logrus.Errorf("Error getting response from ES: %s", err)
-			logrus.Errorf("Received status code: %d", res.StatusCode)
+			if res != nil {
+				logrus.Errorf("Received status code: %d", res.StatusCode)
+			}
 			return c.NoContent(http.StatusInternalServerError)
 		}
 

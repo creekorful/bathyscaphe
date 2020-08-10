@@ -1,16 +1,14 @@
 package persister
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/log"
-	"github.com/creekorful/trandoshan/internal/natsutil"
+	"github.com/creekorful/trandoshan/internal/util/http"
+	"github.com/creekorful/trandoshan/internal/util/log"
+	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"net/http"
 )
 
 // GetApp return the persister app
@@ -72,23 +70,15 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 
 		logrus.Debugf("Processing resource: %s", resMsg.URL)
 
-		body, err := json.Marshal(&proto.ResourceDto{
+		url := fmt.Sprintf("%s/v1/resources", apiURI)
+		r, err := httpClient.JsonPost(url, &proto.ResourceDto{
 			URL:  resMsg.URL,
 			Body: resMsg.Body,
-		})
+		}, nil)
 
-		if err != nil {
-			logrus.Errorf("Error while serializing resource: %s", err)
-			return err
-		}
-
-		url := fmt.Sprintf("%s/v1/resources", apiURI)
-		logrus.Tracef("Posting on API URL: %s", url)
-
-		resp, err := httpClient.Post(url, "application/json", bytes.NewBuffer(body))
-		if err != nil || resp.StatusCode != http.StatusCreated {
+		if err != nil || r.StatusCode != http.StatusCreated {
 			logrus.Errorf("Error while sending resource to the API: %s", err)
-			logrus.Errorf("Received status code: %d", resp.StatusCode)
+			logrus.Errorf("Received status code: %d", r.StatusCode)
 			return err
 		}
 
