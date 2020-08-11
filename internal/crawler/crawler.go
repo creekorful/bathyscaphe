@@ -11,6 +11,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
 	"mvdan.cc/xurls/v2"
+	"strings"
 	"time"
 )
 
@@ -39,6 +40,11 @@ func GetApp() *cli.App {
 				Usage: "User agent to use",
 				Value: defaultUserAgent,
 			},
+			&cli.StringSliceFlag{
+				Name:  "allowed-ct",
+				Usage: "Content types allowed to crawl",
+				Value: cli.NewStringSlice("text/"),
+			},
 		},
 		Action: execute,
 	}
@@ -51,6 +57,7 @@ func execute(ctx *cli.Context) error {
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
+	logrus.Debugf("Allowed content types: %s", ctx.StringSlice("allowed-ct"))
 
 	// Create the HTTP client
 	httpClient := &fasthttp.Client{
@@ -72,14 +79,14 @@ func execute(ctx *cli.Context) error {
 
 	logrus.Info("Successfully initialized trandoshan-crawler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient)); err != nil {
+	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
+func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var urlMsg proto.URLTodoMsg
 		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
@@ -89,12 +96,34 @@ func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
 		logrus.Debugf("Processing URL: %s", urlMsg.URL)
 
 		// Query the website
-		_, bytes, err := httpClient.Get(nil, urlMsg.URL)
-		if err != nil {
+		req := fasthttp.AcquireRequest()
+		resp := fasthttp.AcquireResponse()
+		defer fasthttp.ReleaseRequest(req)
+		defer fasthttp.ReleaseResponse(resp)
+
+		req.SetRequestURI(urlMsg.URL)
+
+		if err := httpClient.Do(req, resp); err != nil {
 			logrus.Errorf("Error while querying website: %s", err)
 			return err
 		}
-		body := string(bytes)
+
+		// Determinate if content type is allowed
+		allowed := false
+		contentType := string(resp.Header.Peek("Content-Type"))
+		for _, allowedContentType := range allowedContentTypes {
+			if strings.Contains(contentType, allowedContentType) {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			logrus.Debugf("Discarding forbidden content type: %s", contentType)
+			return nil
+		}
+
+		body := string(resp.Body())
 
 		// Publish resource body
 		res := proto.ResourceMsg{
@@ -111,7 +140,7 @@ func handleMessage(httpClient *fasthttp.Client) natsutil.MsgHandler {
 
 		// Publish found URLs
 		for _, url := range urls {
-			logrus.Debugf("Found URL: %s", url)
+			logrus.Tracef("Found URL: %s", url)
 
 			if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
 				logrus.Errorf("Error while publishing URL: %s", err)
