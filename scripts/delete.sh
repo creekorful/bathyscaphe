@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./scripts/exec.sh down
+./scripts/exec.sh down "$@"

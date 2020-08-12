@@ -22,6 +22,7 @@ Since the docker image are not available yet, one must run the following script 
 # How to start the crawler
 
 Execute the ``/scripts/start.sh`` and wait for all containers to start.
+You can start the crawler in detached mode by passing --detach to start.sh
 
 ## Note
 
@@ -37,8 +38,9 @@ feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
 
 this will 'force' the API to publish given URL in crawling queue.
 
-## How to access the Kibana UI
+## How to view results
 
-Now head out to http://localhost:15004
+At the moment there is no Trandoshan dashboard.
+You can use the Kibana dashboard available at http://localhost:15004.
 
 You will need to create an index pattern named 'resources', and when it asks for the time field, choose 'time'.
