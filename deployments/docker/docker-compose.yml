@@ -16,6 +16,8 @@ services:
     environment:
       - discovery.type=single-node
       - JAVA_OPTS=-Xms2g -Xmx2g
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
   kibana:
     image: kibana:7.5.1
     logging:
@@ -52,3 +54,7 @@ services:
       - elasticsearch
     ports:
       - 15005:8080
+
+volumes:
+  esdata:
+    driver: local
