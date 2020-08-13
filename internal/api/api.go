@@ -36,7 +36,7 @@ type resourceIndex struct {
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshan-api",
-		Version: "0.0.1",
+		Version: "0.1.0",
 		Usage:   "Trandoshan API process",
 		Flags: []cli.Flag{
 			log.GetLogFlag(),
