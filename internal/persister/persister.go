@@ -37,7 +37,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	log.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting trandoshan-persister v%s", ctx.App.Version)
+	logrus.Infof("Starting tdsh-persister v%s", ctx.App.Version)
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
@@ -52,7 +52,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized trandoshan-persister. Waiting for resources")
+	logrus.Info("Successfully initialized tdsh-persister. Waiting for resources")
 
 	if err := sub.QueueSubscribe(proto.ResourceSubject, "persisters", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err

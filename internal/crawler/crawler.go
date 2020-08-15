@@ -53,7 +53,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	log.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting trandoshan-crawler v%s", ctx.App.Version)
+	logrus.Infof("Starting tdsh-crawler v%s", ctx.App.Version)
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
@@ -77,7 +77,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized trandoshan-crawler. Waiting for URLs")
+	logrus.Info("Successfully initialized tdsh-crawler. Waiting for URLs")
 
 	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
 		return err

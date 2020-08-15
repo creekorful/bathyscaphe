@@ -13,12 +13,12 @@ RUN go mod download
 COPY . .
 
 # Test then build app
-RUN go build -v github.com/creekorful/trandoshan/cmd/scheduler
+RUN go build -v github.com/creekorful/trandoshan/cmd/tdsh-scheduler
 
 # runtime image
 FROM alpine:latest
-COPY --from=builder /app/scheduler /app/
+COPY --from=builder /app/tdsh-scheduler /app/
 
 WORKDIR /app/
 
-ENTRYPOINT ["./scheduler"]
+ENTRYPOINT ["./tdsh-scheduler"]

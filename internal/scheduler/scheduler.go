@@ -41,7 +41,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	log.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting trandoshan-scheduler v%s", ctx.App.Version)
+	logrus.Infof("Starting tdsh-scheduler v%s", ctx.App.Version)
 
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
 	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
@@ -56,7 +56,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized trandoshan-scheduler. Waiting for URLs")
+	logrus.Info("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
 	if err := sub.QueueSubscribe(proto.URLFoundSubject, "schedulers", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err

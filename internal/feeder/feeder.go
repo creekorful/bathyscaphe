@@ -34,7 +34,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	log.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting trandoshan-feeder v%s", ctx.App.Version)
+	logrus.Infof("Starting tdsh-feeder v%s", ctx.App.Version)
 
 	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
 

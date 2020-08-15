@@ -61,7 +61,7 @@ func execute(ctx *cli.Context) error {
 	e := echo.New()
 	e.HideBanner = true
 
-	logrus.Infof("Starting trandoshan-api v%s", ctx.App.Version)
+	logrus.Infof("Starting tdsh-api v%s", ctx.App.Version)
 
 	logrus.Debugf("Using elasticsearch server at: %s", ctx.String("elasticsearch-uri"))
 	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
@@ -86,7 +86,7 @@ func execute(ctx *cli.Context) error {
 	e.POST("/v1/resources", addResource(es))
 	e.POST("/v1/urls", addURL(nc))
 
-	logrus.Info("Successfully initialized trandoshan-api. Waiting for requests")
+	logrus.Info("Successfully initialized tdsh-api. Waiting for requests")
 
 	return e.Start(":8080")
 }
