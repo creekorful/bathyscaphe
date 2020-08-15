@@ -18,7 +18,7 @@ import (
 // GetApp return the scheduler app
 func GetApp() *cli.App {
 	return &cli.App{
-		Name:    "trandoshan-scheduler",
+		Name:    "tdsh-scheduler",
 		Version: "0.1.0",
 		Usage:   "Trandoshan scheduler process",
 		Flags: []cli.Flag{

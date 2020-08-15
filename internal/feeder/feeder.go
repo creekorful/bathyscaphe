@@ -11,7 +11,7 @@ import (
 // GetApp return the feeder app
 func GetApp() *cli.App {
 	return &cli.App{
-		Name:    "trandoshan-feeder",
+		Name:    "tdsh-feeder",
 		Version: "0.1.0",
 		Usage:   "Trandoshan feeder process",
 		Flags: []cli.Flag{

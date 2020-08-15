@@ -35,7 +35,7 @@ type resourceIndex struct {
 // GetApp return the api app
 func GetApp() *cli.App {
 	return &cli.App{
-		Name:    "trandoshan-api",
+		Name:    "tdsh-api",
 		Version: "0.1.0",
 		Usage:   "Trandoshan API process",
 		Flags: []cli.Flag{
@@ -145,9 +145,12 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 
 			res := proto.ResourceDto{
 				URL:   rawSrc["url"].(string),
-				Body:  rawSrc["body"].(string),
 				Title: rawSrc["title"].(string),
-				Time:  time.Time{}, // TODO
+			}
+
+			t, err := time.Parse(time.RFC3339, rawSrc["time"].(string))
+			if err == nil {
+				res.Time = t
 			}
 
 			urls = append(urls, res)
