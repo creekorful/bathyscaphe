@@ -1,5 +1,7 @@
 # Trandoshan dark web crawler
 
+[![trandoshan](https://snapcraft.io//trandoshan/badge.svg)](https://snapcraft.io/trandoshan)
+
 This repository is a complete rewrite of the Trandoshan dark web crawler. Everything has been written inside a single
 Git repository to ease maintenance.
 
