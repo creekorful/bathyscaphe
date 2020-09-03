@@ -73,30 +73,19 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		}
 
 		logrus.Debugf("Processing URL: %s", urlMsg.URL)
-
-		// Normalized received URL
-		normalizedURL, err := purell.NormalizeURLString(urlMsg.URL, purell.FlagsUsuallySafeGreedy|
-			purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
-
+		normalizedURL, err := normalizeURL(urlMsg.URL)
 		if err != nil {
-			return fmt.Errorf("error while normalizing URL %s: %s", urlMsg.URL, err)
-		}
-
-		logrus.Tracef("Normalized URL: %s", normalizedURL)
-
-		// Make sure URL is valid .onion
-		u, err := url.Parse(normalizedURL)
-		if err != nil {
-			logrus.Errorf("Error while parsing URL: %s", err)
+			logrus.Errorf("Error while normalizing URL: %s", err)
 			return err
 		}
 
-		if !strings.Contains(u.Host, ".onion") {
+		// Make sure URL is valid .onion
+		if !strings.Contains(normalizedURL.Host, ".onion") {
 			logrus.Debugf("Url %s is not a valid hidden service", normalizedURL)
 			return err
 		}
 
-		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL))
+		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL.String()))
 		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
 
 		var urls []proto.ResourceDto
@@ -121,4 +110,19 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 
 		return nil
 	}
+}
+
+func normalizeURL(u string) (*url.URL, error) {
+	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
+		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+	if err != nil {
+		return nil, fmt.Errorf("error while normalizing URL %s: %s", u, err)
+	}
+
+	nu, err := url.Parse(normalizedURL)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing URL: %s", err)
+	}
+
+	return nu, nil
 }
