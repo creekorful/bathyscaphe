@@ -15,7 +15,7 @@ services:
       driver: none
     environment:
       - discovery.type=single-node
-      - JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
     volumes:
       - esdata:/usr/share/elasticsearch/data
   kibana:
