@@ -1,8 +1,7 @@
 package feeder
 
 import (
-	"fmt"
-	"github.com/creekorful/trandoshan/internal/util/http"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -38,11 +37,8 @@ func execute(ctx *cli.Context) error {
 
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
-	apiURL := fmt.Sprintf("%s/v1/urls", ctx.String("api-uri"))
-
-	c := http.Client{}
-	_, err := c.JSONPost(apiURL, ctx.String("url"), nil)
-	if err != nil {
+	apiClient := api.NewClient(ctx.String("api-uri"))
+	if err := apiClient.AddURL(ctx.String("url")); err != nil {
 		log.Err(err).Msg("Unable to publish URL")
 		return err
 	}

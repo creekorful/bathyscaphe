@@ -1,7 +1,7 @@
 package extractor
 
 import (
-	"github.com/creekorful/trandoshan/internal/util/http"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/messaging"
@@ -41,8 +41,8 @@ func execute(ctx *cli.Context) error {
 	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
-	// Create the HTTP client
-	httpClient := &http.Client{}
+	// Create the API client
+	apiClient := api.NewClient(ctx.String("api-uri"))
 
 	// Create the NATS subscriber
 	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
@@ -53,14 +53,14 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
-	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors", handleMessage(apiClient, ctx.String("api-uri"))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient *http.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var resMsg messaging.NewResourceMsg
 		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/util/http"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/messaging"
@@ -47,8 +46,8 @@ func execute(ctx *cli.Context) error {
 	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
-	// Create the HTTP client
-	httpClient := &http.Client{}
+	// Create the API client
+	apiClient := api.NewClient(ctx.String("api-uri"))
 
 	// Create the NATS subscriber
 	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
@@ -59,14 +58,14 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(apiClient, ctx.String("api-uri"))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient *http.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var urlMsg messaging.URLFoundMsg
 		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
@@ -87,10 +86,7 @@ func handleMessage(apiClient *http.Client, apiURI string) natsutil.MsgHandler {
 		}
 
 		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL.String()))
-		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
-
-		var urls []api.ResourceDto
-		_, err = apiClient.JSONGet(apiURL, &urls)
+		urls, err := apiClient.SearchResources(b64URI)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err
