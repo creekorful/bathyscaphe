@@ -6,6 +6,14 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+func PublishMsg(nc *nats.Conn, msg Msg) error {
+	return PublishJSON(nc, msg.Subject(), msg)
+}
+
+func ReadMsg(nc *nats.Msg, msg Msg) error {
+	return ReadJSON(nc, msg)
+}
+
 // PublishJSON publish given message serialized in json with given subject
 func PublishJSON(nc *nats.Conn, subject string, msg interface{}) error {
 	msgBytes, err := json.Marshal(msg)

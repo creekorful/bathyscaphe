@@ -1,17 +1,15 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats.go"
+	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
@@ -75,7 +73,10 @@ func execute(ctx *cli.Context) error {
 	defer nc.Close()
 
 	// Create Elasticsearch client
-	es, err := elasticsearch.NewClient(elasticsearch.Config{Addresses: []string{ctx.String("elasticsearch-uri")}})
+	es, err := elastic.NewClient(
+		elastic.SetURL(ctx.String("elasticsearch-uri")),
+		elastic.SetHealthcheck(false),
+	)
 	if err != nil {
 		log.Err(err).Msg("Error while creating ES client")
 		return err
@@ -91,8 +92,9 @@ func execute(ctx *cli.Context) error {
 	return e.Start(":8080")
 }
 
-func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
+func searchResources(es *elastic.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		// First of all base64decode the URL
 		b64URL := c.QueryParam("url")
 		b, err := base64.URLEncoding.DecodeString(b64URL)
 		if err != nil {
@@ -100,69 +102,32 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-		var buf bytes.Buffer
-		query := map[string]interface{}{
-			"query": map[string]interface{}{
-				"match": map[string]interface{}{
-					"url": string(b),
-				},
-			},
-		}
-		if err := json.NewEncoder(&buf).Encode(query); err != nil {
-			log.Err(err).Msg("Error encoding query")
-			return c.NoContent(http.StatusInternalServerError)
-		}
-
 		// Perform the search request.
-		res, err := es.Search(
-			es.Search.WithContext(context.Background()),
-			es.Search.WithIndex("resources"),
-			es.Search.WithBody(&buf),
-		)
-		if err != nil || (res.IsError() && res.StatusCode != http.StatusNotFound) {
-			evt := log.Err(err)
-			if res != nil {
-				evt.Int("status", res.StatusCode)
-			}
-			evt.Msg("Error getting response from ES")
-
+		query := elastic.NewMatchQuery("url", string(b))
+		res, err := es.Search().
+			Index("resource").
+			Query(query).
+			Do(context.Background())
+		if err != nil {
+			log.Err(err).Msg("Error while searching on ES")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-		// In case the collection does not already exist
-		// ES will return 404 NOT FOUND
-		if res.StatusCode == http.StatusNotFound {
-			return c.JSON(http.StatusOK, []proto.ResourceDto{})
-		}
-
-		var resp map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
-			log.Err(err).Msg("Error parsing the response body from ES")
-			return c.NoContent(http.StatusInternalServerError)
-		}
-
-		var urls []proto.ResourceDto
-		for _, rawHit := range resp["hits"].(map[string]interface{})["hits"].([]interface{}) {
-			rawSrc := rawHit.(map[string]interface{})["_source"].(map[string]interface{})
-
-			res := proto.ResourceDto{
-				URL:   rawSrc["url"].(string),
-				Title: rawSrc["title"].(string),
+		var resources []proto.ResourceDto
+		for _, hit := range res.Hits.Hits {
+			var resource proto.ResourceDto
+			if err := json.Unmarshal(hit.Source, &resource); err != nil {
+				log.Warn().Str("err", err.Error()).Msg("Error while un-marshaling resource")
+				continue
 			}
-
-			t, err := time.Parse(time.RFC3339, rawSrc["time"].(string))
-			if err == nil {
-				res.Time = t
-			}
-
-			urls = append(urls, res)
+			resources = append(resources, resource)
 		}
 
-		return c.JSON(http.StatusOK, urls)
+		return c.JSON(http.StatusOK, resources)
 	}
 }
 
-func addResource(es *elasticsearch.Client) echo.HandlerFunc {
+func addResource(es *elastic.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var resourceDto proto.ResourceDto
 		if err := json.NewDecoder(c.Request().Body).Decode(&resourceDto); err != nil {
@@ -172,8 +137,6 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 
 		log.Debug().Str("url", resourceDto.URL).Msg("Saving resource")
 
-		// TODO store on file system
-
 		// Create Elasticsearch document
 		doc := resourceIndex{
 			URL:   protocolRegex.ReplaceAllLiteralString(resourceDto.URL, ""),
@@ -182,25 +145,14 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 			Time:  time.Now(),
 		}
 
-		// Serialize document into json
-		docBytes, err := json.Marshal(&doc)
+		_, err := es.Index().
+			Index("resources").
+			BodyJson(doc).
+			Do(context.Background())
 		if err != nil {
-			log.Err(err).Msg("Error while serializing document into json")
-			return c.NoContent(http.StatusInternalServerError)
+			log.Err(err).Msg("Error while creating ES document")
+			return err
 		}
-
-		// Use Elasticsearch to index document
-		req := esapi.IndexRequest{
-			Index:   "resources",
-			Body:    bytes.NewReader(docBytes),
-			Refresh: "true",
-		}
-		res, err := req.Do(context.Background(), es)
-		if err != nil {
-			log.Err(err).Msg("Error while creating elasticsearch index")
-			return c.NoContent(http.StatusInternalServerError)
-		}
-		defer res.Body.Close()
 
 		log.Debug().Str("url", resourceDto.URL).Msg("Successfully saved resource")
 
@@ -217,7 +169,7 @@ func addURL(nc *nats.Conn) echo.HandlerFunc {
 		}
 
 		// Publish the URL
-		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
+		if err := natsutil.PublishMsg(nc, &proto.URLFoundMsg{URL: url}); err != nil {
 			log.Err(err).Msg("Unable to publish URL")
 			return c.NoContent(http.StatusInternalServerError)
 		}

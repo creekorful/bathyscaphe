@@ -98,7 +98,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		// No matches: schedule!
 		if len(urls) == 0 {
 			log.Debug().Stringer("url", normalizedURL).Msg("URL should be scheduled")
-			if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
+			if err := natsutil.PublishMsg(nc, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {

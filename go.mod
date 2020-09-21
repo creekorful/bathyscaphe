@@ -10,6 +10,7 @@ require (
 	github.com/labstack/echo/v4 v4.1.16
 	github.com/nats-io/nats-server/v2 v2.1.8 // indirect
 	github.com/nats-io/nats.go v1.10.0
+	github.com/olivere/elastic/v7 v7.0.20
 	github.com/rs/zerolog v1.20.0
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/valyala/fasthttp v1.9.0

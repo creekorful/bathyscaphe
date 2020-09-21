@@ -1,7 +1,6 @@
-package persister
+package extractor
 
 import (
-	"fmt"
 	"github.com/creekorful/trandoshan/internal/util/http"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
@@ -11,12 +10,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// GetApp return the persister app
+// GetApp return the extractor app
 func GetApp() *cli.App {
 	return &cli.App{
-		Name:    "tdsh-persister",
+		Name:    "tdsh-extractor",
 		Version: "0.3.0",
-		Usage:   "Trandoshan persister process",
+		Usage:   "Trandoshan extractor process",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			&cli.StringFlag{
@@ -37,7 +36,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-persister")
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-extractor")
 
 	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
@@ -52,9 +51,9 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	log.Info().Msg("Successfully initialized tdsh-persister. Waiting for resources")
+	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
-	if err := sub.QueueSubscribe(proto.ResourceSubject, "persisters", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(proto.NewResourceSubject, "extractors", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err
 	}
 
@@ -63,26 +62,14 @@ func execute(ctx *cli.Context) error {
 
 func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
-		var resMsg proto.ResourceMsg
-		if err := natsutil.ReadJSON(msg, &resMsg); err != nil {
+		var resMsg proto.NewResourceMsg
+		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {
 			return err
 		}
 
-		log.Debug().Str("url", resMsg.URL).Msg("Processing resource")
+		log.Debug().Str("url", resMsg.URL).Msg("Processing new resource")
 
-		url := fmt.Sprintf("%s/v1/resources", apiURI)
-		r, err := httpClient.JSONPost(url, &proto.ResourceDto{
-			URL:  resMsg.URL,
-			Body: resMsg.Body,
-		}, nil)
-
-		if err != nil || r.StatusCode != http.StatusCreated {
-			log.Err(err).Msg("Error while sending resource to the API")
-			return err
-		}
-
-		log.Debug().Str("url", resMsg.URL).Msg("Successfully processed resource")
-
+		// TODO
 		return nil
 	}
 }

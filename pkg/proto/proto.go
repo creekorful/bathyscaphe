@@ -3,12 +3,12 @@ package proto
 import "time"
 
 const (
-	// URLTodoSubject represent the subject used by the crawler process to read the URL to crawl
+	// URLTodoSubject is the subject used when an URL is schedule for crawling
 	URLTodoSubject = "url.todo"
-	// URLFoundSubject represent the subject used by the scheduler process to read the URL to schedule
+	// URLFoundSubject is the subject used when an URL is extracted from resource
 	URLFoundSubject = "url.found"
-	// ResourceSubject represent the subject used by the persister process to store the resource body
-	ResourceSubject = "resource"
+	// NewResourceSubject is the subject used when a new resource has been crawled
+	NewResourceSubject = "resource.new"
 )
 
 // URLTodoMsg represent an URL to crawl
@@ -16,15 +16,26 @@ type URLTodoMsg struct {
 	URL string `json:"url"`
 }
 
+func (msg *URLTodoMsg) Subject() string {
+	return URLTodoSubject
+}
+
 // URLFoundMsg represent a found URL
 type URLFoundMsg struct {
 	URL string `json:"url"`
 }
 
-// ResourceMsg represent the body of a crawled resource
-type ResourceMsg struct {
+func (msg *URLFoundMsg) Subject() string {
+	return URLFoundSubject
+}
+
+type NewResourceMsg struct {
 	URL  string `json:"url"`
 	Body string `json:"body"`
+}
+
+func (msg *NewResourceMsg) Subject() string {
+	return NewResourceSubject
 }
 
 // ResourceDto represent a resource as given by the API

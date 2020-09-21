@@ -13,12 +13,12 @@ RUN go mod download
 COPY . .
 
 # Test then build app
-RUN go build -v github.com/creekorful/trandoshan/cmd/tdsh-persister
+RUN go build -v github.com/creekorful/trandoshan/cmd/tdsh-extractor
 
 # runtime image
 FROM alpine:latest
-COPY --from=builder /app/tdsh-persister /app/
+COPY --from=builder /app/tdsh-extractor /app/
 
 WORKDIR /app/
 
-ENTRYPOINT ["./tdsh-persister"]
+ENTRYPOINT ["./tdsh-extractor"]

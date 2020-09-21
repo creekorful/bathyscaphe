@@ -10,7 +10,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
-	"mvdan.cc/xurls/v2"
 	"strings"
 	"time"
 )
@@ -79,7 +78,8 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
+	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers",
+		handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
 		return err
 	}
 
@@ -89,7 +89,7 @@ func execute(ctx *cli.Context) error {
 func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var urlMsg proto.URLTodoMsg
-		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
+		if err := natsutil.ReadMsg(msg, &urlMsg); err != nil {
 			return err
 		}
 
@@ -126,25 +126,12 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 		body := string(resp.Body())
 
 		// Publish resource body
-		res := proto.ResourceMsg{
+		res := proto.NewResourceMsg{
 			URL:  urlMsg.URL,
 			Body: body,
 		}
-		if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &res); err != nil {
+		if err := natsutil.PublishMsg(nc, &res); err != nil {
 			log.Err(err).Msg("Error while publishing resource body")
-		}
-
-		// Extract URLs
-		xu := xurls.Strict()
-		urls := xu.FindAllString(body, -1)
-
-		// Publish found URLs
-		for _, url := range urls {
-			log.Trace().Str("url", url).Msg("Found URL")
-
-			if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
-				log.Err(err).Msg("Error while publishing URL")
-			}
 		}
 
 		return nil
