@@ -15,7 +15,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-persister",
-		Version: "0.2.0",
+		Version: "0.3.0",
 		Usage:   "Trandoshan persister process",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),

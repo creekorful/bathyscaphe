@@ -12,7 +12,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-feeder",
-		Version: "0.2.0",
+		Version: "0.3.0",
 		Usage:   "Trandoshan feeder process",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
