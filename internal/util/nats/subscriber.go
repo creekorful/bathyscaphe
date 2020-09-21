@@ -3,7 +3,7 @@ package nats
 import (
 	"context"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // MsgHandler represent an handler for a NATS subscriber
@@ -18,7 +18,7 @@ type Subscriber struct {
 func NewSubscriber(address string) (*Subscriber, error) {
 	nc, err := nats.Connect(address)
 	if err != nil {
-		logrus.Errorf("Error while connecting to NATS server %s: %s", address, err)
+		log.Err(err).Str("server-uri", address).Msg("Error while connecting to NATS server")
 		return nil, err
 	}
 
@@ -32,7 +32,7 @@ func (qs *Subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) 
 	// Create the subscriber
 	sub, err := qs.nc.QueueSubscribeSync(subject, queue)
 	if err != nil {
-		logrus.Errorf("Error while reading message from NATS server: %s", err)
+		log.Err(err).Msg("Error while reading message from NATS server")
 		return err
 	}
 
@@ -40,13 +40,13 @@ func (qs *Subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) 
 		// Read incoming message
 		msg, err := sub.NextMsgWithContext(context.Background())
 		if err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
+			log.Warn().Str("err", err.Error()).Msg("Skipping current message because of error")
 			continue
 		}
 
 		// ... And process it
 		if err := handler(qs.nc, msg); err != nil {
-			logrus.Warnf("Skipping current message because of error: %s", err)
+			log.Warn().Str("error", err.Error()).Msg("Skipping current message because of error")
 			continue
 		}
 	}

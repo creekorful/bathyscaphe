@@ -3,11 +3,11 @@ package persister
 import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/util/http"
-	"github.com/creekorful/trandoshan/internal/util/log"
+	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
 
@@ -18,7 +18,7 @@ func GetApp() *cli.App {
 		Version: "0.2.0",
 		Usage:   "Trandoshan persister process",
 		Flags: []cli.Flag{
-			log.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -35,12 +35,12 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	log.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting tdsh-persister v%s", ctx.App.Version)
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-persister")
 
-	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
-	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
+	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
+	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
 	// Create the HTTP client
 	httpClient := &http.Client{}
@@ -52,7 +52,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized tdsh-persister. Waiting for resources")
+	log.Info().Msg("Successfully initialized tdsh-persister. Waiting for resources")
 
 	if err := sub.QueueSubscribe(proto.ResourceSubject, "persisters", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err
@@ -68,7 +68,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 			return err
 		}
 
-		logrus.Debugf("Processing resource: %s", resMsg.URL)
+		log.Debug().Str("url", resMsg.URL).Msg("Processing resource")
 
 		url := fmt.Sprintf("%s/v1/resources", apiURI)
 		r, err := httpClient.JSONPost(url, &proto.ResourceDto{
@@ -77,14 +77,11 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		}, nil)
 
 		if err != nil || r.StatusCode != http.StatusCreated {
-			logrus.Errorf("Error while sending resource to the API: %s", err)
-			if r != nil {
-				logrus.Errorf("Received status code: %d", r.StatusCode)
-			}
+			log.Err(err).Msg("Error while sending resource to the API")
 			return err
 		}
 
-		logrus.Debugf("Successfully processed resource: %s", resMsg.URL)
+		log.Debug().Str("url", resMsg.URL).Msg("Successfully processed resource")
 
 		return nil
 	}

@@ -1,8 +1,10 @@
-package log
+package logging
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"os"
 )
 
 // GetLogFlag return the CLI flag parameter used to setup application log level
@@ -16,10 +18,12 @@ func GetLogFlag() *cli.StringFlag {
 
 // ConfigureLogger configure the logger using given log level (read from cli context)
 func ConfigureLogger(ctx *cli.Context) {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
 	// Set application log level
-	if lvl, err := logrus.ParseLevel(ctx.String("log-level")); err == nil {
-		logrus.SetLevel(lvl)
+	if lvl, err := zerolog.ParseLevel(ctx.String("log-level")); err == nil {
+		zerolog.SetGlobalLevel(lvl)
 	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
 }

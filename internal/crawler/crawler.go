@@ -2,11 +2,11 @@ package crawler
 
 import (
 	"crypto/tls"
-	"github.com/creekorful/trandoshan/internal/util/log"
+	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
@@ -24,7 +24,7 @@ func GetApp() *cli.App {
 		Version: "0.2.0",
 		Usage:   "Trandoshan crawler process",
 		Flags: []cli.Flag{
-			log.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -51,13 +51,13 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	log.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting tdsh-crawler v%s", ctx.App.Version)
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-crawler")
 
-	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
-	logrus.Debugf("Using TOR proxy at: %s", ctx.String("tor-uri"))
-	logrus.Debugf("Allowed content types: %s", ctx.StringSlice("allowed-ct"))
+	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
+	log.Debug().Str("uri", ctx.String("tor-uri")).Msg("Using TOR proxy")
+	log.Debug().Strs("content-types", ctx.StringSlice("allowed-ct")).Msg("Allowed content types")
 
 	// Create the HTTP client
 	httpClient := &fasthttp.Client{
@@ -77,7 +77,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized tdsh-crawler. Waiting for URLs")
+	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
 	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers", handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
 		return err
@@ -93,7 +93,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 			return err
 		}
 
-		logrus.Debugf("Processing URL: %s", urlMsg.URL)
+		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL")
 
 		// Query the website
 		req := fasthttp.AcquireRequest()
@@ -104,7 +104,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 		req.SetRequestURI(urlMsg.URL)
 
 		if err := httpClient.Do(req, resp); err != nil {
-			logrus.Errorf("Error while querying website: %s", err)
+			log.Err(err).Msg("Error while crawling website")
 			return err
 		}
 
@@ -119,7 +119,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 		}
 
 		if !allowed {
-			logrus.Debugf("Discarding forbidden content type: %s", contentType)
+			log.Debug().Str("content-type", contentType).Msg("Discarding forbidden content type")
 			return nil
 		}
 
@@ -131,7 +131,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 			Body: body,
 		}
 		if err := natsutil.PublishJSON(nc, proto.ResourceSubject, &res); err != nil {
-			logrus.Errorf("Error while publishing resource body: %s", err)
+			log.Err(err).Msg("Error while publishing resource body")
 		}
 
 		// Extract URLs
@@ -140,10 +140,10 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 
 		// Publish found URLs
 		for _, url := range urls {
-			logrus.Tracef("Found URL: %s", url)
+			log.Trace().Str("url", url).Msg("Found URL")
 
 			if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
-				logrus.Errorf("Error while publishing URL: %s", err)
+				log.Err(err).Msg("Error while publishing URL")
 			}
 		}
 

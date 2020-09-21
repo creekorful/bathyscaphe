@@ -3,7 +3,7 @@ package http
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"net/http"
 )
 
@@ -19,7 +19,7 @@ type Client struct {
 
 // JSONGet perform a GET request and serialize response body into given interface if any
 func (c *Client) JSONGet(url string, response interface{}) (*http.Response, error) {
-	logrus.Tracef("GET %s", url)
+	log.Trace().Str("verb", "GET").Str("url", url).Msg("")
 
 	r, err := c.client.Get(url)
 	if err != nil {
@@ -35,7 +35,7 @@ func (c *Client) JSONGet(url string, response interface{}) (*http.Response, erro
 
 // JSONPost perform a POST request and serialize request/response body into given interface if any
 func (c *Client) JSONPost(url string, request, response interface{}) (*http.Response, error) {
-	logrus.Tracef("POST %s", url)
+	log.Trace().Str("verb", "POST").Str("url", url).Msg("")
 
 	var err error
 	var b []byte

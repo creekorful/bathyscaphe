@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/creekorful/trandoshan/internal/util/log"
+	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
 	"regexp"
@@ -39,7 +39,7 @@ func GetApp() *cli.App {
 		Version: "0.2.0",
 		Usage:   "Trandoshan API process",
 		Flags: []cli.Flag{
-			log.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -56,20 +56,20 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	log.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
 	e := echo.New()
 	e.HideBanner = true
 
-	logrus.Infof("Starting tdsh-api v%s", ctx.App.Version)
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-api")
 
-	logrus.Debugf("Using elasticsearch server at: %s", ctx.String("elasticsearch-uri"))
-	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
+	log.Debug().Str("uri", ctx.String("elasticsearch-uri")).Msg("Using Elasticsearch server")
+	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 
 	// Connect to the NATS server
 	nc, err := nats.Connect(ctx.String("nats-uri"))
 	if err != nil {
-		logrus.Errorf("Error while connecting to NATS server %s: %s", ctx.String("nats-uri"), err)
+		log.Err(err).Str("uri", ctx.String("nats-uri")).Msg("Error while connecting to NATS server")
 		return err
 	}
 	defer nc.Close()
@@ -77,7 +77,7 @@ func execute(ctx *cli.Context) error {
 	// Create Elasticsearch client
 	es, err := elasticsearch.NewClient(elasticsearch.Config{Addresses: []string{ctx.String("elasticsearch-uri")}})
 	if err != nil {
-		logrus.Errorf("Error while creating elasticsearch client: %s", err)
+		log.Err(err).Msg("Error while creating ES client")
 		return err
 	}
 
@@ -86,7 +86,7 @@ func execute(ctx *cli.Context) error {
 	e.POST("/v1/resources", addResource(es))
 	e.POST("/v1/urls", addURL(nc))
 
-	logrus.Info("Successfully initialized tdsh-api. Waiting for requests")
+	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")
 
 	return e.Start(":8080")
 }
@@ -96,7 +96,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 		b64URL := c.QueryParam("url")
 		b, err := base64.URLEncoding.DecodeString(b64URL)
 		if err != nil {
-			logrus.Errorf("Error while decoding URL: %s", err)
+			log.Err(err).Msg("Error while decoding URL")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -109,7 +109,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			},
 		}
 		if err := json.NewEncoder(&buf).Encode(query); err != nil {
-			logrus.Errorf("Error encoding query: %s", err)
+			log.Err(err).Msg("Error encoding query")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -120,10 +120,12 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 			es.Search.WithBody(&buf),
 		)
 		if err != nil || (res.IsError() && res.StatusCode != http.StatusNotFound) {
-			logrus.Errorf("Error getting response from ES: %s", err)
+			evt := log.Err(err)
 			if res != nil {
-				logrus.Errorf("Received status code: %d", res.StatusCode)
+				evt.Int("status", res.StatusCode)
 			}
+			evt.Msg("Error getting response from ES")
+
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -135,7 +137,7 @@ func searchResources(es *elasticsearch.Client) echo.HandlerFunc {
 
 		var resp map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
-			logrus.Errorf("Error parsing the response body: %s", err)
+			log.Err(err).Msg("Error parsing the response body from ES")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -164,11 +166,11 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var resourceDto proto.ResourceDto
 		if err := json.NewDecoder(c.Request().Body).Decode(&resourceDto); err != nil {
-			logrus.Errorf("Error while un-marshaling resource: %s", err)
+			log.Err(err).Msg("Error while un-marshaling resource")
 			return c.NoContent(http.StatusUnprocessableEntity)
 		}
 
-		logrus.Debugf("Saving resource %s", resourceDto.URL)
+		log.Debug().Str("url", resourceDto.URL).Msg("Saving resource")
 
 		// TODO store on file system
 
@@ -183,7 +185,7 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 		// Serialize document into json
 		docBytes, err := json.Marshal(&doc)
 		if err != nil {
-			logrus.Errorf("Error while serializing document into json: %s", err)
+			log.Err(err).Msg("Error while serializing document into json")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -195,12 +197,12 @@ func addResource(es *elasticsearch.Client) echo.HandlerFunc {
 		}
 		res, err := req.Do(context.Background(), es)
 		if err != nil {
-			logrus.Errorf("Error while creating elasticsearch index: %s", err)
+			log.Err(err).Msg("Error while creating elasticsearch index")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 		defer res.Body.Close()
 
-		logrus.Debugf("Successfully saved resource %s", resourceDto.URL)
+		log.Debug().Str("url", resourceDto.URL).Msg("Successfully saved resource")
 
 		return c.NoContent(http.StatusCreated)
 	}
@@ -210,17 +212,17 @@ func addURL(nc *nats.Conn) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var url string
 		if err := json.NewDecoder(c.Request().Body).Decode(&url); err != nil {
-			logrus.Errorf("Error while un-marshaling url: %s", err)
+			log.Err(err).Msg("Error while un-marshaling URL")
 			return c.NoContent(http.StatusUnprocessableEntity)
 		}
 
 		// Publish the URL
 		if err := natsutil.PublishJSON(nc, proto.URLFoundSubject, &proto.URLFoundMsg{URL: url}); err != nil {
-			logrus.Errorf("Unable to publish URL: %s", err)
+			log.Err(err).Msg("Unable to publish URL")
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-		logrus.Debugf("Successfully published URL: %s", url)
+		log.Debug().Str("url", url).Msg("Successfully published URL")
 
 		return nil
 	}

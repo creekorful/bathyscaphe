@@ -3,8 +3,8 @@ package feeder
 import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/util/http"
-	"github.com/creekorful/trandoshan/internal/util/log"
-	"github.com/sirupsen/logrus"
+	"github.com/creekorful/trandoshan/internal/util/logging"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
 
@@ -15,7 +15,7 @@ func GetApp() *cli.App {
 		Version: "0.2.0",
 		Usage:   "Trandoshan feeder process",
 		Flags: []cli.Flag{
-			log.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "api-uri",
 				Usage:    "URI to the API server",
@@ -32,25 +32,22 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	log.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting tdsh-feeder v%s", ctx.App.Version)
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-feeder")
 
-	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
+	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
 	apiURL := fmt.Sprintf("%s/v1/urls", ctx.String("api-uri"))
 
 	c := http.Client{}
-	res, err := c.JSONPost(apiURL, ctx.String("url"), nil)
+	_, err := c.JSONPost(apiURL, ctx.String("url"), nil)
 	if err != nil {
-		logrus.Errorf("Unable to publish URL: %s", err)
-		if res != nil {
-			logrus.Errorf("Received status code: %d", res.StatusCode)
-		}
+		log.Err(err).Msg("Unable to publish URL")
 		return err
 	}
 
-	logrus.Infof("URL %s successfully sent to the crawler", ctx.String("url"))
+	log.Info().Str("url", ctx.String("url")).Msg("URL successfully sent to the crawler")
 
 	return nil
 }

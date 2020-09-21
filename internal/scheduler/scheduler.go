@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/internal/util/http"
-	"github.com/creekorful/trandoshan/internal/util/log"
+	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/creekorful/trandoshan/pkg/proto"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/url"
 	"strings"
@@ -22,7 +22,7 @@ func GetApp() *cli.App {
 		Version: "0.2.0",
 		Usage:   "Trandoshan scheduler process",
 		Flags: []cli.Flag{
-			log.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -39,12 +39,12 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	log.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
-	logrus.Infof("Starting tdsh-scheduler v%s", ctx.App.Version)
+	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-scheduler")
 
-	logrus.Debugf("Using NATS server at: %s", ctx.String("nats-uri"))
-	logrus.Debugf("Using API server at: %s", ctx.String("api-uri"))
+	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
+	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
 	// Create the HTTP client
 	httpClient := &http.Client{}
@@ -56,7 +56,7 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	logrus.Info("Successfully initialized tdsh-scheduler. Waiting for URLs")
+	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
 	if err := sub.QueueSubscribe(proto.URLFoundSubject, "schedulers", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err
@@ -72,16 +72,16 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 			return err
 		}
 
-		logrus.Debugf("Processing URL: %s", urlMsg.URL)
+		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL: %s")
 		normalizedURL, err := normalizeURL(urlMsg.URL)
 		if err != nil {
-			logrus.Errorf("Error while normalizing URL: %s", err)
+			log.Err(err).Msg("Error while normalizing URL")
 			return err
 		}
 
 		// Make sure URL is valid .onion
 		if !strings.Contains(normalizedURL.Host, ".onion") {
-			logrus.Debugf("Url %s is not a valid hidden service", normalizedURL)
+			log.Debug().Stringer("url", normalizedURL).Msg("URL is not a valid hidden service")
 			return err
 		}
 
@@ -89,23 +89,20 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
 
 		var urls []proto.ResourceDto
-		r, err := httpClient.JSONGet(apiURL, &urls)
+		_, err = httpClient.JSONGet(apiURL, &urls)
 		if err != nil {
-			logrus.Errorf("Error while searching URL: %s", err)
-			if r != nil {
-				logrus.Errorf("Received status code: %d", r.StatusCode)
-			}
+			log.Err(err).Msg("Error while searching URL")
 			return err
 		}
 
 		// No matches: schedule!
 		if len(urls) == 0 {
-			logrus.Debugf("%s should be scheduled", normalizedURL)
+			log.Debug().Stringer("url", normalizedURL).Msg("URL should be scheduled")
 			if err := natsutil.PublishJSON(nc, proto.URLTodoSubject, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {
-			logrus.Tracef("%s should not scheduled", normalizedURL)
+			log.Trace().Stringer("url", normalizedURL).Msg("URL should not be scheduled")
 		}
 
 		return nil
