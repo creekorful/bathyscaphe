@@ -27,27 +27,27 @@ services:
     ports:
       - 15004:5601
   crawler:
-    image: trandoshan.io/crawler:latest
+    image: creekorful/tdsh-crawler:latest
     command: --log-level debug --nats-uri nats --tor-uri torproxy:9050
     restart: always
     depends_on:
       - nats
       - torproxy
   scheduler:
-    image: trandoshan.io/scheduler:latest
+    image: creekorful/tdsh-scheduler:latest
     command: --log-level debug --nats-uri nats --api-uri http://api:8080
     restart: always
     depends_on:
       - nats
   persister:
-    image: trandoshan.io/persister:latest
+    image: creekorful/tdsh-persister:latest
     command: --log-level debug --nats-uri nats --api-uri http://api:8080
     restart: always
     depends_on:
       - nats
       - api
   api:
-    image: trandoshan.io/api:latest
+    image: creekorful/tdsh-api:latest
     command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
     restart: always
     depends_on:
