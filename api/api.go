@@ -19,6 +19,7 @@ type ResourceDto struct {
 	Time  time.Time `json:"time"`
 }
 
+// Client is the interface to interact with the API process
 type Client interface {
 	SearchResources(url string) ([]ResourceDto, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
@@ -56,6 +57,7 @@ func (c *client) AddURL(url string) error {
 	return err
 }
 
+// NewClient create a new Client instance to dial with the API located on given address
 func NewClient(baseURL string) Client {
 	return &client{
 		httpClient: &http.Client{},
