@@ -6,10 +6,12 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+// PublishMsg publish given Msg
 func PublishMsg(nc *nats.Conn, msg Msg) error {
 	return PublishJSON(nc, msg.Subject(), msg)
 }
 
+// ReadMsg read message from given connection
 func ReadMsg(nc *nats.Msg, msg Msg) error {
 	return ReadJSON(nc, msg)
 }

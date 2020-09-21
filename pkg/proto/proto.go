@@ -16,6 +16,7 @@ type URLTodoMsg struct {
 	URL string `json:"url"`
 }
 
+// Subject returns the subject where message should be push
 func (msg *URLTodoMsg) Subject() string {
 	return URLTodoSubject
 }
@@ -25,15 +26,18 @@ type URLFoundMsg struct {
 	URL string `json:"url"`
 }
 
+// Subject returns the subject where message should be push
 func (msg *URLFoundMsg) Subject() string {
 	return URLFoundSubject
 }
 
+// NewResourceMsg represent a crawled resource
 type NewResourceMsg struct {
 	URL  string `json:"url"`
 	Body string `json:"body"`
 }
 
+// Subject returns the subject where message should be push
 func (msg *NewResourceMsg) Subject() string {
 	return NewResourceSubject
 }
