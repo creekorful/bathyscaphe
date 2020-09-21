@@ -2,9 +2,9 @@ package crawler
 
 import (
 	"crypto/tls"
+	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/creekorful/trandoshan/messaging"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
