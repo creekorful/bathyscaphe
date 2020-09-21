@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/creekorful/trandoshan/pkg/proto"
+	"github.com/creekorful/trandoshan/messaging"
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats.go"
 	"github.com/olivere/elastic/v7"
@@ -113,9 +114,9 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-		var resources []proto.ResourceDto
+		var resources []api.ResourceDto
 		for _, hit := range res.Hits.Hits {
-			var resource proto.ResourceDto
+			var resource api.ResourceDto
 			if err := json.Unmarshal(hit.Source, &resource); err != nil {
 				log.Warn().Str("err", err.Error()).Msg("Error while un-marshaling resource")
 				continue
@@ -129,7 +130,7 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 
 func addResource(es *elastic.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var resourceDto proto.ResourceDto
+		var resourceDto api.ResourceDto
 		if err := json.NewDecoder(c.Request().Body).Decode(&resourceDto); err != nil {
 			log.Err(err).Msg("Error while un-marshaling resource")
 			return c.NoContent(http.StatusUnprocessableEntity)
@@ -169,7 +170,7 @@ func addURL(nc *nats.Conn) echo.HandlerFunc {
 		}
 
 		// Publish the URL
-		if err := natsutil.PublishMsg(nc, &proto.URLFoundMsg{URL: url}); err != nil {
+		if err := natsutil.PublishMsg(nc, &messaging.URLFoundMsg{URL: url}); err != nil {
 			log.Err(err).Msg("Unable to publish URL")
 			return c.NoContent(http.StatusInternalServerError)
 		}

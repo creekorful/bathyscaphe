@@ -4,7 +4,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/util/http"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/creekorful/trandoshan/pkg/proto"
+	"github.com/creekorful/trandoshan/messaging"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -53,16 +53,16 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
-	if err := sub.QueueSubscribe(proto.NewResourceSubject, "extractors", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient *http.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
-		var resMsg proto.NewResourceMsg
+		var resMsg messaging.NewResourceMsg
 		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {
 			return err
 		}

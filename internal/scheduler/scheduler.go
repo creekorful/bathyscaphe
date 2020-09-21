@@ -4,10 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/util/http"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/creekorful/trandoshan/pkg/proto"
+	"github.com/creekorful/trandoshan/messaging"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -58,16 +59,16 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(proto.URLFoundSubject, "schedulers", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(httpClient, ctx.String("api-uri"))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient *http.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
-		var urlMsg proto.URLFoundMsg
+		var urlMsg messaging.URLFoundMsg
 		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
 			return err
 		}
@@ -88,8 +89,8 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL.String()))
 		apiURL := fmt.Sprintf("%s/v1/resources?url=%s", apiURI, b64URI)
 
-		var urls []proto.ResourceDto
-		_, err = httpClient.JSONGet(apiURL, &urls)
+		var urls []api.ResourceDto
+		_, err = apiClient.JSONGet(apiURL, &urls)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err
@@ -98,7 +99,7 @@ func handleMessage(httpClient *http.Client, apiURI string) natsutil.MsgHandler {
 		// No matches: schedule!
 		if len(urls) == 0 {
 			log.Debug().Stringer("url", normalizedURL).Msg("URL should be scheduled")
-			if err := natsutil.PublishMsg(nc, &proto.URLTodoMsg{URL: urlMsg.URL}); err != nil {
+			if err := natsutil.PublishMsg(nc, &messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {

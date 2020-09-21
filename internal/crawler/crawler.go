@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/creekorful/trandoshan/pkg/proto"
+	"github.com/creekorful/trandoshan/messaging"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -78,7 +78,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(proto.URLTodoSubject, "crawlers",
+	if err := sub.QueueSubscribe(messaging.URLTodoSubject, "crawlers",
 		handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func execute(ctx *cli.Context) error {
 
 func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
-		var urlMsg proto.URLTodoMsg
+		var urlMsg messaging.URLTodoMsg
 		if err := natsutil.ReadMsg(msg, &urlMsg); err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 		body := string(resp.Body())
 
 		// Publish resource body
-		res := proto.NewResourceMsg{
+		res := messaging.NewResourceMsg{
 			URL:  urlMsg.URL,
 			Body: body,
 		}
