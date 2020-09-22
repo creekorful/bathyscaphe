@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"mvdan.cc/xurls/v2"
 	"regexp"
 	"strings"
 	"time"
@@ -78,7 +79,7 @@ func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
 		log.Debug().Str("url", resMsg.URL).Msg("Processing new resource")
 
 		// Extract & process resource
-		resDto, err := extractResource(resMsg)
+		resDto, urls, err := extractResource(resMsg)
 		if err != nil {
 			log.Err(err).Msg("Ersror while extracting resource")
 			return err
@@ -91,11 +92,25 @@ func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
 			return err
 		}
 
+		// Finally push found URLs
+		for _, url := range urls {
+			log.Trace().
+				Str("url", url).
+				Msg("Publishing found URL")
+
+			if err := natsutil.PublishMsg(nc, &messaging.URLFoundMsg{URL: url}); err != nil {
+				log.Warn().
+					Str("url", url).
+					Str("err", err.Error()).
+					Msg("Error while publishing URL")
+			}
+		}
+
 		return nil
 	}
 }
 
-func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, error) {
+func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, []string, error) {
 	resDto := api.ResourceDto{
 		URL:   protocolRegex.ReplaceAllLiteralString(msg.URL, ""),
 		Title: extractTitle(msg.Body),
@@ -103,7 +118,9 @@ func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, error) {
 		Time:  time.Now(),
 	}
 
-	return resDto, nil
+	// Extract URLs
+	xu := xurls.Strict()
+	return resDto, xu.FindAllString(msg.Body, -1), nil
 }
 
 // extract title from html body

@@ -11,7 +11,7 @@ func TestExtractResource(t *testing.T) {
 		Body: "<title>Creekorful Inc</title>This is sparta",
 	}
 
-	resDto, err := extractResource(msg)
+	resDto, _, err := extractResource(msg)
 	if err != nil {
 		t.FailNow()
 	}

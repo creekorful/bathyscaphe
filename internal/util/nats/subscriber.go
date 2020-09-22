@@ -18,7 +18,6 @@ type Subscriber struct {
 func NewSubscriber(address string) (*Subscriber, error) {
 	nc, err := nats.Connect(address)
 	if err != nil {
-		log.Err(err).Str("server-uri", address).Msg("Error while connecting to NATS server")
 		return nil, err
 	}
 
@@ -32,7 +31,6 @@ func (qs *Subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) 
 	// Create the subscriber
 	sub, err := qs.nc.QueueSubscribeSync(subject, queue)
 	if err != nil {
-		log.Err(err).Msg("Error while reading message from NATS server")
 		return err
 	}
 
