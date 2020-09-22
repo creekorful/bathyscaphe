@@ -60,8 +60,10 @@ func (c *client) ScheduleURL(url string) error {
 // NewClient create a new Client instance to dial with the API located on given address
 func NewClient(baseURL string) Client {
 	return &client{
-		httpClient: &http.Client{},
-		baseURL:    baseURL,
+		httpClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
+		baseURL: baseURL,
 	}
 }
 
