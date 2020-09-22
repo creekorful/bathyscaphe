@@ -34,11 +34,19 @@ Ensure you have at least 3GB of memory as the Elasticsearch stack docker will re
 
 Since the API is explosed on localhost:15005, one can use it to start the crawling process:
 
+using trandoshanctl executable:
+
 ```sh
-feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
+trandoshanctl schedule https://www.facebookcorewwwi.onion
 ```
 
-this will 'force' the API to publish given URL in crawling queue.
+or using the docker image:
+
+```sh
+docker run creekorful/trandoshanctl schedule https://www.facebookcorewwwi.onion
+```
+
+this will schedule given URL for crawling.
 
 ## How to view results
 

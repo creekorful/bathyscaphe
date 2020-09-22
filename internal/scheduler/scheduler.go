@@ -72,7 +72,7 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 			return err
 		}
 
-		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL: %s")
+		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL")
 
 		u, err := url.Parse(urlMsg.URL)
 		if err != nil {

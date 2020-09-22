@@ -23,7 +23,7 @@ type ResourceDto struct {
 type Client interface {
 	SearchResources(url string) ([]ResourceDto, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
-	AddURL(url string) error
+	ScheduleURL(url string) error
 }
 
 type client struct {
@@ -51,7 +51,7 @@ func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	return resourceDto, err
 }
 
-func (c *client) AddURL(url string) error {
+func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 	_, err := jsonPost(c.httpClient, targetEndpoint, url, nil)
 	return err
