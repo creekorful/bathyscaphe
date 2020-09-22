@@ -129,6 +129,8 @@ func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []stri
 	}
 
 	switch code := resp.StatusCode(); {
+	case code > 302:
+		return "", fmt.Errorf("non-managed error code %d", code)
 	// follow redirect
 	case code == 301 || code == 302:
 		if location := string(resp.Header.Peek("Location")); location != "" {

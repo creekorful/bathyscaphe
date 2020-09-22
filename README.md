@@ -50,7 +50,13 @@ this will schedule given URL for crawling.
 
 ## How to view results
 
-At the moment there is no Trandoshan dashboard.
-You can use the Kibana dashboard available at http://localhost:15004.
+## Using trandoshanctl
 
+```sh
+trandoshanctl search <term>
+```
+
+## Using kibana
+
+You can use the Kibana dashboard available at http://localhost:15004.
 You will need to create an index pattern named 'resources', and when it asks for the time field, choose 'time'.

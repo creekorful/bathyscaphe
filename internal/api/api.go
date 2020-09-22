@@ -14,12 +14,27 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
+	"strconv"
 	"time"
 )
 
 var (
 	resourcesIndex = "resources"
+
+	paginationPageHeader     = "X-Pagination-Page"
+	paginationSizeHeader     = "X-Pagination-Size"
+	paginationCountHeader    = "X-Pagination-Count"
+	paginationPageQueryParam = "pagination-page"
+	paginationSizeQueryParam = "pagination-size"
+
+	defaultPaginationSize = 50
+	maxPaginationSize     = 100
 )
+
+type pagination struct {
+	page int
+	size int
+}
 
 // Represent a resource in elasticsearch
 type resourceIndex struct {
@@ -115,11 +130,26 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 			return c.NoContent(http.StatusUnprocessableEntity)
 		}
 
-		// Perform the search request.
+		// Acquire pagination
+		p := readPagination(c)
+		from := (p.page - 1) * p.size
+
+		// Build up search query
 		query := buildSearchQuery(string(b), c.QueryParam("keyword"))
+
+		// Get total count
+		totalCount, err := es.Count(resourcesIndex).Query(query).Do(context.Background())
+		if err != nil {
+			log.Err(err).Msg("Error while counting on ES")
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		// Perform the search request.
 		res, err := es.Search().
 			Index(resourcesIndex).
 			Query(query).
+			From(from).
+			Size(p.size).
 			Do(context.Background())
 		if err != nil {
 			log.Err(err).Msg("Error while searching on ES")
@@ -141,6 +171,9 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 
 			resources = append(resources, resource)
 		}
+
+		// Write pagination
+		writePagination(c, p, totalCount)
 
 		return c.JSON(http.StatusOK, resources)
 	}
@@ -237,4 +270,30 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	}
 
 	return nil
+}
+
+func readPagination(c echo.Context) pagination {
+	paginationPage, err := strconv.Atoi(c.QueryParam(paginationPageQueryParam))
+	if err != nil {
+		paginationPage = 1
+	}
+	paginationSize, err := strconv.Atoi(c.QueryParam(paginationSizeQueryParam))
+	if err != nil {
+		paginationSize = defaultPaginationSize
+	}
+	// Prevent too much results from being returned
+	if paginationSize > maxPaginationSize {
+		paginationSize = maxPaginationSize
+	}
+
+	return pagination{
+		page: paginationPage,
+		size: paginationSize,
+	}
+}
+
+func writePagination(c echo.Context, p pagination, totalCount int64) {
+	c.Response().Header().Set(paginationPageHeader, strconv.Itoa(p.page))
+	c.Response().Header().Set(paginationSizeHeader, strconv.Itoa(p.size))
+	c.Response().Header().Set(paginationCountHeader, strconv.FormatInt(totalCount, 10))
 }
