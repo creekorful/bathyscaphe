@@ -122,6 +122,22 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 			withBody = true
 		}
 
+		startDate := time.Time{}
+		if val := c.QueryParam("start-date"); val != "" {
+			d, err := time.Parse(time.RFC3339, val)
+			if err != nil {
+				startDate = d
+			}
+		}
+
+		endDate := time.Time{}
+		if val := c.QueryParam("end-date"); val != "" {
+			d, err := time.Parse(time.RFC3339, val)
+			if err != nil {
+				endDate = d
+			}
+		}
+
 		// First of all base64decode the URL
 		b64URL := c.QueryParam("url")
 		b, err := base64.URLEncoding.DecodeString(b64URL)
@@ -135,7 +151,7 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 		from := (p.page - 1) * p.size
 
 		// Build up search query
-		query := buildSearchQuery(string(b), c.QueryParam("keyword"))
+		query := buildSearchQuery(string(b), c.QueryParam("keyword"), startDate, endDate)
 
 		// Get total count
 		totalCount, err := es.Count(resourcesIndex).Query(query).Do(context.Background())
@@ -212,13 +228,24 @@ func addResource(es *elastic.Client) echo.HandlerFunc {
 	}
 }
 
-func buildSearchQuery(url, keyword string) elastic.Query {
+func buildSearchQuery(url, keyword string, startDate, endDate time.Time) elastic.Query {
 	var queries []elastic.Query
 	if url != "" {
 		queries = append(queries, elastic.NewTermQuery("url", url))
 	}
 	if keyword != "" {
 		queries = append(queries, elastic.NewTermQuery("body", keyword))
+	}
+	if !startDate.IsZero() || !endDate.IsZero() {
+		timeQuery := elastic.NewRangeQuery("time")
+
+		if !startDate.IsZero() {
+			timeQuery.Gte(startDate)
+		}
+		if !endDate.IsZero() {
+			timeQuery.Lte(endDate)
+		}
+		queries = append(queries, timeQuery)
 	}
 
 	// Handle specific case

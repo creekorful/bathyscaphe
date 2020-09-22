@@ -14,5 +14,6 @@ require (
 	github.com/rs/zerolog v1.20.0
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/valyala/fasthttp v1.9.0
+	github.com/xhit/go-str2duration/v2 v2.0.0
 	mvdan.cc/xurls/v2 v2.1.0
 )

@@ -6,6 +6,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"time"
 )
 
 // GetApp returns the Trandoshan CLI app
@@ -67,7 +68,7 @@ func search(c *cli.Context) error {
 	keyword := c.Args().First()
 	apiClient := api.NewClient(c.String("api-uri"))
 
-	res, err := apiClient.SearchResources("", keyword)
+	res, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{})
 	if err != nil {
 		log.Err(err).Str("keyword", keyword).Msg("Unable to search resources")
 		return err

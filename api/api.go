@@ -21,7 +21,7 @@ type ResourceDto struct {
 
 // Client is the interface to interact with the API process
 type Client interface {
-	SearchResources(url, keyword string) ([]ResourceDto, error)
+	SearchResources(url, keyword string, startDate, endDate time.Time) ([]ResourceDto, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
 }
@@ -31,7 +31,7 @@ type client struct {
 	baseURL    string
 }
 
-func (c *client) SearchResources(url, keyword string) ([]ResourceDto, error) {
+func (c *client) SearchResources(url, keyword string, startDate, endDate time.Time) ([]ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
 	if url != "" {
@@ -40,6 +40,14 @@ func (c *client) SearchResources(url, keyword string) ([]ResourceDto, error) {
 
 	if keyword != "" {
 		targetEndpoint += fmt.Sprintf("keyword=%s&", keyword)
+	}
+
+	if !startDate.IsZero() {
+		targetEndpoint += fmt.Sprintf("start-date=%s&", startDate.Format(time.RFC3339))
+	}
+
+	if !endDate.IsZero() {
+		targetEndpoint += fmt.Sprintf("end-date=%s&", endDate.Format(time.RFC3339))
 	}
 
 	var resources []ResourceDto
