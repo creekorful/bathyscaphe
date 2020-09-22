@@ -102,16 +102,28 @@ func execute(c *cli.Context) error {
 
 func searchResources(es *elastic.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		withBody := false
+		if c.QueryParam("with-body") == "true" {
+			withBody = true
+		}
+
 		// First of all base64decode the URL
 		b64URL := c.QueryParam("url")
 		b, err := base64.URLEncoding.DecodeString(b64URL)
 		if err != nil {
 			log.Err(err).Msg("Error while decoding URL")
-			return c.NoContent(http.StatusInternalServerError)
+			return c.NoContent(http.StatusUnprocessableEntity)
+		}
+
+		// Build the search query
+		var query elastic.Query
+		if url := string(b); url != "" {
+			query = elastic.NewMatchQuery("url", url)
+		} else {
+			query = elastic.NewMatchAllQuery()
 		}
 
 		// Perform the search request.
-		query := elastic.NewMatchQuery("url", string(b))
 		res, err := es.Search().
 			Index(resourcesIndex).
 			Query(query).
@@ -128,6 +140,12 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 				log.Warn().Str("err", err.Error()).Msg("Error while un-marshaling resource")
 				continue
 			}
+
+			// Remove body if not wanted
+			if !withBody {
+				resource.Body = ""
+			}
+
 			resources = append(resources, resource)
 		}
 
