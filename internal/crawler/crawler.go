@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"crypto/tls"
+	"fmt"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
@@ -93,37 +94,11 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 			return err
 		}
 
-		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL")
-
-		// Query the website
-		req := fasthttp.AcquireRequest()
-		resp := fasthttp.AcquireResponse()
-		defer fasthttp.ReleaseRequest(req)
-		defer fasthttp.ReleaseResponse(resp)
-
-		req.SetRequestURI(urlMsg.URL)
-
-		if err := httpClient.Do(req, resp); err != nil {
-			log.Err(err).Msg("Error while crawling website")
+		body, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
+		if err != nil {
+			log.Err(err).Str("url", urlMsg.URL).Msg("Error while crawling url")
 			return err
 		}
-
-		// Determinate if content type is allowed
-		allowed := false
-		contentType := string(resp.Header.Peek("Content-Type"))
-		for _, allowedContentType := range allowedContentTypes {
-			if strings.Contains(contentType, allowedContentType) {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			log.Debug().Str("content-type", contentType).Msg("Discarding forbidden content type")
-			return nil
-		}
-
-		body := string(resp.Body())
 
 		// Publish resource body
 		res := messaging.NewResourceMsg{
@@ -136,4 +111,45 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 
 		return nil
 	}
+}
+
+func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []string) (string, error) {
+	log.Debug().Str("url", url).Msg("Processing URL")
+
+	// Query the website
+	req := fasthttp.AcquireRequest()
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseRequest(req)
+	defer fasthttp.ReleaseResponse(resp)
+
+	req.SetRequestURI(url)
+
+	if err := httpClient.Do(req, resp); err != nil {
+		return "", err
+	}
+
+	switch code := resp.StatusCode(); {
+	// follow redirect
+	case code == 301 || code == 302:
+		if location := string(resp.Header.Peek("Location")); location != "" {
+			return crawURL(httpClient, location, allowedContentTypes)
+		}
+	}
+
+	// Determinate if content type is allowed
+	allowed := false
+	contentType := string(resp.Header.Peek("Content-Type"))
+	for _, allowedContentType := range allowedContentTypes {
+		if strings.Contains(contentType, allowedContentType) {
+			allowed = true
+			break
+		}
+	}
+
+	if !allowed {
+		err := fmt.Errorf("forbidden content type : %s", contentType)
+		return "", err
+	}
+
+	return string(resp.Body()), nil
 }
