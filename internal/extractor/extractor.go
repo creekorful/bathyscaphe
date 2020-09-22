@@ -61,14 +61,15 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
-	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors", handleMessage(apiClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors",
+		handleMessage(apiClient)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var resMsg messaging.NewResourceMsg
 		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {

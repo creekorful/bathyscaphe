@@ -58,14 +58,15 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(apiClient, ctx.String("api-uri"))); err != nil {
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers",
+		handleMessage(apiClient)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
+func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var urlMsg messaging.URLFoundMsg
 		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
