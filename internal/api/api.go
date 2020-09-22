@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+var (
+	resourcesIndex = "resources"
+)
+
 // Represent a resource in elasticsearch
 type resourceIndex struct {
 	URL   string    `json:"url"`
@@ -100,7 +104,7 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 		// Perform the search request.
 		query := elastic.NewMatchQuery("url", string(b))
 		res, err := es.Search().
-			Index("resource").
+			Index(resourcesIndex).
 			Query(query).
 			Do(context.Background())
 		if err != nil {
@@ -141,7 +145,7 @@ func addResource(es *elastic.Client) echo.HandlerFunc {
 		}
 
 		_, err := es.Index().
-			Index("resources").
+			Index(resourcesIndex).
 			BodyJson(doc).
 			Do(context.Background())
 		if err != nil {

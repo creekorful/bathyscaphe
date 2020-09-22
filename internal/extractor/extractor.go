@@ -1,6 +1,8 @@
 package extractor
 
 import (
+	"fmt"
+	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util/logging"
@@ -121,7 +123,21 @@ func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, []string, e
 
 	// Extract URLs
 	xu := xurls.Strict()
-	return resDto, xu.FindAllString(msg.Body, -1), nil
+
+	// Sanitize URLs
+	urls := xu.FindAllString(msg.Body, -1)
+	var normalizedURLS []string
+
+	for _, url := range urls {
+		normalizedURL, err := normalizeURL(url)
+		if err != nil {
+			continue
+		}
+
+		normalizedURLS = append(normalizedURLS, normalizedURL)
+	}
+
+	return resDto, normalizedURLS, nil
 }
 
 // extract title from html body
@@ -137,4 +153,14 @@ func extractTitle(body string) string {
 	endPos := strings.Index(cleanBody, "</title>")
 
 	return body[startPos:endPos]
+}
+
+func normalizeURL(u string) (string, error) {
+	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
+		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+	if err != nil {
+		return "", fmt.Errorf("error while normalizing URL %s: %s", u, err)
+	}
+
+	return normalizedURL, nil
 }

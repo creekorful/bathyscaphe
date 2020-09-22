@@ -3,7 +3,6 @@ package scheduler
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util/logging"
@@ -74,19 +73,20 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 		}
 
 		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL: %s")
-		normalizedURL, err := normalizeURL(urlMsg.URL)
+
+		u, err := url.Parse(urlMsg.URL)
 		if err != nil {
-			log.Err(err).Msg("Error while normalizing URL")
+			log.Err(err).Msg("Error while parsing URL")
 			return err
 		}
 
 		// Make sure URL is valid .onion
-		if !strings.Contains(normalizedURL.Host, ".onion") {
-			log.Debug().Stringer("url", normalizedURL).Msg("URL is not a valid hidden service")
+		if !strings.Contains(u.Host, ".onion") {
+			log.Debug().Stringer("url", u).Msg("URL is not a valid hidden service")
 			return err
 		}
 
-		b64URI := base64.URLEncoding.EncodeToString([]byte(normalizedURL.String()))
+		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))
 		urls, err := apiClient.SearchResources(b64URI)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
@@ -95,29 +95,14 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 
 		// No matches: schedule!
 		if len(urls) == 0 {
-			log.Debug().Stringer("url", normalizedURL).Msg("URL should be scheduled")
+			log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 			if err := natsutil.PublishMsg(nc, &messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {
-			log.Trace().Stringer("url", normalizedURL).Msg("URL should not be scheduled")
+			log.Trace().Stringer("url", u).Msg("URL should not be scheduled")
 		}
 
 		return nil
 	}
-}
-
-func normalizeURL(u string) (*url.URL, error) {
-	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
-		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
-	if err != nil {
-		return nil, fmt.Errorf("error while normalizing URL %s: %s", u, err)
-	}
-
-	nu, err := url.Parse(normalizedURL)
-	if err != nil {
-		return nil, fmt.Errorf("error while parsing URL: %s", err)
-	}
-
-	return nu, nil
 }
