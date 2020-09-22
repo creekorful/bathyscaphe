@@ -84,7 +84,7 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 		// Extract & process resource
 		resDto, urls, err := extractResource(resMsg)
 		if err != nil {
-			log.Err(err).Msg("Ersror while extracting resource")
+			log.Err(err).Msg("Error while extracting resource")
 			return err
 		}
 
@@ -148,7 +148,6 @@ func extractTitle(body string) string {
 		return ""
 	}
 
-	// TODO improve
 	startPos := strings.Index(cleanBody, "<title>") + len("<title>")
 	endPos := strings.Index(cleanBody, "</title>")
 

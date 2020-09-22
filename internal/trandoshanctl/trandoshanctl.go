@@ -73,6 +73,10 @@ func search(c *cli.Context) error {
 		return err
 	}
 
+	if len(res) == 0 {
+		fmt.Println("No resources crawled (yet).")
+	}
+
 	for _, r := range res {
 		fmt.Printf("%s - %s\n", r.URL, r.Title)
 	}

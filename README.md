@@ -32,7 +32,7 @@ Ensure you have at least 3GB of memory as the Elasticsearch stack docker will re
 
 # How to start the crawling process
 
-Since the API is explosed on localhost:15005, one can use it to start the crawling process:
+Since the API is exposed on localhost:15005, one can use it to start the crawling process:
 
 using trandoshanctl executable:
 
