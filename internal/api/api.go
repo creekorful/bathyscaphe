@@ -115,15 +115,8 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 			return c.NoContent(http.StatusUnprocessableEntity)
 		}
 
-		// Build the search query
-		var query elastic.Query
-		if url := string(b); url != "" {
-			query = elastic.NewMatchQuery("url", url)
-		} else {
-			query = elastic.NewMatchAllQuery()
-		}
-
 		// Perform the search request.
+		query := buildSearchQuery(string(b), c.QueryParam("keyword"))
 		res, err := es.Search().
 			Index(resourcesIndex).
 			Query(query).
@@ -184,6 +177,27 @@ func addResource(es *elastic.Client) echo.HandlerFunc {
 
 		return c.JSON(http.StatusCreated, resourceDto)
 	}
+}
+
+func buildSearchQuery(url, keyword string) elastic.Query {
+	var queries []elastic.Query
+	if url != "" {
+		queries = append(queries, elastic.NewTermQuery("url", url))
+	}
+	if keyword != "" {
+		queries = append(queries, elastic.NewTermQuery("body", keyword))
+	}
+
+	// Handle specific case
+	if len(queries) == 0 {
+		return elastic.NewMatchAllQuery()
+	}
+	if len(queries) == 1 {
+		return queries[0]
+	}
+
+	// otherwise AND combine them
+	return elastic.NewBoolQuery().Must(queries...)
 }
 
 func scheduleURL(nc *nats.Conn) echo.HandlerFunc {
