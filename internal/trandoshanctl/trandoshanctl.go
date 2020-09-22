@@ -29,6 +29,12 @@ func GetApp() *cli.App {
 				Action:    schedule,
 				ArgsUsage: "URL",
 			},
+			{
+				Name:      "search",
+				Usage:     "Search for specific resources",
+				ArgsUsage: "keyword",
+				Action:    search,
+			},
 		},
 		Before: before,
 	}
@@ -53,6 +59,23 @@ func schedule(c *cli.Context) error {
 	}
 
 	log.Info().Str("url", url).Msg("Successfully schedule crawling")
+
+	return nil
+}
+
+func search(c *cli.Context) error {
+	keyword := c.Args().First()
+	apiClient := api.NewClient(c.String("api-uri"))
+
+	res, err := apiClient.SearchResources("", keyword)
+	if err != nil {
+		log.Err(err).Str("keyword", keyword).Msg("Unable to search resources")
+		return err
+	}
+
+	for _, r := range res {
+		fmt.Printf("%s - %s\n", r.URL, r.Title)
+	}
 
 	return nil
 }

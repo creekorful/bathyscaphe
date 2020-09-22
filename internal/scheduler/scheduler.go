@@ -87,7 +87,7 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 		}
 
 		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))
-		urls, err := apiClient.SearchResources(b64URI)
+		urls, err := apiClient.SearchResources(b64URI, "")
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err
