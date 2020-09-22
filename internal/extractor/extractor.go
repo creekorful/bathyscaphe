@@ -8,6 +8,13 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"regexp"
+	"strings"
+	"time"
+)
+
+var (
+	protocolRegex = regexp.MustCompile("https?://")
 )
 
 // GetApp return the extractor app
@@ -64,12 +71,52 @@ func handleMessage(apiClient api.Client, apiURI string) natsutil.MsgHandler {
 	return func(nc *nats.Conn, msg *nats.Msg) error {
 		var resMsg messaging.NewResourceMsg
 		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {
+			log.Err(err).Msg("Error while reading message")
 			return err
 		}
 
 		log.Debug().Str("url", resMsg.URL).Msg("Processing new resource")
 
-		// TODO
+		// Extract & process resource
+		resDto, err := extractResource(resMsg)
+		if err != nil {
+			log.Err(err).Msg("Ersror while extracting resource")
+			return err
+		}
+
+		// Submit to the API
+		_, err = apiClient.AddResource(resDto)
+		if err != nil {
+			log.Err(err).Msg("Error while adding resource")
+			return err
+		}
+
 		return nil
 	}
+}
+
+func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, error) {
+	resDto := api.ResourceDto{
+		URL:   protocolRegex.ReplaceAllLiteralString(msg.URL, ""),
+		Title: extractTitle(msg.Body),
+		Body:  msg.Body,
+		Time:  time.Now(),
+	}
+
+	return resDto, nil
+}
+
+// extract title from html body
+func extractTitle(body string) string {
+	cleanBody := strings.ToLower(body)
+
+	if strings.Index(cleanBody, "<title>") == -1 || strings.Index(cleanBody, "</title>") == -1 {
+		return ""
+	}
+
+	// TODO improve
+	startPos := strings.Index(cleanBody, "<title>") + len("<title>")
+	endPos := strings.Index(cleanBody, "</title>")
+
+	return body[startPos:endPos]
 }

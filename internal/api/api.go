@@ -14,13 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
-)
-
-var (
-	protocolRegex = regexp.MustCompile("https?://")
 )
 
 // Represent a resource in elasticsearch
@@ -140,10 +134,10 @@ func addResource(es *elastic.Client) echo.HandlerFunc {
 
 		// Create Elasticsearch document
 		doc := resourceIndex{
-			URL:   protocolRegex.ReplaceAllLiteralString(resourceDto.URL, ""),
+			URL:   resourceDto.URL,
 			Body:  resourceDto.Body,
-			Title: extractTitle(resourceDto.Body),
-			Time:  time.Now(),
+			Title: resourceDto.Title,
+			Time:  resourceDto.Time,
 		}
 
 		_, err := es.Index().
@@ -179,19 +173,4 @@ func addURL(nc *nats.Conn) echo.HandlerFunc {
 
 		return nil
 	}
-}
-
-// extract title from html body
-func extractTitle(body string) string {
-	cleanBody := strings.ToLower(body)
-
-	if strings.Index(cleanBody, "<title>") == -1 || strings.Index(cleanBody, "</title>") == -1 {
-		return ""
-	}
-
-	// TODO improve
-	startPos := strings.Index(cleanBody, "<title>") + len("<title>")
-	endPos := strings.Index(cleanBody, "</title>")
-
-	return body[startPos:endPos]
 }
