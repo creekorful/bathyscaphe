@@ -26,4 +26,6 @@ func ConfigureLogger(ctx *cli.Context) {
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
+
+	log.Debug().Stringer("lvl", zerolog.GlobalLevel()).Msg("Setting log level")
 }

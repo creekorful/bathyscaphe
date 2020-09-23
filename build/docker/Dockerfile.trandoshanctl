@@ -13,12 +13,12 @@ RUN go mod download
 COPY . .
 
 # Test then build app
-RUN go build -v github.com/creekorful/trandoshan/cmd/tdsh-feeder
+RUN go build -v github.com/creekorful/trandoshan/cmd/trandoshanctl
 
 # runtime image
 FROM alpine:latest
-COPY --from=builder /app/tdsh-feeder /app/
+COPY --from=builder /app/trandoshanctl /app/
 
 WORKDIR /app/
 
-ENTRYPOINT ["./tdsh-feeder"]
+ENTRYPOINT ["./trandoshanctl"]

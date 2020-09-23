@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/creekorful/trandoshan/internal/persister"
+	"github.com/creekorful/trandoshan/internal/extractor"
 	"os"
 )
 
 func main() {
-	app := persister.GetApp()
+	app := extractor.GetApp()
 	if err := app.Run(os.Args); err != nil {
 		os.Exit(1)
 	}

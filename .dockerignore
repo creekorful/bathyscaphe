@@ -1,0 +1,8 @@
+.git
+LICENSE
+README.md
+snapcraft.yaml
+deployments
+docs
+scripts
+build

@@ -39,8 +39,8 @@ services:
     restart: always
     depends_on:
       - nats
-  persister:
-    image: creekorful/tdsh-persister:latest
+  extractor:
+    image: creekorful/tdsh-extractor:latest
     command: --log-level debug --nats-uri nats --api-uri http://api:8080
     restart: always
     depends_on:
