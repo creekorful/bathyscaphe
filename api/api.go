@@ -81,11 +81,12 @@ func (c *client) SearchResources(url, keyword string,
 		return nil, 0, err
 	}
 
-	if count, err := strconv.ParseInt(res.Header[PaginationCountHeader][0], 10, 64); err != nil {
+	count, err := strconv.ParseInt(res.Header[PaginationCountHeader][0], 10, 64)
+	if err != nil {
 		return nil, 0, err
-	} else {
-		return resources, count, nil
 	}
+
+	return resources, count, nil
 }
 
 func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
