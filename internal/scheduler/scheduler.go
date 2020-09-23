@@ -51,6 +51,13 @@ func execute(ctx *cli.Context) error {
 	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
+	refreshDelay := parseRefreshDelay(ctx.String("refresh-delay"))
+	if refreshDelay != -1 {
+		log.Debug().Stringer("delay", refreshDelay).Msg("Existing resources will be crawled again")
+	} else {
+		log.Debug().Msg("Existing resources will NOT be crawled again")
+	}
+
 	// Create the API client
 	apiClient := api.NewClient(ctx.String("api-uri"))
 
@@ -63,8 +70,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers",
-		handleMessage(apiClient, parseRefreshDelay(ctx.String("refresh-delay")))); err != nil {
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(apiClient, refreshDelay)); err != nil {
 		return err
 	}
 
@@ -96,10 +102,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) natsutil.Ms
 		// that are newer than now-refreshDelay.
 		endDate := time.Time{}
 		if refreshDelay != -1 {
-			log.Debug().Stringer("delay", refreshDelay).Msg("Existing resources will be crawled again")
 			endDate = time.Now().Add(-refreshDelay)
-		} else {
-			log.Debug().Msg("Existing resources will NOT be crawled again")
 		}
 
 		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))

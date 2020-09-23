@@ -125,7 +125,7 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 		startDate := time.Time{}
 		if val := c.QueryParam("start-date"); val != "" {
 			d, err := time.Parse(time.RFC3339, val)
-			if err != nil {
+			if err == nil {
 				startDate = d
 			}
 		}
@@ -133,7 +133,7 @@ func searchResources(es *elastic.Client) echo.HandlerFunc {
 		endDate := time.Time{}
 		if val := c.QueryParam("end-date"); val != "" {
 			d, err := time.Parse(time.RFC3339, val)
-			if err != nil {
+			if err == nil {
 				endDate = d
 			}
 		}
@@ -231,19 +231,23 @@ func addResource(es *elastic.Client) echo.HandlerFunc {
 func buildSearchQuery(url, keyword string, startDate, endDate time.Time) elastic.Query {
 	var queries []elastic.Query
 	if url != "" {
+		log.Trace().Str("url", url).Msg("SearchQuery: Setting url")
 		queries = append(queries, elastic.NewTermQuery("url", url))
 	}
 	if keyword != "" {
+		log.Trace().Str("body", keyword).Msg("SearchQuery: Setting body")
 		queries = append(queries, elastic.NewTermQuery("body", keyword))
 	}
 	if !startDate.IsZero() || !endDate.IsZero() {
 		timeQuery := elastic.NewRangeQuery("time")
 
 		if !startDate.IsZero() {
-			timeQuery.Gte(startDate)
+			log.Trace().Str("startDate", startDate.Format(time.RFC3339)).Msg("SearchQuery: Setting startDate")
+			timeQuery.Gte(startDate.Format(time.RFC3339))
 		}
 		if !endDate.IsZero() {
-			timeQuery.Lte(endDate)
+			log.Trace().Str("endDate", endDate.Format(time.RFC3339)).Msg("SearchQuery: Setting endDate")
+			timeQuery.Lte(endDate.Format(time.RFC3339))
 		}
 		queries = append(queries, timeQuery)
 	}
