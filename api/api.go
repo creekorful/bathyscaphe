@@ -6,10 +6,24 @@ import (
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
-const contentTypeJSON = "application/json"
+const (
+	// PaginationPageHeader is the header to determinate current page in paginated endpoint
+	PaginationPageHeader = "X-Pagination-Page"
+	// PaginationSizeHeader is the header to determinate page size in paginated endpoint
+	PaginationSizeHeader = "X-Pagination-Size"
+	// PaginationCountHeader is the header to determinate total count of element in paginated endpoint
+	PaginationCountHeader = "X-Pagination-Count"
+	// PaginationPageQueryParam is the query parameter used to set current page in paginated endpoint
+	PaginationPageQueryParam = "pagination-page"
+	// PaginationSizeQueryParam is the query parameter used to set page size in paginated endpoint
+	PaginationSizeQueryParam = "pagination-size"
+
+	contentTypeJSON = "application/json"
+)
 
 // ResourceDto represent a resource as given by the API
 type ResourceDto struct {
@@ -21,7 +35,8 @@ type ResourceDto struct {
 
 // Client is the interface to interact with the API process
 type Client interface {
-	SearchResources(url, keyword string, startDate, endDate time.Time) ([]ResourceDto, error)
+	SearchResources(url, keyword string, startDate, endDate time.Time,
+		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
 }
@@ -31,7 +46,8 @@ type client struct {
 	baseURL    string
 }
 
-func (c *client) SearchResources(url, keyword string, startDate, endDate time.Time) ([]ResourceDto, error) {
+func (c *client) SearchResources(url, keyword string,
+	startDate, endDate time.Time, paginationPage, paginationSize int) ([]ResourceDto, int64, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
 	if url != "" {
@@ -50,9 +66,26 @@ func (c *client) SearchResources(url, keyword string, startDate, endDate time.Ti
 		targetEndpoint += fmt.Sprintf("end-date=%s&", endDate.Format(time.RFC3339))
 	}
 
+	headers := map[string]string{}
+
+	if paginationPage != 0 {
+		headers[PaginationPageHeader] = strconv.Itoa(paginationPage)
+	}
+	if paginationSize != 0 {
+		headers[PaginationSizeHeader] = strconv.Itoa(paginationSize)
+	}
+
 	var resources []ResourceDto
-	_, err := jsonGet(c.httpClient, targetEndpoint, &resources)
-	return resources, err
+	res, err := jsonGet(c.httpClient, targetEndpoint, headers, &resources)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if count, err := strconv.ParseInt(res.Header[PaginationCountHeader][0], 10, 64); err != nil {
+		return nil, 0, err
+	} else {
+		return resources, count, nil
+	}
 }
 
 func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
@@ -79,10 +112,20 @@ func NewClient(baseURL string) Client {
 	}
 }
 
-func jsonGet(httpClient *http.Client, url string, response interface{}) (*http.Response, error) {
+func jsonGet(httpClient *http.Client, url string, headers map[string]string, response interface{}) (*http.Response, error) {
 	log.Trace().Str("verb", "GET").Str("url", url).Msg("")
 
-	r, err := httpClient.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// populate custom headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	r, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

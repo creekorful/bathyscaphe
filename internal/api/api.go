@@ -19,14 +19,7 @@ import (
 )
 
 var (
-	resourcesIndex = "resources"
-
-	paginationPageHeader     = "X-Pagination-Page"
-	paginationSizeHeader     = "X-Pagination-Size"
-	paginationCountHeader    = "X-Pagination-Count"
-	paginationPageQueryParam = "pagination-page"
-	paginationSizeQueryParam = "pagination-size"
-
+	resourcesIndex        = "resources"
 	defaultPaginationSize = 50
 	maxPaginationSize     = 100
 )
@@ -304,11 +297,11 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 }
 
 func readPagination(c echo.Context) pagination {
-	paginationPage, err := strconv.Atoi(c.QueryParam(paginationPageQueryParam))
+	paginationPage, err := strconv.Atoi(c.QueryParam(api.PaginationPageQueryParam))
 	if err != nil {
 		paginationPage = 1
 	}
-	paginationSize, err := strconv.Atoi(c.QueryParam(paginationSizeQueryParam))
+	paginationSize, err := strconv.Atoi(c.QueryParam(api.PaginationSizeQueryParam))
 	if err != nil {
 		paginationSize = defaultPaginationSize
 	}
@@ -324,7 +317,7 @@ func readPagination(c echo.Context) pagination {
 }
 
 func writePagination(c echo.Context, p pagination, totalCount int64) {
-	c.Response().Header().Set(paginationPageHeader, strconv.Itoa(p.page))
-	c.Response().Header().Set(paginationSizeHeader, strconv.Itoa(p.size))
-	c.Response().Header().Set(paginationCountHeader, strconv.FormatInt(totalCount, 10))
+	c.Response().Header().Set(api.PaginationPageHeader, strconv.Itoa(p.page))
+	c.Response().Header().Set(api.PaginationSizeHeader, strconv.Itoa(p.size))
+	c.Response().Header().Set(api.PaginationCountHeader, strconv.FormatInt(totalCount, 10))
 }

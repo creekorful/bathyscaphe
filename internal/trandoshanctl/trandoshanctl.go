@@ -68,7 +68,7 @@ func search(c *cli.Context) error {
 	keyword := c.Args().First()
 	apiClient := api.NewClient(c.String("api-uri"))
 
-	res, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{})
+	res, count, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{}, 1, 20)
 	if err != nil {
 		log.Err(err).Str("keyword", keyword).Msg("Unable to search resources")
 		return err
@@ -81,6 +81,9 @@ func search(c *cli.Context) error {
 	for _, r := range res {
 		fmt.Printf("%s - %s\n", r.URL, r.Title)
 	}
+
+	fmt.Println("")
+	fmt.Printf("Total: %d\n", count)
 
 	return nil
 }
