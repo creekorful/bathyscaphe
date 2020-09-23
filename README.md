@@ -13,14 +13,6 @@ not really professional, the code start to be a mess, hard to manage since split
 I have therefore decided to create & maintain the project in this specific directory, where all process code will be available
 (as a Go module).
 
-# How build the crawler
-
-Since the docker image are not available yet, one must run the following script in order to build the crawler fully.
-
-```sh
-./scripts/build.sh
-```
-
 # How to start the crawler
 
 Execute the ``/scripts/start.sh`` and wait for all containers to start.
@@ -48,7 +40,7 @@ docker run creekorful/trandoshanctl schedule https://www.facebookcorewwwi.onion
 
 this will schedule given URL for crawling.
 
-## How to view results
+# How to view results
 
 ## Using trandoshanctl
 
@@ -60,3 +52,8 @@ trandoshanctl search <term>
 
 You can use the Kibana dashboard available at http://localhost:15004.
 You will need to create an index pattern named 'resources', and when it asks for the time field, choose 'time'.
+
+# How to hack the crawler
+
+If you've made a change to one of the crawler process and wish to use the updated version when
+running ``./scripts/start.sh`` you just need to run the ``./scripts/build.sh`` script.
