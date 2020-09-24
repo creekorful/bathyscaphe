@@ -48,7 +48,7 @@ services:
       - api
   api:
     image: creekorful/tdsh-api:latest
-    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
+    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200 --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
     restart: always
     depends_on:
       - elasticsearch

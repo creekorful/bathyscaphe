@@ -9,6 +9,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/util/logging"
 	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/nats-io/nats.go"
 	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
@@ -55,6 +56,11 @@ func GetApp() *cli.App {
 				Usage:    "URI to the Elasticsearch server",
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:     "signing-key",
+				Usage:    "Signing key for the JWT token",
+				Required: true,
+			},
 		},
 		Action: execute,
 	}
@@ -97,6 +103,9 @@ func execute(c *cli.Context) error {
 	if err := setupElasticSearch(ctx, es); err != nil {
 		return err
 	}
+
+	// Setup middlewares
+	e.Use(middleware.JWT([]byte(c.String("signing-key"))))
 
 	// Add endpoints
 	e.GET("/v1/resources", searchResources(es))
