@@ -22,7 +22,7 @@ You can start the crawler in detached mode by passing --detach to it.
 
 Ensure you have at least 3GB of memory as the Elasticsearch stack docker will require 2GB.
 
-# How to start the crawling process
+# How to initiate crawling
 
 Since the API is exposed on localhost:15005, one can use it to start the crawling process:
 
@@ -41,6 +41,17 @@ $ docker run creekorful/trandoshanctl --api-uri <uri> schedule https://www.faceb
 (you'll need to specify the api uri if you use the docker container) 
 
 this will schedule given URL for crawling.
+
+## How to speed up crawling
+
+If one want to speed up the crawling process, he can scale the instance of crawling process in order
+to increase performances. This may be done by issuing the following command after the crawler is started:
+
+```sh
+$ ./scripts/scale.sh crawler=5
+```
+
+this will set the number of crawler instance to 5.
 
 # How to view results
 
