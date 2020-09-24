@@ -15,12 +15,18 @@ where all process code will be available (as a Go module).
 
 # How to start the crawler
 
-Execute the ``/scripts/start.sh`` and wait for all containers to start.
-You can start the crawler in detached mode by passing --detach to it.
+To start the crawler, one just need to execute the following command:
 
-## Note
+```sh
+$ ./scripts/start.sh
+```
 
-Ensure you have at least 3GB of memory as the Elasticsearch stack docker will require 2GB.
+and wait for all containers to start.
+
+## Notes
+
+- You can start the crawler in detached mode by passing --detach to start.sh.
+- Ensure you have at least 3 GB of memory as the Elasticsearch stack docker will require 2 GB.
 
 # How to initiate crawling
 
@@ -69,4 +75,11 @@ You will need to create an index pattern named 'resources', and when it asks for
 # How to hack the crawler
 
 If you've made a change to one of the crawler process and wish to use the updated version when
-running ``./scripts/start.sh`` you just need to run the ``./scripts/build.sh`` script.
+running start.sh you just need to issue the following command:
+
+```sh
+$ ./script/build.sh
+```
+
+this will rebuild all crawler images using local changes. 
+After that just run start.sh again to have the updated version running.
