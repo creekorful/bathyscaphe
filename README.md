@@ -64,7 +64,7 @@ this will set the number of crawler instance to 5.
 ## Using trandoshanctl
 
 ```sh
-trandoshanctl search <term>
+$ trandoshanctl search <term>
 ```
 
 ## Using kibana

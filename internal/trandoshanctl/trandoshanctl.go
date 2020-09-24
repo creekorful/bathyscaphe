@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/util/logging"
+	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"os"
 	"time"
 )
 
@@ -68,7 +70,7 @@ func search(c *cli.Context) error {
 	keyword := c.Args().First()
 	apiClient := api.NewClient(c.String("api-uri"))
 
-	res, count, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{}, 1, 20)
+	res, count, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{}, 1, 10)
 	if err != nil {
 		log.Err(err).Str("keyword", keyword).Msg("Unable to search resources")
 		return err
@@ -78,12 +80,24 @@ func search(c *cli.Context) error {
 		fmt.Println("No resources crawled (yet).")
 	}
 
-	for _, r := range res {
-		fmt.Printf("%s - %s\n", r.URL, r.Title)
-	}
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Time", "URL", "Title"})
 
-	fmt.Println("")
+	for _, v := range res {
+		table.Append([]string{v.Time.Format(time.RFC822), shortenURL(v.URL), v.Title})
+	}
+	table.Render()
+
 	fmt.Printf("Total: %d\n", count)
 
 	return nil
+}
+
+func shortenURL(url string) string {
+	if len(url) > 125 {
+		url := url[0:125]
+		return url + "..."
+	}
+
+	return url
 }
