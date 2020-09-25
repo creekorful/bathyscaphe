@@ -3,7 +3,7 @@ package crawler
 import (
 	"crypto/tls"
 	"fmt"
-	logging2 "github.com/creekorful/trandoshan/internal/logging"
+	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
@@ -23,7 +23,7 @@ func GetApp() *cli.App {
 		Version: "0.4.0",
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
-			logging2.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -50,7 +50,7 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	logging2.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 
 	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-crawler")
 

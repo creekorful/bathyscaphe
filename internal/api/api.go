@@ -1,7 +1,7 @@
 package api
 
 import (
-	logging2 "github.com/creekorful/trandoshan/internal/logging"
+	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog/log"
@@ -20,7 +20,7 @@ func GetApp() *cli.App {
 		Version: "0.4.0",
 		Usage:   "Trandoshan API component",
 		Flags: []cli.Flag{
-			logging2.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -42,7 +42,7 @@ func GetApp() *cli.App {
 }
 
 func execute(c *cli.Context) error {
-	logging2.ConfigureLogger(c)
+	logging.ConfigureLogger(c)
 
 	e := echo.New()
 	e.HideBanner = true

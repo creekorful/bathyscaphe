@@ -3,7 +3,7 @@ package trandoshanctl
 import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
-	logging2 "github.com/creekorful/trandoshan/internal/logging"
+	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -18,7 +18,7 @@ func GetApp() *cli.App {
 		Version: "0.4.0",
 		Usage:   "Trandoshan CLI",
 		Flags: []cli.Flag{
-			logging2.GetLogFlag(),
+			logging.GetLogFlag(),
 			&cli.StringFlag{
 				Name:  "api-uri",
 				Usage: "URI to the API server",
@@ -44,7 +44,7 @@ func GetApp() *cli.App {
 }
 
 func before(ctx *cli.Context) error {
-	logging2.ConfigureLogger(ctx)
+	logging.ConfigureLogger(ctx)
 	return nil
 }
 
