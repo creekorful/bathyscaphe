@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
+	logging2 "github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/util/logging"
-	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -27,7 +26,7 @@ func GetApp() *cli.App {
 		Version: "0.4.0",
 		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
-			logging.GetLogFlag(),
+			logging2.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -44,7 +43,7 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+	logging2.ConfigureLogger(ctx)
 
 	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-extractor")
 
@@ -55,7 +54,7 @@ func execute(ctx *cli.Context) error {
 	apiClient := api.NewClient(ctx.String("api-uri"))
 
 	// Create the NATS subscriber
-	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
 	if err != nil {
 		return err
 	}
@@ -71,10 +70,10 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(apiClient api.Client) natsutil.MsgHandler {
-	return func(nc *nats.Conn, msg *nats.Msg) error {
+func handleMessage(apiClient api.Client) messaging.MsgHandler {
+	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var resMsg messaging.NewResourceMsg
-		if err := natsutil.ReadMsg(msg, &resMsg); err != nil {
+		if err := sub.ReadMsg(msg, &resMsg); err != nil {
 			log.Err(err).Msg("Error while reading message")
 			return err
 		}
@@ -101,7 +100,7 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 				Str("url", url).
 				Msg("Publishing found URL")
 
-			if err := natsutil.PublishMsg(nc, &messaging.URLFoundMsg{URL: url}); err != nil {
+			if err := sub.PublishMsg(&messaging.URLFoundMsg{URL: url}); err != nil {
 				log.Warn().
 					Str("url", url).
 					Str("err", err.Error()).

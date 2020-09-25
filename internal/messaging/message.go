@@ -1,4 +1,4 @@
-package nats
+package messaging
 
 // Msg represent a message send-able trough NATS
 type Msg interface {

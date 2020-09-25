@@ -3,9 +3,8 @@ package crawler
 import (
 	"crypto/tls"
 	"fmt"
+	logging2 "github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/util/logging"
-	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -24,7 +23,7 @@ func GetApp() *cli.App {
 		Version: "0.4.0",
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
-			logging.GetLogFlag(),
+			logging2.GetLogFlag(),
 			&cli.StringFlag{
 				Name:     "nats-uri",
 				Usage:    "URI to the NATS server",
@@ -51,7 +50,7 @@ func GetApp() *cli.App {
 }
 
 func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+	logging2.ConfigureLogger(ctx)
 
 	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-crawler")
 
@@ -71,7 +70,7 @@ func execute(ctx *cli.Context) error {
 	}
 
 	// Create the NATS subscriber
-	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
 	if err != nil {
 		return err
 	}
@@ -87,10 +86,10 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) natsutil.MsgHandler {
-	return func(nc *nats.Conn, msg *nats.Msg) error {
+func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) messaging.MsgHandler {
+	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var urlMsg messaging.URLTodoMsg
-		if err := natsutil.ReadMsg(msg, &urlMsg); err != nil {
+		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
 			return err
 		}
 
@@ -105,7 +104,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) na
 			URL:  urlMsg.URL,
 			Body: body,
 		}
-		if err := natsutil.PublishMsg(nc, &res); err != nil {
+		if err := sub.PublishMsg(&res); err != nil {
 			log.Err(err).Msg("Error while publishing resource body")
 		}
 
