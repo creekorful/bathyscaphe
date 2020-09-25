@@ -42,7 +42,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-api",
 		Version: "0.4.0",
-		Usage:   "Trandoshan API process",
+		Usage:   "Trandoshan API component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			&cli.StringFlag{
