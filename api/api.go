@@ -111,7 +111,10 @@ func (c *client) ScheduleURL(url string) error {
 }
 
 func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
-	panic("implement me")
+	var token string
+	targetEndpoint := fmt.Sprintf("%s/v1/sessions", c.baseURL)
+	_, err := jsonPost(c.httpClient, targetEndpoint, credentials, &token)
+	return token, err
 }
 
 // NewClient create a new Client instance to dial with the API located on given address
