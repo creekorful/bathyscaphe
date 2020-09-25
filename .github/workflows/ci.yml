@@ -15,8 +15,8 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        go: [1.14]
+        os: [ ubuntu-latest ]
+        go: [ 1.14 ]
     name: ${{ matrix.os }} @ Go ${{ matrix.go }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -37,11 +37,16 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Install Dependencies
-        run: go get -v golang.org/x/lint/golint
+        run: |
+          go get -v golang.org/x/lint/golint
+          go get -v github.com/golang/mock/mockgen@v1.4.4
+
+      - name: Lint source code
+          run: golint -set_exit_status ./...
 
       - name: Run Tests
         run: |
-          golint -set_exit_status ./...
+          go generate ./...
           go test -race --coverprofile=coverage.coverprofile --covermode=atomic -v ./...
 
       - name: Update go report card
