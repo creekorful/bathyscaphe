@@ -11,7 +11,7 @@ The first version of Trandoshan [(available here)](https://github.com/trandoshan
 not really professional, the code start to be a mess, hard to manage since split in multiple repositories, etc.
 
 I have therefore decided to create & maintain the project in this specific repository, 
-where all process code will be available (as a Go module).
+where all components code will be available (as a Go module).
 
 # How to start the crawler
 
@@ -30,7 +30,7 @@ and wait for all containers to start.
 
 # How to initiate crawling
 
-Since the API is exposed on localhost:15005, one can use it to start the crawling process:
+Since the API is exposed on localhost:15005, one can use it to start crawling:
 
 using trandoshanctl executable:
 
@@ -50,7 +50,7 @@ this will schedule given URL for crawling.
 
 ## How to speed up crawling
 
-If one want to speed up the crawling process, he can scale the instance of crawling process in order
+If one want to speed up the crawling, he can scale the instance of crawling component in order
 to increase performances. This may be done by issuing the following command after the crawler is started:
 
 ```sh
@@ -74,7 +74,7 @@ You will need to create an index pattern named 'resources', and when it asks for
 
 # How to hack the crawler
 
-If you've made a change to one of the crawler process and wish to use the updated version when
+If you've made a change to one of the crawler component and wish to use the updated version when
 running start.sh you just need to issue the following command:
 
 ```sh

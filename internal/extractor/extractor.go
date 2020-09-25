@@ -25,7 +25,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-extractor",
 		Version: "0.4.0",
-		Usage:   "Trandoshan extractor process",
+		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			&cli.StringFlag{

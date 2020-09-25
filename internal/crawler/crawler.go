@@ -22,7 +22,7 @@ func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-crawler",
 		Version: "0.4.0",
-		Usage:   "Trandoshan crawler process",
+		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			&cli.StringFlag{

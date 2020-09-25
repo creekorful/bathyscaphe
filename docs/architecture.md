@@ -1,6 +1,6 @@
 # Crawler
 
-The crawler is the central process of Trandoshan.
+The crawler is the central component of Trandoshan.
 It consumes URL, crawl them and publish the page body while following redirects etc...
 
 ## Consumes
@@ -13,7 +13,7 @@ It consumes URL, crawl them and publish the page body while following redirects 
 
 # Extractor
 
-The extractor is the data extraction process of Trandoshan.
+The extractor is the data extraction component of Trandoshan.
 It consumes crawled resource, extract data (urls, metadata, etc...) from it,
 store them into an ES instance (by calling the API), & publish found URLs.
 
@@ -29,7 +29,7 @@ store them into an ES instance (by calling the API), & publish found URLs.
 
 # Scheduler
 
-The scheduler is the process responsible for crawling schedule part.
+The scheduler is the component responsible for crawling schedule part.
 It determinates which URL should be crawled and publish them.
 
 ## Consumes
@@ -42,4 +42,4 @@ It determinates which URL should be crawled and publish them.
 
 # API
 
-The API process is mainly used to get data from ES.
+The API component is mainly used to get data from ES.

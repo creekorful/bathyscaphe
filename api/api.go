@@ -33,12 +33,13 @@ type ResourceDto struct {
 	Time  time.Time `json:"time"`
 }
 
+// CredentialsDto represent the credential when logging in the API
 type CredentialsDto struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// Client is the interface to interact with the API process
+// Client is the interface to interact with the API component
 type Client interface {
 	SearchResources(url, keyword string, startDate, endDate time.Time,
 		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
