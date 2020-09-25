@@ -33,12 +33,18 @@ type ResourceDto struct {
 	Time  time.Time `json:"time"`
 }
 
+type CredentialsDto struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 // Client is the interface to interact with the API process
 type Client interface {
 	SearchResources(url, keyword string, startDate, endDate time.Time,
 		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
+	Authenticate(credentials CredentialsDto) (string, error)
 }
 
 type client struct {
@@ -101,6 +107,10 @@ func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 	_, err := jsonPost(c.httpClient, targetEndpoint, url, nil)
 	return err
+}
+
+func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
+	panic("implement me")
 }
 
 // NewClient create a new Client instance to dial with the API located on given address

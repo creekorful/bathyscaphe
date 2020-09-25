@@ -111,6 +111,7 @@ func execute(c *cli.Context) error {
 	e.GET("/v1/resources", searchResources(es))
 	e.POST("/v1/resources", addResource(es))
 	e.POST("/v1/urls", scheduleURL(nc))
+	e.POST("/v1/sessions", authenticate())
 
 	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")
 
@@ -285,6 +286,13 @@ func scheduleURL(nc *nats.Conn) echo.HandlerFunc {
 		return nil
 	}
 }
+
+func authenticate() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return nil // TODO
+	}
+}
+
 func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	// Setup index if doesn't exist
 	exist, err := es.IndexExists(resourcesIndex).Do(ctx)
