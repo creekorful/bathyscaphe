@@ -143,6 +143,10 @@ func newSearchParams(c echo.Context) (*database.ResSearchParams, error) {
 }
 
 func getRawQueryParam(url string) map[string]string {
+	if url == "" {
+		return map[string]string{}
+	}
+
 	val := map[string]string{}
 	parts := strings.Split(url, "&")
 

@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"strings"
 )
 
 type service interface {
@@ -28,6 +29,22 @@ type svc struct {
 }
 
 func newService(c *cli.Context, signingKey []byte) (service, error) {
+	users := map[string][]byte{}
+	for _, userEntry := range c.StringSlice("users") {
+		parts := strings.Split(userEntry, ":")
+		user := parts[0]
+		pass := parts[1]
+
+		passBytes, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+		if err != nil {
+			log.Err(err).Msg("Unable to generate user password")
+			return nil, err
+		}
+
+		log.Debug().Str("username", user).Msg("Register new user")
+		users[user] = passBytes
+	}
+
 	// Connect to the NATS server
 	pub, err := messaging.NewPublisher(c.String("nats-uri"))
 	if err != nil {
@@ -44,7 +61,7 @@ func newService(c *cli.Context, signingKey []byte) (service, error) {
 
 	return &svc{
 		db:         db,
-		users:      map[string][]byte{},
+		users:      users,
 		signingKey: signingKey,
 		pub:        pub,
 	}, nil

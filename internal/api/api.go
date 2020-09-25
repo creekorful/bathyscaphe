@@ -36,6 +36,11 @@ func GetApp() *cli.App {
 				Usage:    "Signing key for the JWT token",
 				Required: true,
 			},
+			&cli.StringSliceFlag{
+				Name:     "users",
+				Usage:    "List of API users. (Format user:password)",
+				Required: false,
+			},
 		},
 		Action: execute,
 	}
@@ -62,12 +67,12 @@ func execute(c *cli.Context) error {
 	}
 
 	// Setup middlewares
-	e.Use(middleware.JWT(signingKey))
+	jwtMiddleware := middleware.JWT(signingKey)
 
 	// Add endpoints
-	e.GET("/v1/resources", searchResourcesEndpoint(svc))
-	e.POST("/v1/resources", addResourceEndpoint(svc))
-	e.POST("/v1/urls", scheduleURLEndpoint(svc))
+	e.GET("/v1/resources", searchResourcesEndpoint(svc), jwtMiddleware)
+	e.POST("/v1/resources", addResourceEndpoint(svc), jwtMiddleware)
+	e.POST("/v1/urls", scheduleURLEndpoint(svc), jwtMiddleware)
 	e.POST("/v1/sessions", authenticateEndpoint(svc))
 
 	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")

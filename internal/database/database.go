@@ -55,7 +55,6 @@ func NewElasticDB(uri string) (Database, error) {
 		elastic.SetHealthcheck(false),
 	)
 	if err != nil {
-		log.Err(err).Msg("Error while creating ES client")
 		return nil, err
 	}
 
@@ -79,7 +78,6 @@ func (e *elasticSearchDB) SearchResources(params *ResSearchParams) ([]ResourceId
 		Size(params.PageSize).
 		Do(context.Background())
 	if err != nil {
-		log.Err(err).Msg("Error while searching on ES")
 		return nil, err
 	}
 
@@ -165,13 +163,11 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	// Setup index if doesn't exist
 	exist, err := es.IndexExists(resourcesIndex).Do(ctx)
 	if err != nil {
-		log.Err(err).Str("index", resourcesIndex).Msg("Error while checking if index exist")
 		return err
 	}
 	if !exist {
 		log.Debug().Str("index", resourcesIndex).Msg("Creating missing index")
 		if _, err := es.CreateIndex(resourcesIndex).Do(ctx); err != nil {
-			log.Err(err).Str("index", resourcesIndex).Msg("Error while creating index")
 			return err
 		}
 	} else {
