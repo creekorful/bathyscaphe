@@ -42,7 +42,7 @@ jobs:
           go get -v github.com/golang/mock/mockgen@v1.4.4
 
       - name: Lint source code
-          run: golint -set_exit_status ./...
+        run: golint -set_exit_status ./...
 
       - name: Run Tests
         run: |
