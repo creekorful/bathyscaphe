@@ -6,8 +6,6 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-//go:generate mockgen -source publisher.go -destination=../messaging_mock/publisher_mock.go -package=messaging_mock
-
 // Publisher is something that push msg to an event queue
 type Publisher interface {
 	PublishMsg(msg Msg) error

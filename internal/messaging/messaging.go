@@ -1,5 +1,7 @@
 package messaging
 
+//go:generate mockgen -destination=../messaging_mock/publisher_mock.go -package=messaging_mock . Publisher,Subscriber
+
 const (
 	// URLTodoSubject is the subject used when an URL is schedule for crawling
 	URLTodoSubject = "url.todo"

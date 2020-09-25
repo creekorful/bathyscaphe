@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+//go:generate mockgen -destination=../api_mock/api_mock.go -package=api_mock . Client
+
 const (
 	// PaginationPageHeader is the header to determinate current page in paginated endpoint
 	PaginationPageHeader = "X-Pagination-Page"

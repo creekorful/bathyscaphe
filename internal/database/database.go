@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-//go:generate mockgen -source database.go -destination=../database_mock/database_mock.go -package=database_mock
+//go:generate mockgen -destination=../database_mock/database_mock.go -package=database_mock . Database
 
 var resourcesIndex = "resources"
 
