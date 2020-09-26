@@ -6,6 +6,7 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
+	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -23,16 +24,9 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan scheduler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "api-uri",
-				Usage:    "URI to the API server",
-				Required: true,
-			},
+			util.GetNATSURIFlag(),
+			util.GetAPIURIFlag(),
+			util.GetAPILoginFlag(),
 			&cli.StringFlag{
 				Name:  "refresh-delay",
 				Usage: "Duration before allowing crawl of existing resource (none = never)",
@@ -58,7 +52,10 @@ func execute(ctx *cli.Context) error {
 	}
 
 	// Create the API client
-	apiClient := api.NewClient(ctx.String("api-uri"))
+	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))

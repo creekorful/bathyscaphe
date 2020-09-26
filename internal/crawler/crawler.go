@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
+	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -24,11 +25,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
+			util.GetNATSURIFlag(),
 			&cli.StringFlag{
 				Name:     "tor-uri",
 				Usage:    "URI to the TOR SOCKS proxy",

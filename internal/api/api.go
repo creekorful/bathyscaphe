@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/creekorful/trandoshan/internal/logging"
+	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog/log"
@@ -21,11 +22,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan API component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
+			util.GetNATSURIFlag(),
 			&cli.StringFlag{
 				Name:     "elasticsearch-uri",
 				Usage:    "URI to the Elasticsearch server",

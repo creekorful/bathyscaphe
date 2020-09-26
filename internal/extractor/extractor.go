@@ -6,6 +6,7 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
+	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -27,16 +28,9 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "api-uri",
-				Usage:    "URI to the API server",
-				Required: true,
-			},
+			util.GetNATSURIFlag(),
+			util.GetAPIURIFlag(),
+			util.GetAPILoginFlag(),
 		},
 		Action: execute,
 	}
@@ -50,8 +44,10 @@ func execute(ctx *cli.Context) error {
 	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
 	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
 
-	// Create the API client
-	apiClient := api.NewClient(ctx.String("api-uri"))
+	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))

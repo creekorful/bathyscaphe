@@ -35,20 +35,21 @@ services:
       - torproxy
   scheduler:
     image: creekorful/tdsh-scheduler:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login scheduler:ZjDXeaLGj4EEUGu6
     restart: always
     depends_on:
       - nats
+      - api
   extractor:
     image: creekorful/tdsh-extractor:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login extractor:hWx2KsrhWVQb5vxg
     restart: always
     depends_on:
       - nats
       - api
   api:
     image: creekorful/tdsh-api:latest
-    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200 --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25 --users demo:demo
+    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200 --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25 --users extractor:hWx2KsrhWVQb5vxg --users scheduler:ZjDXeaLGj4EEUGu6 --users demo:demo
     restart: always
     depends_on:
       - elasticsearch

@@ -24,7 +24,8 @@ const (
 	// PaginationSizeQueryParam is the query parameter used to set page size in paginated endpoint
 	PaginationSizeQueryParam = "pagination-size"
 
-	contentTypeJSON = "application/json"
+	contentTypeJSON     = "application/json"
+	authorizationHeader = "Authorization"
 )
 
 // ResourceDto represent a resource as given by the API
@@ -53,6 +54,7 @@ type Client interface {
 type client struct {
 	httpClient *http.Client
 	baseURL    string
+	token      string
 }
 
 func (c *client) SearchResources(url, keyword string,
@@ -76,6 +78,7 @@ func (c *client) SearchResources(url, keyword string,
 	}
 
 	headers := map[string]string{}
+	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
 
 	if paginationPage != 0 {
 		headers[PaginationPageHeader] = strconv.Itoa(paginationPage)
@@ -101,32 +104,49 @@ func (c *client) SearchResources(url, keyword string,
 func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
 
+	headers := map[string]string{}
+	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
+
 	var resourceDto ResourceDto
-	_, err := jsonPost(c.httpClient, targetEndpoint, res, &resourceDto)
+	_, err := jsonPost(c.httpClient, targetEndpoint, headers, res, &resourceDto)
 	return resourceDto, err
 }
 
 func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
-	_, err := jsonPost(c.httpClient, targetEndpoint, url, nil)
+
+	headers := map[string]string{}
+	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
+
+	_, err := jsonPost(c.httpClient, targetEndpoint, headers, url, nil)
 	return err
 }
 
 func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
 	var token string
 	targetEndpoint := fmt.Sprintf("%s/v1/sessions", c.baseURL)
-	_, err := jsonPost(c.httpClient, targetEndpoint, credentials, &token)
+
+	headers := map[string]string{}
+	_, err := jsonPost(c.httpClient, targetEndpoint, headers, credentials, &token)
 	return token, err
 }
 
-// NewClient create a new Client instance to dial with the API located on given address
-func NewClient(baseURL string) Client {
-	return &client{
+// NewAuthenticatedClient create a new Client & authenticate it against the API
+func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client, error) {
+	client := &client{
 		httpClient: &http.Client{
 			Timeout: time.Second * 10,
 		},
 		baseURL: baseURL,
 	}
+
+	token, err := client.Authenticate(credentials)
+	if err != nil {
+		return nil, err
+	}
+	client.token = token
+
+	return client, nil
 }
 
 func jsonGet(httpClient *http.Client, url string, headers map[string]string, response interface{}) (*http.Response, error) {
@@ -154,7 +174,7 @@ func jsonGet(httpClient *http.Client, url string, headers map[string]string, res
 	return r, nil
 }
 
-func jsonPost(httpClient *http.Client, url string, request, response interface{}) (*http.Response, error) {
+func jsonPost(httpClient *http.Client, url string, headers map[string]string, request, response interface{}) (*http.Response, error) {
 	log.Trace().Str("verb", "POST").Str("url", url).Msg("")
 
 	var err error
@@ -166,7 +186,18 @@ func jsonPost(httpClient *http.Client, url string, request, response interface{}
 		}
 	}
 
-	r, err := httpClient.Post(url, contentTypeJSON, bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+
+	// populate custom headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	req.Header.Set("Content-Type", contentTypeJSON)
+
+	r, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
