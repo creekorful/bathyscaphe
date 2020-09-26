@@ -49,6 +49,6 @@ jobs:
           go generate ./...
           go test -race --coverprofile=coverage.coverprofile --covermode=atomic -v ./...
 
-      #- name: Update go report card
-      #  if: success() && matrix.os == 'ubuntu-latest'
-      #  uses: creekorful/goreportcard-action@v1.0
+      - name: Update go report card
+        if: success() && matrix.os == 'ubuntu-latest'
+        uses: creekorful/goreportcard-action@v1.0

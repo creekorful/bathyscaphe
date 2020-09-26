@@ -70,7 +70,6 @@ func TestHandleMessage(t *testing.T) {
 	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
 
 	msg := nats.Msg{}
-
 	subscriberMock.EXPECT().
 		ReadMsg(&msg, &messaging.NewResourceMsg{}).
 		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: "Hello, world<title>Title</title><a href=\"https://google.com\"></a>"}).

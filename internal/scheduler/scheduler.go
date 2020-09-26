@@ -94,25 +94,25 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.M
 		// Make sure URL is valid .onion
 		if !strings.Contains(u.Host, ".onion") {
 			log.Debug().Stringer("url", u).Msg("URL is not a valid hidden service")
-			return err
+			return fmt.Errorf("%s is not a valid .onion", u.Host)
 		}
 
 		// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
-		// that are newer than now-refreshDelay.
+		// that are newer than `now - refreshDelay`.
 		endDate := time.Time{}
 		if refreshDelay != -1 {
 			endDate = time.Now().Add(-refreshDelay)
 		}
 
 		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))
-		urls, _, err := apiClient.SearchResources(b64URI, "", time.Time{}, endDate, 1, 1)
+		_, count, err := apiClient.SearchResources(b64URI, "", time.Time{}, endDate, 1, 1)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err
 		}
 
 		// No matches: schedule!
-		if len(urls) == 0 {
+		if count == 0 {
 			log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 			if err := sub.PublishMsg(&messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
