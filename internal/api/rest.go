@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/database"
+	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"strconv"

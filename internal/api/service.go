@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/database"
+	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
