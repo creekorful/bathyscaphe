@@ -19,7 +19,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-scheduler",
-		Version: "0.4.0",
+		Version: "0.5.0",
 		Usage:   "Trandoshan scheduler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
