@@ -127,7 +127,7 @@ func buildSearchQuery(params *ResSearchParams) elastic.Query {
 	}
 	if params.Keyword != "" {
 		log.Trace().Str("body", params.Keyword).Msg("SearchQuery: Setting body")
-		queries = append(queries, elastic.NewTermQuery("body", params.Keyword))
+		queries = append(queries, elastic.NewMatchQuery("body", params.Keyword))
 	}
 	if !params.StartDate.IsZero() || !params.EndDate.IsZero() {
 		timeQuery := elastic.NewRangeQuery("time")
