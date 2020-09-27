@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"encoding/base64"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/logging"
@@ -101,8 +100,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.M
 			endDate = time.Now().Add(-refreshDelay)
 		}
 
-		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))
-		_, count, err := apiClient.SearchResources(b64URI, "", time.Time{}, endDate, 1, 1)
+		_, count, err := apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err

@@ -61,7 +61,7 @@ func TestHandleMessageNoSchedule(t *testing.T) {
 		Return(nil)
 
 	apiClientMock.EXPECT().
-		SearchResources("aHR0cHM6Ly9leGFtcGxlLm9uaW9u", "", time.Time{}, time.Time{}, 1, 1).
+		SearchResources("https://example.onion", "", time.Time{}, time.Time{}, 1, 1).
 		Return([]api.ResourceDto{}, int64(1), nil)
 
 	if err := handleMessage(apiClientMock, -1)(subscriberMock, &msg); err != nil {
@@ -83,7 +83,7 @@ func TestHandleMessage(t *testing.T) {
 		Return(nil)
 
 	apiClientMock.EXPECT().
-		SearchResources("aHR0cHM6Ly9leGFtcGxlLm9uaW9u", "", time.Time{}, time.Time{}, 1, 1).
+		SearchResources("https://example.onion", "", time.Time{}, time.Time{}, 1, 1).
 		Return([]api.ResourceDto{}, int64(0), nil)
 
 	subscriberMock.EXPECT().

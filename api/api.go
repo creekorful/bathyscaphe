@@ -1,11 +1,9 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"net/http"
+	"github.com/go-resty/resty/v2"
 	"strconv"
 	"time"
 )
@@ -52,7 +50,7 @@ type Client interface {
 }
 
 type client struct {
-	httpClient *http.Client
+	httpClient *resty.Client
 	baseURL    string
 	token      string
 }
@@ -61,39 +59,43 @@ func (c *client) SearchResources(url, keyword string,
 	startDate, endDate time.Time, paginationPage, paginationSize int) ([]ResourceDto, int64, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
+	req := c.httpClient.R()
+
 	if url != "" {
-		targetEndpoint += fmt.Sprintf("url=%s&", url)
+		b64URL := base64.URLEncoding.EncodeToString([]byte(url))
+		req.SetQueryParam("url", b64URL)
 	}
 
 	if keyword != "" {
-		targetEndpoint += fmt.Sprintf("keyword=%s&", keyword)
+		req.SetQueryParam("keyword", keyword)
 	}
 
 	if !startDate.IsZero() {
-		targetEndpoint += fmt.Sprintf("start-date=%s&", startDate.Format(time.RFC3339))
+		req.SetQueryParam("start-date", startDate.Format(time.RFC3339))
 	}
 
 	if !endDate.IsZero() {
-		targetEndpoint += fmt.Sprintf("end-date=%s&", endDate.Format(time.RFC3339))
+		req.SetQueryParam("end-date", endDate.Format(time.RFC3339))
 	}
 
-	headers := map[string]string{}
-	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
+	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
 
 	if paginationPage != 0 {
-		headers[PaginationPageHeader] = strconv.Itoa(paginationPage)
+		req.Header.Set(PaginationPageHeader, strconv.Itoa(paginationPage))
 	}
 	if paginationSize != 0 {
-		headers[PaginationSizeHeader] = strconv.Itoa(paginationSize)
+		req.Header.Set(PaginationSizeHeader, strconv.Itoa(paginationSize))
 	}
 
 	var resources []ResourceDto
-	res, err := jsonGet(c.httpClient, targetEndpoint, headers, &resources)
+	req.SetResult(&resources)
+
+	res, err := req.Get(targetEndpoint)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	count, err := strconv.ParseInt(res.Header[PaginationCountHeader][0], 10, 64)
+	count, err := strconv.ParseInt(res.Header().Get(PaginationCountHeader), 10, 64)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -104,40 +106,48 @@ func (c *client) SearchResources(url, keyword string,
 func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
 
-	headers := map[string]string{}
-	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
+	req := c.httpClient.R()
+	req.SetBody(res)
+
+	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
 
 	var resourceDto ResourceDto
-	_, err := jsonPost(c.httpClient, targetEndpoint, headers, res, &resourceDto)
+	req.SetResult(&resourceDto)
+
+	_, err := req.Post(targetEndpoint)
 	return resourceDto, err
 }
 
 func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 
-	headers := map[string]string{}
-	headers[authorizationHeader] = fmt.Sprintf("Bearer %s", c.token)
+	req := c.httpClient.R()
+	req.SetBody(url)
 
-	_, err := jsonPost(c.httpClient, targetEndpoint, headers, url, nil)
+	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
+
+	_, err := req.Post(targetEndpoint)
 	return err
 }
 
 func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
-	var token string
 	targetEndpoint := fmt.Sprintf("%s/v1/sessions", c.baseURL)
 
-	headers := map[string]string{}
-	_, err := jsonPost(c.httpClient, targetEndpoint, headers, credentials, &token)
+	req := c.httpClient.R()
+	req.SetBody(credentials)
+
+	var token string
+	req.SetResult(&token)
+
+	_, err := req.Post(targetEndpoint)
 	return token, err
 }
 
 // NewAuthenticatedClient create a new Client & authenticate it against the API
 func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client, error) {
 	client := &client{
-		httpClient: &http.Client{
-			Timeout: time.Second * 10,
-		},
-		baseURL: baseURL,
+		httpClient: resty.New(),
+		baseURL:    baseURL,
 	}
 
 	token, err := client.Authenticate(credentials)
@@ -147,66 +157,4 @@ func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client,
 	client.token = token
 
 	return client, nil
-}
-
-func jsonGet(httpClient *http.Client, url string, headers map[string]string, response interface{}) (*http.Response, error) {
-	log.Trace().Str("verb", "GET").Str("url", url).Msg("")
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// populate custom headers
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-
-	r, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		return nil, err
-	}
-
-	return r, nil
-}
-
-func jsonPost(httpClient *http.Client, url string, headers map[string]string, request, response interface{}) (*http.Response, error) {
-	log.Trace().Str("verb", "POST").Str("url", url).Msg("")
-
-	var err error
-	var b []byte
-	if request != nil {
-		b, err = json.Marshal(request)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
-	if err != nil {
-		return nil, err
-	}
-
-	// populate custom headers
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-	req.Header.Set("Content-Type", contentTypeJSON)
-
-	r, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if response != nil {
-		if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-			return nil, err
-		}
-	}
-
-	return r, nil
 }
