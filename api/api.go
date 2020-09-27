@@ -1,14 +1,14 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"net/http"
+	"github.com/go-resty/resty/v2"
 	"strconv"
 	"time"
 )
+
+//go:generate mockgen -destination=../api_mock/api_mock.go -package=api_mock . Client
 
 const (
 	// PaginationPageHeader is the header to determinate current page in paginated endpoint
@@ -21,8 +21,6 @@ const (
 	PaginationPageQueryParam = "pagination-page"
 	// PaginationSizeQueryParam is the query parameter used to set page size in paginated endpoint
 	PaginationSizeQueryParam = "pagination-size"
-
-	contentTypeJSON = "application/json"
 )
 
 // ResourceDto represent a resource as given by the API
@@ -33,55 +31,67 @@ type ResourceDto struct {
 	Time  time.Time `json:"time"`
 }
 
+// CredentialsDto represent the credential when logging in the API
+type CredentialsDto struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 // Client is the interface to interact with the API component
 type Client interface {
 	SearchResources(url, keyword string, startDate, endDate time.Time,
 		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
+	Authenticate(credentials CredentialsDto) (string, error)
 }
 
 type client struct {
-	httpClient *http.Client
+	httpClient *resty.Client
 	baseURL    string
+	token      string
 }
 
 func (c *client) SearchResources(url, keyword string,
 	startDate, endDate time.Time, paginationPage, paginationSize int) ([]ResourceDto, int64, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
+	req := c.httpClient.R()
+	req.SetAuthToken(c.token)
+
 	if url != "" {
-		targetEndpoint += fmt.Sprintf("url=%s&", url)
+		b64URL := base64.URLEncoding.EncodeToString([]byte(url))
+		req.SetQueryParam("url", b64URL)
 	}
 
 	if keyword != "" {
-		targetEndpoint += fmt.Sprintf("keyword=%s&", keyword)
+		req.SetQueryParam("keyword", keyword)
 	}
 
 	if !startDate.IsZero() {
-		targetEndpoint += fmt.Sprintf("start-date=%s&", startDate.Format(time.RFC3339))
+		req.SetQueryParam("start-date", startDate.Format(time.RFC3339))
 	}
 
 	if !endDate.IsZero() {
-		targetEndpoint += fmt.Sprintf("end-date=%s&", endDate.Format(time.RFC3339))
+		req.SetQueryParam("end-date", endDate.Format(time.RFC3339))
 	}
-
-	headers := map[string]string{}
 
 	if paginationPage != 0 {
-		headers[PaginationPageHeader] = strconv.Itoa(paginationPage)
+		req.Header.Set(PaginationPageHeader, strconv.Itoa(paginationPage))
 	}
 	if paginationSize != 0 {
-		headers[PaginationSizeHeader] = strconv.Itoa(paginationSize)
+		req.Header.Set(PaginationSizeHeader, strconv.Itoa(paginationSize))
 	}
 
 	var resources []ResourceDto
-	res, err := jsonGet(c.httpClient, targetEndpoint, headers, &resources)
+	req.SetResult(&resources)
+
+	res, err := req.Get(targetEndpoint)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	count, err := strconv.ParseInt(res.Header[PaginationCountHeader][0], 10, 64)
+	count, err := strconv.ParseInt(res.Header().Get(PaginationCountHeader), 10, 64)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -92,74 +102,63 @@ func (c *client) SearchResources(url, keyword string,
 func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
 
+	req := c.httpClient.R()
+	req.SetAuthToken(c.token)
+	req.SetBody(res)
+
 	var resourceDto ResourceDto
-	_, err := jsonPost(c.httpClient, targetEndpoint, res, &resourceDto)
+	req.SetResult(&resourceDto)
+
+	_, err := req.Post(targetEndpoint)
 	return resourceDto, err
 }
 
 func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
-	_, err := jsonPost(c.httpClient, targetEndpoint, url, nil)
+
+	req := c.httpClient.R()
+	req.SetAuthToken(c.token)
+	req.SetHeader("Content-Type", "application/json")
+	req.SetBody(fmt.Sprintf("\"%s\"", url))
+
+	_, err := req.Post(targetEndpoint)
 	return err
 }
 
-// NewClient create a new Client instance to dial with the API located on given address
-func NewClient(baseURL string) Client {
-	return &client{
-		httpClient: &http.Client{
-			Timeout: time.Second * 10,
-		},
-		baseURL: baseURL,
-	}
+func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
+	targetEndpoint := fmt.Sprintf("%s/v1/sessions", c.baseURL)
+
+	req := c.httpClient.R()
+	req.SetBody(credentials)
+
+	var token string
+	req.SetResult(&token)
+
+	_, err := req.Post(targetEndpoint)
+	return token, err
 }
 
-func jsonGet(httpClient *http.Client, url string, headers map[string]string, response interface{}) (*http.Response, error) {
-	log.Trace().Str("verb", "GET").Str("url", url).Msg("")
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// populate custom headers
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
-
-	r, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		return nil, err
-	}
-
-	return r, nil
-}
-
-func jsonPost(httpClient *http.Client, url string, request, response interface{}) (*http.Response, error) {
-	log.Trace().Str("verb", "POST").Str("url", url).Msg("")
-
-	var err error
-	var b []byte
-	if request != nil {
-		b, err = json.Marshal(request)
-		if err != nil {
-			return nil, err
+// NewAuthenticatedClient create a new Client & authenticate it against the API
+func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client, error) {
+	httpClient := resty.New()
+	httpClient.SetAuthScheme("Bearer")
+	httpClient.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+		if r.StatusCode() > 302 {
+			return fmt.Errorf("error when making HTTP request: %s", r.Status())
 		}
+		return nil
+	})
+
+	client := &client{
+		httpClient: httpClient,
+		baseURL:    baseURL,
 	}
 
-	r, err := httpClient.Post(url, contentTypeJSON, bytes.NewBuffer(b))
+	token, err := client.Authenticate(credentials)
 	if err != nil {
 		return nil, err
 	}
+	client.token = token
 
-	if response != nil {
-		if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-			return nil, err
-		}
-	}
-
-	return r, nil
+	return client, nil
 }

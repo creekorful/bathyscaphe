@@ -1,12 +1,11 @@
 package scheduler
 
 import (
-	"encoding/base64"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/util/logging"
-	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
+	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -24,16 +23,9 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan scheduler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "api-uri",
-				Usage:    "URI to the API server",
-				Required: true,
-			},
+			util.GetNATSURIFlag(),
+			util.GetAPIURIFlag(),
+			util.GetAPILoginFlag(),
 			&cli.StringFlag{
 				Name:  "refresh-delay",
 				Usage: "Duration before allowing crawl of existing resource (none = never)",
@@ -59,10 +51,13 @@ func execute(ctx *cli.Context) error {
 	}
 
 	// Create the API client
-	apiClient := api.NewClient(ctx.String("api-uri"))
+	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	// Create the NATS subscriber
-	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
 	if err != nil {
 		return err
 	}
@@ -77,10 +72,10 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(apiClient api.Client, refreshDelay time.Duration) natsutil.MsgHandler {
-	return func(nc *nats.Conn, msg *nats.Msg) error {
+func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.MsgHandler {
+	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var urlMsg messaging.URLFoundMsg
-		if err := natsutil.ReadJSON(msg, &urlMsg); err != nil {
+		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
 			return err
 		}
 
@@ -95,27 +90,26 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) natsutil.Ms
 		// Make sure URL is valid .onion
 		if !strings.Contains(u.Host, ".onion") {
 			log.Debug().Stringer("url", u).Msg("URL is not a valid hidden service")
-			return err
+			return fmt.Errorf("%s is not a valid .onion", u.Host)
 		}
 
 		// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
-		// that are newer than now-refreshDelay.
+		// that are newer than `now - refreshDelay`.
 		endDate := time.Time{}
 		if refreshDelay != -1 {
 			endDate = time.Now().Add(-refreshDelay)
 		}
 
-		b64URI := base64.URLEncoding.EncodeToString([]byte(u.String()))
-		urls, _, err := apiClient.SearchResources(b64URI, "", time.Time{}, endDate, 1, 1)
+		_, count, err := apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
 		if err != nil {
 			log.Err(err).Msg("Error while searching URL")
 			return err
 		}
 
 		// No matches: schedule!
-		if len(urls) == 0 {
+		if count == 0 {
 			log.Debug().Stringer("url", u).Msg("URL should be scheduled")
-			if err := natsutil.PublishMsg(nc, &messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
+			if err := sub.PublishMsg(&messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {
