@@ -21,9 +21,6 @@ const (
 	PaginationPageQueryParam = "pagination-page"
 	// PaginationSizeQueryParam is the query parameter used to set page size in paginated endpoint
 	PaginationSizeQueryParam = "pagination-size"
-
-	contentTypeJSON     = "application/json"
-	authorizationHeader = "Authorization"
 )
 
 // ResourceDto represent a resource as given by the API
@@ -60,6 +57,7 @@ func (c *client) SearchResources(url, keyword string,
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
 	req := c.httpClient.R()
+	req.SetAuthToken(c.token)
 
 	if url != "" {
 		b64URL := base64.URLEncoding.EncodeToString([]byte(url))
@@ -77,8 +75,6 @@ func (c *client) SearchResources(url, keyword string,
 	if !endDate.IsZero() {
 		req.SetQueryParam("end-date", endDate.Format(time.RFC3339))
 	}
-
-	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
 
 	if paginationPage != 0 {
 		req.Header.Set(PaginationPageHeader, strconv.Itoa(paginationPage))
@@ -107,9 +103,8 @@ func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
 
 	req := c.httpClient.R()
+	req.SetAuthToken(c.token)
 	req.SetBody(res)
-
-	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
 
 	var resourceDto ResourceDto
 	req.SetResult(&resourceDto)
@@ -122,9 +117,9 @@ func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 
 	req := c.httpClient.R()
-	req.SetBody(url)
-
-	req.Header.Set(authorizationHeader, fmt.Sprintf("Bearer %s", c.token))
+	req.SetAuthToken(c.token)
+	req.SetHeader("Content-Type", "application/json")
+	req.SetBody(fmt.Sprintf("\"%s\"", url))
 
 	_, err := req.Post(targetEndpoint)
 	return err
@@ -145,8 +140,17 @@ func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
 
 // NewAuthenticatedClient create a new Client & authenticate it against the API
 func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client, error) {
+	httpClient := resty.New()
+	httpClient.SetAuthScheme("Bearer")
+	httpClient.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+		if r.StatusCode() > 302 {
+			return fmt.Errorf("error when making HTTP request: %s", r.Status())
+		}
+		return nil
+	})
+
 	client := &client{
-		httpClient: resty.New(),
+		httpClient: httpClient,
 		baseURL:    baseURL,
 	}
 
