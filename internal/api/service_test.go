@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
-	"github.com/creekorful/trandoshan/internal/database_mock"
+	"github.com/creekorful/trandoshan/internal/api/database_mock"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/messaging_mock"
 	"github.com/dgrijalva/jwt-go"
