@@ -83,3 +83,8 @@ $ ./script/build.sh
 
 this will rebuild all crawler images using local changes. 
 After that just run start.sh again to have the updated version running.
+
+# Architecture
+
+The architecture details are available [here](docs/architecture.svg).
+
