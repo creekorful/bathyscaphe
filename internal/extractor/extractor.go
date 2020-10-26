@@ -110,7 +110,7 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 
 func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, []string, error) {
 	resDto := api.ResourceDto{
-		URL:   protocolRegex.ReplaceAllLiteralString(msg.URL, ""),
+		URL:   msg.URL,
 		Title: extractTitle(msg.Body),
 		Body:  msg.Body,
 		Time:  time.Now(),

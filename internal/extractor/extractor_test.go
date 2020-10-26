@@ -21,7 +21,7 @@ func TestExtractResource(t *testing.T) {
 		t.FailNow()
 	}
 
-	if resDto.URL != "example.org/300" {
+	if resDto.URL != "https://example.org/300" {
 		t.Fail()
 	}
 	if resDto.Title != "Creekorful Inc" {
@@ -77,7 +77,7 @@ func TestHandleMessage(t *testing.T) {
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
-		URL:   "example.onion",
+		URL:   "https://example.onion",
 		Body:  "Hello, world<title>Title</title><a href=\"https://google.com\"></a>",
 		Title: "Title",
 	}}).Return(api.ResourceDto{}, nil)
