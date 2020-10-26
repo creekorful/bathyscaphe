@@ -23,7 +23,7 @@ func GetApp() *cli.App {
 
 	return &cli.App{
 		Name:    "trandoshanctl",
-		Version: "0.5.0",
+		Version: "0.5.1",
 		Usage:   "Trandoshan CLI",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
