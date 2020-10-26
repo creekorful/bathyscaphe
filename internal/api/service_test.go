@@ -57,7 +57,7 @@ func TestAddResource(t *testing.T) {
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 
 	dbMock.EXPECT().AddResource(database.ResourceIdx{
-		URL:   "example.onion",
+		URL:   "https://example.onion",
 		Body:  "TheBody",
 		Title: "Example",
 		Time:  time.Time{},
@@ -66,7 +66,7 @@ func TestAddResource(t *testing.T) {
 	s := svc{db: dbMock}
 
 	res, err := s.addResource(api.ResourceDto{
-		URL:   "example.onion",
+		URL:   "https://example.onion",
 		Body:  "TheBody",
 		Title: "Example",
 		Time:  time.Time{},
@@ -75,7 +75,7 @@ func TestAddResource(t *testing.T) {
 		t.FailNow()
 	}
 
-	if res.URL != "example.onion" {
+	if res.URL != "https://example.onion" {
 		t.FailNow()
 	}
 	if res.Body != "TheBody" {
@@ -97,9 +97,9 @@ func TestScheduleURL(t *testing.T) {
 
 	s := svc{pub: pubMock}
 
-	pubMock.EXPECT().PublishMsg(&messaging.URLFoundMsg{URL: "example.onion"})
+	pubMock.EXPECT().PublishMsg(&messaging.URLFoundMsg{URL: "https://example.onion"})
 
-	if err := s.scheduleURL("example.onion"); err != nil {
+	if err := s.scheduleURL("https://example.onion"); err != nil {
 		t.FailNow()
 	}
 }
