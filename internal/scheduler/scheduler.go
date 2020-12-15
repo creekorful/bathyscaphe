@@ -67,8 +67,8 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	callback := handleMessage(apiClient, refreshDelay, ctx.StringSlice("forbidden-extensions"))
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", callback); err != nil {
+	handler := handleMessage(apiClient, refreshDelay, ctx.StringSlice("forbidden-extensions"))
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handler); err != nil {
 		return err
 	}
 
@@ -86,14 +86,13 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenEx
 
 		u, err := url.Parse(urlMsg.URL)
 		if err != nil {
-			log.Err(err).Msg("Error while parsing URL")
-			return err
+			return fmt.Errorf("error while parsing URL: %s", err)
 		}
 
 		// Make sure URL is valid .onion
 		if !strings.Contains(u.Host, ".onion") {
 			log.Trace().Stringer("url", u).Msg("URL is not a valid hidden service")
-			return fmt.Errorf("%s is not a valid .onion", u.Host)
+			return nil // Technically not an error
 		}
 
 		// Make sure extension is not forbidden
@@ -103,7 +102,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenEx
 					Stringer("url", u).
 					Str("ext", ext).
 					Msg("Skipping URL with forbidden extension")
-				return fmt.Errorf("%s contains invalid extension .%s", u, ext)
+				return nil // Technically not an error
 			}
 		}
 
@@ -116,8 +115,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenEx
 
 		_, count, err := apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
 		if err != nil {
-			log.Err(err).Msg("Error while searching URL")
-			return err
+			return fmt.Errorf("error while searching resource (%s): %s", u, err)
 		}
 
 		// No matches: schedule!

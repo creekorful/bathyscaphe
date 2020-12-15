@@ -76,8 +76,8 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(messaging.URLTodoSubject, "crawlers",
-		handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
+	handler := handleMessage(httpClient, ctx.StringSlice("allowed-ct"))
+	if err := sub.QueueSubscribe(messaging.URLTodoSubject, "crawlers", handler); err != nil {
 		return err
 	}
 
@@ -93,8 +93,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) me
 
 		body, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
 		if err != nil {
-			log.Err(err).Str("url", urlMsg.URL).Msg("Error while crawling url")
-			return err
+			return fmt.Errorf("error while crawling URL: %s", err)
 		}
 
 		// Publish resource body
@@ -103,7 +102,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) me
 			Body: body,
 		}
 		if err := sub.PublishMsg(&res); err != nil {
-			log.Err(err).Msg("Error while publishing resource body")
+			return fmt.Errorf("error while publishing resource: %s", err)
 		}
 
 		return nil

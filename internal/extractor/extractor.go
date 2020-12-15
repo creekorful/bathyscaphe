@@ -59,8 +59,8 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
-	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors",
-		handleMessage(apiClient)); err != nil {
+	handler := handleMessage(apiClient)
+	if err := sub.QueueSubscribe(messaging.NewResourceSubject, "extractors", handler); err != nil {
 		return err
 	}
 
@@ -71,7 +71,6 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var resMsg messaging.NewResourceMsg
 		if err := sub.ReadMsg(msg, &resMsg); err != nil {
-			log.Err(err).Msg("Error while reading message")
 			return err
 		}
 
@@ -80,15 +79,13 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 		// Extract & process resource
 		resDto, urls, err := extractResource(resMsg)
 		if err != nil {
-			log.Err(err).Msg("Error while extracting resource")
-			return err
+			return fmt.Errorf("error while extracting resource: %s", err)
 		}
 
 		// Submit to the API
 		_, err = apiClient.AddResource(resDto)
 		if err != nil {
-			log.Err(err).Msg("Error while adding resource")
-			return err
+			return fmt.Errorf("error while adding resource (%s): %s", resDto.URL, err)
 		}
 
 		// Finally push found URLs
