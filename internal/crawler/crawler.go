@@ -49,11 +49,12 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-crawler")
-
-	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
-	log.Debug().Str("uri", ctx.String("tor-uri")).Msg("Using TOR proxy")
-	log.Debug().Strs("content-types", ctx.StringSlice("allowed-ct")).Msg("Allowed content types")
+	log.Info().
+		Str("ver", ctx.App.Version).
+		Str("nats-uri", ctx.String("nats-uri")).
+		Str("tor-uri", ctx.String("tor-uri")).
+		Strs("allowed-content-types", ctx.StringSlice("allowed-ct")).
+		Msg("Starting tdsh-crawler")
 
 	// Create the HTTP client
 	httpClient := &fasthttp.Client{

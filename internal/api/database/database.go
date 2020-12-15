@@ -170,8 +170,6 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 		if _, err := es.CreateIndex(resourcesIndex).Do(ctx); err != nil {
 			return err
 		}
-	} else {
-		log.Debug().Msg("index exist")
 	}
 
 	return nil

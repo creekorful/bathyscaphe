@@ -42,17 +42,15 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-scheduler")
-
-	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
-	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
-
 	refreshDelay := parseRefreshDelay(ctx.String("refresh-delay"))
-	if refreshDelay != -1 {
-		log.Debug().Stringer("delay", refreshDelay).Msg("Existing resources will be crawled again")
-	} else {
-		log.Debug().Msg("Existing resources will NOT be crawled again")
-	}
+
+	log.Info().
+		Str("ver", ctx.App.Version).
+		Str("nats-uri", ctx.String("nats-uri")).
+		Str("api-uri", ctx.String("api-uri")).
+		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
+		Dur("refresh-delay", refreshDelay).
+		Msg("Starting tdsh-scheduler")
 
 	// Create the API client
 	apiClient, err := util.GetAPIAuthenticatedClient(ctx)

@@ -49,10 +49,10 @@ func execute(c *cli.Context) error {
 	e := echo.New()
 	e.HideBanner = true
 
-	log.Info().Str("ver", c.App.Version).Msg("Starting tdsh-api")
-
-	log.Debug().Str("uri", c.String("elasticsearch-uri")).Msg("Using Elasticsearch server")
-	log.Debug().Str("uri", c.String("nats-uri")).Msg("Using NATS server")
+	log.Info().Str("ver", c.App.Version).
+		Str("elasticsearch-uri", c.String("elasticsearch-uri")).
+		Str("nats-uri", c.String("nats-uri")).
+		Msg("Starting tdsh-api")
 
 	signingKey := []byte(c.String("signing-key"))
 
