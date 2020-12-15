@@ -79,7 +79,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.M
 			return err
 		}
 
-		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL")
+		log.Trace().Str("url", urlMsg.URL).Msg("Processing URL")
 
 		u, err := url.Parse(urlMsg.URL)
 		if err != nil {
@@ -89,7 +89,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.M
 
 		// Make sure URL is valid .onion
 		if !strings.Contains(u.Host, ".onion") {
-			log.Debug().Stringer("url", u).Msg("URL is not a valid hidden service")
+			log.Trace().Stringer("url", u).Msg("URL is not a valid hidden service")
 			return fmt.Errorf("%s is not a valid .onion", u.Host)
 		}
 
