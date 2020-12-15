@@ -27,7 +27,7 @@ services:
       - torproxy
   scheduler:
     image: creekorful/tdsh-scheduler:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login scheduler:ZjDXeaLGj4EEUGu6
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login scheduler:ZjDXeaLGj4EEUGu6 --forbidden-extensions jpg --forbidden-extensions png
     restart: always
     depends_on:
       - nats
