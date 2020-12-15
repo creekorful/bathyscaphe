@@ -2,26 +2,18 @@ version: '3'
 
 services:
   nats:
-    image: nats:2.1.6-alpine3.11
-    logging:
-      driver: none
+    image: nats:2.1.9-alpine3.12
   torproxy:
     image: dperson/torproxy:latest
-    logging:
-      driver: none
   elasticsearch:
-    image: elasticsearch:7.5.1
-    logging:
-      driver: none
+    image: elasticsearch:7.10.1
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms2g -Xmx2g
     volumes:
       - esdata:/usr/share/elasticsearch/data
   kibana:
-    image: kibana:7.5.1
-    logging:
-      driver: none
+    image: kibana:7.10.1
     depends_on:
       - elasticsearch
     ports:
