@@ -98,10 +98,12 @@ func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 
 	// Create Elasticsearch document
 	doc := database.ResourceIdx{
-		URL:   res.URL,
-		Body:  res.Body,
-		Title: res.Title,
-		Time:  res.Time,
+		URL:         res.URL,
+		Body:        res.Body,
+		Time:        res.Time,
+		Title:       res.Title,
+		Meta:        res.Meta,
+		Description: res.Description,
 	}
 
 	if err := s.db.AddResource(doc); err != nil {

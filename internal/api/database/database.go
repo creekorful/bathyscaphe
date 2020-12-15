@@ -14,10 +14,12 @@ var resourcesIndex = "resources"
 
 // ResourceIdx represent a resource as stored in elasticsearch
 type ResourceIdx struct {
-	URL   string    `json:"url"`
-	Body  string    `json:"body"`
-	Title string    `json:"title"`
-	Time  time.Time `json:"time"`
+	URL         string            `json:"url"`
+	Body        string            `json:"body"`
+	Time        time.Time         `json:"time"`
+	Title       string            `json:"title"`
+	Meta        map[string]string `json:"meta"`
+	Description string            `json:"description"`
 }
 
 // ResSearchParams is the search params used
@@ -29,6 +31,7 @@ type ResSearchParams struct {
 	WithBody   bool
 	PageSize   int
 	PageNumber int
+	// TODO allow searching by meta
 }
 
 // Database is the interface used to abstract communication
