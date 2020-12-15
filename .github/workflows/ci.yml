@@ -1,13 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - master
-      - develop
   pull_request:
-    branches:
-      - master
 
 env:
   GO111MODULE: on
