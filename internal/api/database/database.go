@@ -31,6 +31,7 @@ type ResSearchParams struct {
 	WithBody   bool
 	PageSize   int
 	PageNumber int
+	// TODO allow searching by meta
 }
 
 // Database is the interface used to abstract communication
