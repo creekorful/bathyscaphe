@@ -74,6 +74,16 @@ func TestNormalizeURL(t *testing.T) {
 }
 
 func TestHandleMessage(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="description" content="Zhello world">
+<meta property="og:url" content="https://example.org">`
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -83,21 +93,24 @@ func TestHandleMessage(t *testing.T) {
 	msg := nats.Msg{}
 	subscriberMock.EXPECT().
 		ReadMsg(&msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: "Hello, world<title>Title</title><a href=\"https://google.com\"></a>"}).
+		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: body}).
 		Return(nil)
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
 		URL:         "https://example.onion",
-		Body:        "Hello, world<title>Title</title><a href=\"https://google.com\"></a>",
-		Title:       "Title",
-		Meta:        map[string]string{},
-		Description: "",
+		Body:        body,
+		Title:       "Creekorful Inc",
+		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
+		Description: "Zhello world",
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com"}).
+		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
+		Return(nil)
+	subscriberMock.EXPECT().
+		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
 	if err := handleMessage(apiClientMock)(subscriberMock, &msg); err != nil {
