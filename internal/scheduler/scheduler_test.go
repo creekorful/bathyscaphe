@@ -42,7 +42,7 @@ func TestHandleMessageNotOnion(t *testing.T) {
 		SetArg(1, messaging.URLFoundMsg{URL: "https://example.org"}).
 		Return(nil)
 
-	if err := handleMessage(apiClientMock, -1, []string{})(subscriberMock, &msg); err == nil {
+	if err := handleMessage(apiClientMock, -1, []string{})(subscriberMock, &msg); err != nil {
 		t.FailNow()
 	}
 }
@@ -82,7 +82,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 		SetArg(1, messaging.URLFoundMsg{URL: "https://example.onion/image.png"}).
 		Return(nil)
 
-	if err := handleMessage(apiClientMock, -1, []string{"png"})(subscriberMock, &msg); err == nil {
+	if err := handleMessage(apiClientMock, -1, []string{"png"})(subscriberMock, &msg); err != nil {
 		t.FailNow()
 	}
 }
