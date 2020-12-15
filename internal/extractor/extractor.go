@@ -39,10 +39,11 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-extractor")
-
-	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
-	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
+	log.Info().
+		Str("ver", ctx.App.Version).
+		Str("nats-uri", ctx.String("nats-uri")).
+		Str("api-uri", ctx.String("api-uri")).
+		Msg("Starting tdsh-extractor")
 
 	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
 	if err != nil {
