@@ -57,19 +57,23 @@ func TestAddResource(t *testing.T) {
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 
 	dbMock.EXPECT().AddResource(database.ResourceIdx{
-		URL:   "https://example.onion",
-		Body:  "TheBody",
-		Title: "Example",
-		Time:  time.Time{},
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
 	})
 
 	s := svc{db: dbMock}
 
 	res, err := s.addResource(api.ResourceDto{
-		URL:   "https://example.onion",
-		Body:  "TheBody",
-		Title: "Example",
-		Time:  time.Time{},
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
 	})
 	if err != nil {
 		t.FailNow()
@@ -85,6 +89,12 @@ func TestAddResource(t *testing.T) {
 		t.FailNow()
 	}
 	if !res.Time.IsZero() {
+		t.FailNow()
+	}
+	if res.Meta["content"] != "content-meta" {
+		t.FailNow()
+	}
+	if res.Description != "the description" {
 		t.FailNow()
 	}
 }

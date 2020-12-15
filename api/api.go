@@ -25,10 +25,12 @@ const (
 
 // ResourceDto represent a resource as given by the API
 type ResourceDto struct {
-	URL   string    `json:"url"`
-	Body  string    `json:"body"`
-	Title string    `json:"title"`
-	Time  time.Time `json:"time"`
+	URL         string            `json:"url"`
+	Body        string            `json:"body"`
+	Time        time.Time         `json:"time"`
+	Title       string            `json:"title"`
+	Meta        map[string]string `json:"meta"`
+	Description string            `json:"description"`
 }
 
 // CredentialsDto represent the credential when logging in the API
