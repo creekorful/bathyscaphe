@@ -62,6 +62,7 @@ func TestAddResource(t *testing.T) {
 		Time:        time.Time{},
 		Meta:        map[string]string{"content": "content-meta"},
 		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
 	s := svc{db: dbMock}
@@ -73,6 +74,7 @@ func TestAddResource(t *testing.T) {
 		Time:        time.Time{},
 		Meta:        map[string]string{"content": "content-meta"},
 		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 	if err != nil {
 		t.FailNow()
@@ -94,6 +96,12 @@ func TestAddResource(t *testing.T) {
 		t.FailNow()
 	}
 	if res.Description != "the description" {
+		t.FailNow()
+	}
+	if res.Headers["Content-Type"] != "application/html" {
+		t.FailNow()
+	}
+	if res.Headers["Server"] != "Traefik" {
 		t.FailNow()
 	}
 }

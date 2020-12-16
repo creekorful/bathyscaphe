@@ -91,15 +91,16 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) me
 			return err
 		}
 
-		body, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
+		body, headers, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
 		if err != nil {
 			return fmt.Errorf("error while crawling URL: %s", err)
 		}
 
 		// Publish resource body
 		res := messaging.NewResourceMsg{
-			URL:  urlMsg.URL,
-			Body: body,
+			URL:     urlMsg.URL,
+			Body:    body,
+			Headers: headers,
 		}
 		if err := sub.PublishMsg(&res); err != nil {
 			return fmt.Errorf("error while publishing resource: %s", err)
@@ -109,7 +110,7 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) me
 	}
 }
 
-func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []string) (string, error) {
+func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []string) (string, map[string]string, error) {
 	log.Debug().Str("url", url).Msg("Processing URL")
 
 	// Query the website
@@ -121,12 +122,12 @@ func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []stri
 	req.SetRequestURI(url)
 
 	if err := httpClient.Do(req, resp); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	switch code := resp.StatusCode(); {
 	case code > 302:
-		return "", fmt.Errorf("non-managed error code %d", code)
+		return "", nil, fmt.Errorf("non-managed error code %d", code)
 	// follow redirect
 	case code == 301 || code == 302:
 		if location := string(resp.Header.Peek("Location")); location != "" {
@@ -146,8 +147,14 @@ func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []stri
 
 	if !allowed {
 		err := fmt.Errorf("forbidden content type : %s", contentType)
-		return "", err
+		return "", nil, err
 	}
 
-	return string(resp.Body()), nil
+	// Parse headers
+	headers := map[string]string{}
+	resp.Header.VisitAll(func(key, value []byte) {
+		headers[string(key)] = string(value) // TODO manage multiple values?
+	})
+
+	return string(resp.Body()), headers, nil
 }

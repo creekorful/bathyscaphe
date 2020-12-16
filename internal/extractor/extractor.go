@@ -79,6 +79,7 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 		if err != nil {
 			return fmt.Errorf("error while extracting resource: %s", err)
 		}
+		resDto.Headers = resMsg.Headers
 
 		// Submit to the API
 		_, err = apiClient.AddResource(resDto)

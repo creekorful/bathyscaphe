@@ -93,7 +93,11 @@ This is sparta
 	msg := nats.Msg{}
 	subscriberMock.EXPECT().
 		ReadMsg(&msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: body}).
+		SetArg(1, messaging.NewResourceMsg{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+		}).
 		Return(nil)
 
 	// make sure we are creating the resource
@@ -103,6 +107,7 @@ This is sparta
 		Title:       "Creekorful Inc",
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
+		Headers:     map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
@@ -118,7 +123,7 @@ This is sparta
 	}
 }
 
-// custom matcher to ignore time field when doing comparison
+// custom matcher to ignore time field when doing comparison ;(
 // todo: do less crappy?
 type resMatcher struct {
 	target api.ResourceDto
@@ -131,7 +136,9 @@ func (rm *resMatcher) Matches(x interface{}) bool {
 		arg.URL == rm.target.URL &&
 		arg.Body == rm.target.Body &&
 		arg.Description == rm.target.Description &&
-		exactMatch(arg.Meta, rm.target.Meta)
+		exactMatch(arg.Meta, rm.target.Meta) &&
+		arg.Headers["Server"][0] == rm.target.Headers["Server"][0] &&
+		arg.Headers["Content-Type"] == rm.target.Headers["Content-Type"] // TODO allow other headers comparison
 }
 
 func (rm *resMatcher) String() string {
