@@ -25,10 +25,14 @@ func GetApp() *cli.App {
 			logging.GetLogFlag(),
 			util.GetNATSURIFlag(),
 			util.GetAPIURIFlag(),
-			util.GetAPILoginFlag(),
+			util.GetAPITokenFlag(),
 			&cli.StringFlag{
 				Name:  "refresh-delay",
 				Usage: "Duration before allowing crawl of existing resource (none = never)",
+			},
+			&cli.StringSliceFlag{
+				Name:  "forbidden-extensions",
+				Usage: "Extensions to disable scheduling for (i.e png, exe, css, ...) (the dot will be added automatically)",
 			},
 		},
 		Action: execute,
@@ -38,23 +42,18 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-scheduler")
-
-	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
-	log.Debug().Str("uri", ctx.String("api-uri")).Msg("Using API server")
-
 	refreshDelay := parseRefreshDelay(ctx.String("refresh-delay"))
-	if refreshDelay != -1 {
-		log.Debug().Stringer("delay", refreshDelay).Msg("Existing resources will be crawled again")
-	} else {
-		log.Debug().Msg("Existing resources will NOT be crawled again")
-	}
+
+	log.Info().
+		Str("ver", ctx.App.Version).
+		Str("nats-uri", ctx.String("nats-uri")).
+		Str("api-uri", ctx.String("api-uri")).
+		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
+		Dur("refresh-delay", refreshDelay).
+		Msg("Starting tdsh-scheduler")
 
 	// Create the API client
-	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
-	if err != nil {
-		return err
-	}
+	apiClient := util.GetAPIClient(ctx)
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
@@ -65,32 +64,43 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handleMessage(apiClient, refreshDelay)); err != nil {
+	handler := handleMessage(apiClient, refreshDelay, ctx.StringSlice("forbidden-extensions"))
+	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handler); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.MsgHandler {
+func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenExtensions []string) messaging.MsgHandler {
 	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var urlMsg messaging.URLFoundMsg
 		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
 			return err
 		}
 
-		log.Debug().Str("url", urlMsg.URL).Msg("Processing URL")
+		log.Trace().Str("url", urlMsg.URL).Msg("Processing URL")
 
 		u, err := url.Parse(urlMsg.URL)
 		if err != nil {
-			log.Err(err).Msg("Error while parsing URL")
-			return err
+			return fmt.Errorf("error while parsing URL: %s", err)
 		}
 
 		// Make sure URL is valid .onion
 		if !strings.Contains(u.Host, ".onion") {
-			log.Debug().Stringer("url", u).Msg("URL is not a valid hidden service")
-			return fmt.Errorf("%s is not a valid .onion", u.Host)
+			log.Trace().Stringer("url", u).Msg("URL is not a valid hidden service")
+			return nil // Technically not an error
+		}
+
+		// Make sure extension is not forbidden
+		for _, ext := range forbiddenExtensions {
+			if strings.HasSuffix(u.Path, "."+ext) {
+				log.Trace().
+					Stringer("url", u).
+					Str("ext", ext).
+					Msg("Skipping URL with forbidden extension")
+				return nil // Technically not an error
+			}
 		}
 
 		// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
@@ -102,8 +112,7 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration) messaging.M
 
 		_, count, err := apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
 		if err != nil {
-			log.Err(err).Msg("Error while searching URL")
-			return err
+			return fmt.Errorf("error while searching resource (%s): %s", u, err)
 		}
 
 		// No matches: schedule!

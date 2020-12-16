@@ -3,6 +3,7 @@ module github.com/creekorful/trandoshan
 go 1.14
 
 require (
+	github.com/PuerkitoBio/goquery v1.6.0
 	github.com/PuerkitoBio/purell v1.1.1
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

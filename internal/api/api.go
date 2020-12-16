@@ -1,10 +1,10 @@
 package api
 
 import (
+	"github.com/creekorful/trandoshan/internal/api/auth"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
@@ -47,30 +47,34 @@ func execute(c *cli.Context) error {
 	logging.ConfigureLogger(c)
 
 	e := echo.New()
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		log.Err(err).Msg("error while processing API call")
+		e.DefaultHTTPErrorHandler(err, c)
+	}
 	e.HideBanner = true
 
-	log.Info().Str("ver", c.App.Version).Msg("Starting tdsh-api")
-
-	log.Debug().Str("uri", c.String("elasticsearch-uri")).Msg("Using Elasticsearch server")
-	log.Debug().Str("uri", c.String("nats-uri")).Msg("Using NATS server")
+	log.Info().Str("ver", c.App.Version).
+		Str("elasticsearch-uri", c.String("elasticsearch-uri")).
+		Str("nats-uri", c.String("nats-uri")).
+		Msg("Starting tdsh-api")
 
 	signingKey := []byte(c.String("signing-key"))
 
 	// Create the service
-	svc, err := newService(c, signingKey)
+	svc, err := newService(c)
 	if err != nil {
 		log.Err(err).Msg("Unable to start API")
 		return err
 	}
 
 	// Setup middlewares
-	jwtMiddleware := middleware.JWT(signingKey)
+	authMiddleware := auth.NewMiddleware(signingKey)
+	e.Use(authMiddleware.Middleware())
 
 	// Add endpoints
-	e.GET("/v1/resources", searchResourcesEndpoint(svc), jwtMiddleware)
-	e.POST("/v1/resources", addResourceEndpoint(svc), jwtMiddleware)
-	e.POST("/v1/urls", scheduleURLEndpoint(svc), jwtMiddleware)
-	e.POST("/v1/sessions", authenticateEndpoint(svc))
+	e.GET("/v1/resources", searchResourcesEndpoint(svc))
+	e.POST("/v1/resources", addResourceEndpoint(svc))
+	e.POST("/v1/urls", scheduleURLEndpoint(svc))
 
 	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")
 

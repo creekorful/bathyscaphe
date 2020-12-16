@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/rs/zerolog/log"
 )
 
 // MsgHandler represent an handler for a NATS subscriber
@@ -51,11 +52,13 @@ func (s *subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) e
 		// Read incoming message
 		msg, err := sub.NextMsgWithContext(context.Background())
 		if err != nil {
+			log.Warn().Str("err", err.Error()).Msg("error while reading incoming message, skipping it")
 			continue
 		}
 
 		// ... And process it
 		if err := handler(s, msg); err != nil {
+			log.Err(err).Msg("error while processing message")
 			continue
 		}
 	}

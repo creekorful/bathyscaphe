@@ -11,9 +11,20 @@ import (
 )
 
 func TestExtractResource(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="description" content="Zhello world">
+<meta property="og:url" content="https://example.org">
+`
+
 	msg := messaging.NewResourceMsg{
 		URL:  "https://example.org/300",
-		Body: "<title>Creekorful Inc</title>This is sparta<a href\"https://google.com/test?test=test#12\"",
+		Body: body,
 	}
 
 	resDto, urls, err := extractResource(msg)
@@ -37,17 +48,17 @@ func TestExtractResource(t *testing.T) {
 	if urls[0] != "https://google.com/test?test=test" {
 		t.Fail()
 	}
-}
 
-func TestExtractTitle(t *testing.T) {
-	c := "hello this <title>is A</title>TEST"
-	if val := extractTitle(c); val != "is A" {
-		t.Errorf("Wanted: %s Got: %s", "is A", val)
+	if resDto.Description != "Zhello world" {
+		t.Fail()
 	}
 
-	c = "hello this is another test"
-	if val := extractTitle(c); val != "" {
-		t.Errorf("No matches should have been returned")
+	if resDto.Meta["description"] != "Zhello world" {
+		t.Fail()
+	}
+
+	if resDto.Meta["og:url"] != "https://example.org" {
+		t.Fail()
 	}
 }
 
@@ -63,6 +74,16 @@ func TestNormalizeURL(t *testing.T) {
 }
 
 func TestHandleMessage(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="description" content="Zhello world">
+<meta property="og:url" content="https://example.org">`
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -72,19 +93,24 @@ func TestHandleMessage(t *testing.T) {
 	msg := nats.Msg{}
 	subscriberMock.EXPECT().
 		ReadMsg(&msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: "Hello, world<title>Title</title><a href=\"https://google.com\"></a>"}).
+		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: body}).
 		Return(nil)
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
-		URL:   "https://example.onion",
-		Body:  "Hello, world<title>Title</title><a href=\"https://google.com\"></a>",
-		Title: "Title",
+		URL:         "https://example.onion",
+		Body:        body,
+		Title:       "Creekorful Inc",
+		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
+		Description: "Zhello world",
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com"}).
+		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
+		Return(nil)
+	subscriberMock.EXPECT().
+		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
 	if err := handleMessage(apiClientMock)(subscriberMock, &msg); err != nil {
@@ -100,9 +126,24 @@ type resMatcher struct {
 
 func (rm *resMatcher) Matches(x interface{}) bool {
 	arg := x.(api.ResourceDto)
-	return arg.Title == rm.target.Title && arg.URL == rm.target.URL && arg.Body == rm.target.Body
+	return arg.Title ==
+		rm.target.Title &&
+		arg.URL == rm.target.URL &&
+		arg.Body == rm.target.Body &&
+		arg.Description == rm.target.Description &&
+		exactMatch(arg.Meta, rm.target.Meta)
 }
 
 func (rm *resMatcher) String() string {
 	return "is valid resource"
+}
+
+func exactMatch(left, right map[string]string) bool {
+	for key, want := range left {
+		if got, exist := right[key]; !exist || got != want {
+			return false
+		}
+	}
+
+	return true
 }

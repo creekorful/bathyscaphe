@@ -25,10 +25,12 @@ const (
 
 // ResourceDto represent a resource as given by the API
 type ResourceDto struct {
-	URL   string    `json:"url"`
-	Body  string    `json:"body"`
-	Title string    `json:"title"`
-	Time  time.Time `json:"time"`
+	URL         string            `json:"url"`
+	Body        string            `json:"body"`
+	Time        time.Time         `json:"time"`
+	Title       string            `json:"title"`
+	Meta        map[string]string `json:"meta"`
+	Description string            `json:"description"`
 }
 
 // CredentialsDto represent the credential when logging in the API
@@ -43,13 +45,11 @@ type Client interface {
 		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
-	Authenticate(credentials CredentialsDto) (string, error)
 }
 
 type client struct {
 	httpClient *resty.Client
 	baseURL    string
-	token      string
 }
 
 func (c *client) SearchResources(url, keyword string,
@@ -57,7 +57,6 @@ func (c *client) SearchResources(url, keyword string,
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
 	req := c.httpClient.R()
-	req.SetAuthToken(c.token)
 
 	if url != "" {
 		b64URL := base64.URLEncoding.EncodeToString([]byte(url))
@@ -103,7 +102,6 @@ func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
 
 	req := c.httpClient.R()
-	req.SetAuthToken(c.token)
 	req.SetBody(res)
 
 	var resourceDto ResourceDto
@@ -117,7 +115,6 @@ func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 
 	req := c.httpClient.R()
-	req.SetAuthToken(c.token)
 	req.SetHeader("Content-Type", "application/json")
 	req.SetBody(fmt.Sprintf("\"%s\"", url))
 
@@ -125,23 +122,11 @@ func (c *client) ScheduleURL(url string) error {
 	return err
 }
 
-func (c *client) Authenticate(credentials CredentialsDto) (string, error) {
-	targetEndpoint := fmt.Sprintf("%s/v1/sessions", c.baseURL)
-
-	req := c.httpClient.R()
-	req.SetBody(credentials)
-
-	var token string
-	req.SetResult(&token)
-
-	_, err := req.Post(targetEndpoint)
-	return token, err
-}
-
-// NewAuthenticatedClient create a new Client & authenticate it against the API
-func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client, error) {
+// NewClient create a new API client using given details
+func NewClient(baseURL, token string) Client {
 	httpClient := resty.New()
 	httpClient.SetAuthScheme("Bearer")
+	httpClient.SetAuthToken(token)
 	httpClient.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
 		if r.StatusCode() > 302 {
 			return fmt.Errorf("error when making HTTP request: %s", r.Status())
@@ -154,11 +139,5 @@ func NewAuthenticatedClient(baseURL string, credentials CredentialsDto) (Client,
 		baseURL:    baseURL,
 	}
 
-	token, err := client.Authenticate(credentials)
-	if err != nil {
-		return nil, err
-	}
-	client.token = token
-
-	return client, nil
+	return client
 }

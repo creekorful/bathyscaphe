@@ -4,47 +4,23 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/crypto/bcrypt"
-	"net/http"
-	"strings"
 )
 
 type service interface {
 	searchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error)
 	addResource(res api.ResourceDto) (api.ResourceDto, error)
 	scheduleURL(url string) error
-	authenticate(credentials api.CredentialsDto) (string, error)
 	close()
 }
 
 type svc struct {
-	users      map[string][]byte
-	signingKey []byte
-	db         database.Database
-	pub        messaging.Publisher
+	db  database.Database
+	pub messaging.Publisher
 }
 
-func newService(c *cli.Context, signingKey []byte) (service, error) {
-	users := map[string][]byte{}
-	for _, userEntry := range c.StringSlice("users") {
-		parts := strings.Split(userEntry, ":")
-		user := parts[0]
-		pass := parts[1]
-
-		passBytes, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
-		if err != nil {
-			log.Err(err).Msg("Unable to generate user password")
-			return nil, err
-		}
-
-		log.Debug().Str("username", user).Msg("Register new user")
-		users[user] = passBytes
-	}
-
+func newService(c *cli.Context) (service, error) {
 	// Connect to the NATS server
 	pub, err := messaging.NewPublisher(c.String("nats-uri"))
 	if err != nil {
@@ -60,10 +36,8 @@ func newService(c *cli.Context, signingKey []byte) (service, error) {
 	}
 
 	return &svc{
-		db:         db,
-		users:      users,
-		signingKey: signingKey,
-		pub:        pub,
+		db:  db,
+		pub: pub,
 	}, nil
 }
 
@@ -98,10 +72,12 @@ func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 
 	// Create Elasticsearch document
 	doc := database.ResourceIdx{
-		URL:   res.URL,
-		Body:  res.Body,
-		Title: res.Title,
-		Time:  res.Time,
+		URL:         res.URL,
+		Body:        res.Body,
+		Time:        res.Time,
+		Title:       res.Title,
+		Meta:        res.Meta,
+		Description: res.Description,
 	}
 
 	if err := s.db.AddResource(doc); err != nil {
@@ -122,37 +98,6 @@ func (s *svc) scheduleURL(url string) error {
 
 	log.Debug().Str("url", url).Msg("Successfully published URL")
 	return nil
-}
-
-func (s *svc) authenticate(credentials api.CredentialsDto) (string, error) {
-	if credentials.Username == "" || credentials.Password == "" {
-		log.Warn().Msg("Invalid credentials supplied")
-		return "", echo.NewHTTPError(http.StatusUnprocessableEntity)
-	}
-
-	// Try to find the user
-	pass, exists := s.users[credentials.Username]
-	if !exists {
-		log.Warn().Str("username", credentials.Username).Msg("No user found")
-		return "", echo.NewHTTPError(http.StatusUnprocessableEntity)
-	}
-
-	// Validate provided password
-	if err := bcrypt.CompareHashAndPassword(pass, []byte(credentials.Password)); err != nil {
-		log.Warn().Str("username", credentials.Username).Msg("Invalid password")
-		return "", echo.NewHTTPError(http.StatusUnauthorized)
-	}
-
-	log.Debug().Str("username", credentials.Username).Msg("Successfully logged-in")
-
-	// Build JWT token
-	claims := jwt.MapClaims{
-		"username": credentials.Username,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign JWT token
-	return token.SignedString(s.signingKey)
 }
 
 func (s *svc) close() {
