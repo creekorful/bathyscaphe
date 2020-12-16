@@ -6,11 +6,11 @@ import (
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
-	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
+	"io"
 	"strings"
 	"time"
 )
@@ -25,7 +25,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetNATSURIFlag(),
+			util.GetEventSrvURI(),
 			&cli.StringFlag{
 				Name:     "tor-uri",
 				Usage:    "URI to the TOR SOCKS proxy",
@@ -51,7 +51,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("nats-uri", ctx.String("nats-uri")).
+		Str("event-srv-uri", ctx.String("event-srv-uri")).
 		Str("tor-uri", ctx.String("tor-uri")).
 		Strs("allowed-content-types", ctx.StringSlice("allowed-ct")).
 		Msg("Starting tdsh-crawler")
@@ -67,8 +67,8 @@ func execute(ctx *cli.Context) error {
 		Name:         ctx.String("user-agent"),
 	}
 
-	// Create the NATS subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
+	// Create the subscriber
+	sub, err := messaging.NewSubscriber(ctx.String("event-srv-uri"))
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) messaging.MsgHandler {
-	return func(sub messaging.Subscriber, msg *nats.Msg) error {
+	return func(sub messaging.Subscriber, msg io.Reader) error {
 		var urlMsg messaging.URLTodoMsg
 		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
 			return err

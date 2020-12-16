@@ -6,10 +6,10 @@ import (
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
-	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"github.com/xhit/go-str2duration/v2"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -23,7 +23,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan scheduler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetNATSURIFlag(),
+			util.GetEventSrvURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
 			&cli.StringFlag{
@@ -46,7 +46,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("nats-uri", ctx.String("nats-uri")).
+		Str("event-srv-uri", ctx.String("event-srv-uri")).
 		Str("api-uri", ctx.String("api-uri")).
 		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
 		Dur("refresh-delay", refreshDelay).
@@ -55,8 +55,8 @@ func execute(ctx *cli.Context) error {
 	// Create the API client
 	apiClient := util.GetAPIClient(ctx)
 
-	// Create the NATS subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
+	// Create the subscriber
+	sub, err := messaging.NewSubscriber(ctx.String("event-srv-uri"))
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenExtensions []string) messaging.MsgHandler {
-	return func(sub messaging.Subscriber, msg *nats.Msg) error {
+	return func(sub messaging.Subscriber, msg io.Reader) error {
 		var urlMsg messaging.URLFoundMsg
 		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
 			return err

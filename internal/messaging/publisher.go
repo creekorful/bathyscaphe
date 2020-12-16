@@ -3,7 +3,7 @@ package messaging
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/streadway/amqp"
 )
 
 // Publisher is something that push msg to an event queue
@@ -13,34 +13,42 @@ type Publisher interface {
 }
 
 type publisher struct {
-	nc *nats.Conn
+	rc *amqp.Channel
 }
 
 // NewPublisher create a new Publisher instance
-func NewPublisher(natsURI string) (Publisher, error) {
-	nc, err := nats.Connect(natsURI)
+func NewPublisher(amqpURI string) (Publisher, error) {
+	conn, err := amqp.Dial(amqpURI)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
 
 	return &publisher{
-		nc: nc,
+		rc: c,
 	}, nil
 }
 
 func (p *publisher) PublishMsg(msg Msg) error {
-	return publishJSON(p.nc, msg.Subject(), msg)
+	return publishJSON(p.rc, msg.Subject(), msg)
 }
 
 func (p *publisher) Close() {
-	p.nc.Close()
+	_ = p.rc.Close()
 }
 
-func publishJSON(nc *nats.Conn, subject string, msg interface{}) error {
+func publishJSON(rc *amqp.Channel, subject string, msg interface{}) error {
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("error while encoding message: %s", err)
 	}
 
-	return nc.Publish(subject, msgBytes)
+	return rc.Publish("", subject, false, false, amqp.Publishing{
+		ContentType: "application/json",
+		Body:        msgBytes,
+	})
 }

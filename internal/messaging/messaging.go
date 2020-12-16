@@ -11,6 +11,12 @@ const (
 	NewResourceSubject = "resource.new"
 )
 
+// Msg represent a message send-able trough queuing
+type Msg interface {
+	// Subject returns the subject where message should be push
+	Subject() string
+}
+
 // URLTodoMsg represent an URL to crawl
 type URLTodoMsg struct {
 	URL string `json:"url"`

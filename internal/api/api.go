@@ -22,7 +22,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan API component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetNATSURIFlag(),
+			util.GetEventSrvURI(),
 			&cli.StringFlag{
 				Name:     "elasticsearch-uri",
 				Usage:    "URI to the Elasticsearch server",
@@ -55,7 +55,7 @@ func execute(c *cli.Context) error {
 
 	log.Info().Str("ver", c.App.Version).
 		Str("elasticsearch-uri", c.String("elasticsearch-uri")).
-		Str("nats-uri", c.String("nats-uri")).
+		Str("event-srv-uri", c.String("event-srv-uri")).
 		Msg("Starting tdsh-api")
 
 	signingKey := []byte(c.String("signing-key"))

@@ -21,10 +21,10 @@ type svc struct {
 }
 
 func newService(c *cli.Context) (service, error) {
-	// Connect to the NATS server
-	pub, err := messaging.NewPublisher(c.String("nats-uri"))
+	// Connect to the messaging server
+	pub, err := messaging.NewPublisher(c.String("event-srv-uri"))
 	if err != nil {
-		log.Err(err).Str("uri", c.String("nats-uri")).Msg("Error while connecting to NATS server")
+		log.Err(err).Str("uri", c.String("event-srv-uri")).Msg("Error while connecting to event server")
 		return nil, err
 	}
 

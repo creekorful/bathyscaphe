@@ -1,8 +1,10 @@
 version: '3'
 
 services:
-  nats:
-    image: nats:2.1.9-alpine3.12
+  rabbitmq:
+    image: rabbitmq:3.8.9-management-alpine
+    ports:
+      - 15672:15672
   torproxy:
     image: dperson/torproxy:latest
   elasticsearch:
@@ -22,17 +24,17 @@ services:
     image: creekorful/tdsh-crawler:latest
     command: >
       --log-level debug
-      --nats-uri nats
+      --event-srv-uri amqp://guest:guest@rabbitmq:5672
       --tor-uri torproxy:9050
     restart: always
     depends_on:
-      - nats
+      - rabbitmq
       - torproxy
   scheduler:
     image: creekorful/tdsh-scheduler:latest
     command: >
       --log-level debug
-      --nats-uri nats
+      --event-srv-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY
       --forbidden-extensions png
@@ -42,24 +44,24 @@ services:
       --forbidden-extensions bmp
     restart: always
     depends_on:
-      - nats
+      - rabbitmq
       - api
   extractor:
     image: creekorful/tdsh-extractor:latest
     command: >
       --log-level debug
-      --nats-uri nats
+      --event-srv-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImV4dHJhY3RvciIsInJpZ2h0cyI6eyJQT1NUIjpbIi92MS9yZXNvdXJjZXMiXX19.mytGd_9zyK8y_T3fsWAmH8FnaBNr6qWefwCPDOx4in0
     restart: always
     depends_on:
-      - nats
+      - rabbitmq
       - api
   api:
     image: creekorful/tdsh-api:latest
     command: >
       --log-level debug
-      --nats-uri nats
+      --event-srv-uri amqp://guest:guest@rabbitmq:5672
       --elasticsearch-uri http://elasticsearch:9200
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
     restart: always
