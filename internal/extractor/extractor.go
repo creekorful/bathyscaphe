@@ -87,7 +87,15 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 		}
 
 		// Finally push found URLs
+		publishedURLS := map[string]string{}
 		for _, url := range urls {
+			if _, exist := publishedURLS[url]; exist {
+				log.Trace().
+					Str("url", url).
+					Msg("Skipping duplicate URL")
+				continue
+			}
+
 			log.Trace().
 				Str("url", url).
 				Msg("Publishing found URL")
@@ -98,6 +106,8 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 					Str("err", err.Error()).
 					Msg("Error while publishing URL")
 			}
+
+			publishedURLS[url] = url
 		}
 
 		return nil
