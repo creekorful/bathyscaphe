@@ -42,10 +42,13 @@ This is sparta
 		t.Fail()
 	}
 
-	if len(urls) == 0 {
+	if len(urls) != 2 {
 		t.FailNow()
 	}
 	if urls[0] != "https://google.com/test?test=test" {
+		t.Fail()
+	}
+	if urls[1] != "https://example.org" {
 		t.Fail()
 	}
 
@@ -77,7 +80,7 @@ func TestHandleMessage(t *testing.T) {
 	body := `
 <title>Creekorful Inc</title>
 
-This is sparta
+This is sparta (hosted on https://example.org)
 
 <a href="https://google.com/test?test=test#12">
 
@@ -106,6 +109,8 @@ This is sparta
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
+
+	// should be called only one time
 	subscriberMock.EXPECT().
 		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
 		Return(nil)
