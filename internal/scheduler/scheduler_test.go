@@ -79,7 +79,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	msg := nats.Msg{}
 	subscriberMock.EXPECT().
 		ReadMsg(&msg, &messaging.URLFoundMsg{}).
-		SetArg(1, messaging.URLFoundMsg{URL: "https://example.onion/image.png"}).
+		SetArg(1, messaging.URLFoundMsg{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
 	if err := handleMessage(apiClientMock, -1, []string{"png"})(subscriberMock, &msg); err != nil {

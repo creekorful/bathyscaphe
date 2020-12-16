@@ -25,7 +25,7 @@ func GetApp() *cli.App {
 			logging.GetLogFlag(),
 			util.GetNATSURIFlag(),
 			util.GetAPIURIFlag(),
-			util.GetAPILoginFlag(),
+			util.GetAPITokenFlag(),
 			&cli.StringFlag{
 				Name:  "refresh-delay",
 				Usage: "Duration before allowing crawl of existing resource (none = never)",
@@ -53,10 +53,7 @@ func execute(ctx *cli.Context) error {
 		Msg("Starting tdsh-scheduler")
 
 	// Create the API client
-	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
-	if err != nil {
-		return err
-	}
+	apiClient := util.GetAPIClient(ctx)
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))

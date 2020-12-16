@@ -31,7 +31,7 @@ func GetApp() *cli.App {
 			logging.GetLogFlag(),
 			util.GetNATSURIFlag(),
 			util.GetAPIURIFlag(),
-			util.GetAPILoginFlag(),
+			util.GetAPITokenFlag(),
 		},
 		Action: execute,
 	}
@@ -46,10 +46,7 @@ func execute(ctx *cli.Context) error {
 		Str("api-uri", ctx.String("api-uri")).
 		Msg("Starting tdsh-extractor")
 
-	apiClient, err := util.GetAPIAuthenticatedClient(ctx)
-	if err != nil {
-		return err
-	}
+	apiClient := util.GetAPIClient(ctx)
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
