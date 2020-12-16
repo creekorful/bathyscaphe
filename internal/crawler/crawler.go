@@ -3,6 +3,7 @@ package crawler
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/http"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
@@ -11,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
+	"io/ioutil"
 	"strings"
 	"time"
 )
@@ -57,7 +59,7 @@ func execute(ctx *cli.Context) error {
 		Msg("Starting tdsh-crawler")
 
 	// Create the HTTP client
-	httpClient := &fasthttp.Client{
+	httpClient := http.NewFastHTTPClient(&fasthttp.Client{
 		// Use given TOR proxy to reach the hidden services
 		Dial: fasthttpproxy.FasthttpSocksDialer(ctx.String("tor-uri")),
 		// Disable SSL verification since we do not really care about this
@@ -65,7 +67,7 @@ func execute(ctx *cli.Context) error {
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
 		Name:         ctx.String("user-agent"),
-	}
+	})
 
 	// Create the NATS subscriber
 	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
@@ -84,7 +86,7 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) messaging.MsgHandler {
+func handleMessage(httpClient http.Client, allowedContentTypes []string) messaging.MsgHandler {
 	return func(sub messaging.Subscriber, msg *nats.Msg) error {
 		var urlMsg messaging.URLTodoMsg
 		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
@@ -110,34 +112,17 @@ func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) me
 	}
 }
 
-func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []string) (string, map[string]string, error) {
+func crawURL(httpClient http.Client, url string, allowedContentTypes []string) (string, map[string]string, error) {
 	log.Debug().Str("url", url).Msg("Processing URL")
 
-	// Query the website
-	req := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseRequest(req)
-	defer fasthttp.ReleaseResponse(resp)
-
-	req.SetRequestURI(url)
-
-	if err := httpClient.Do(req, resp); err != nil {
+	r, err := httpClient.Get(url)
+	if err != nil {
 		return "", nil, err
-	}
-
-	switch code := resp.StatusCode(); {
-	case code > 302:
-		return "", nil, fmt.Errorf("non-managed error code %d", code)
-	// follow redirect
-	case code == 301 || code == 302:
-		if location := string(resp.Header.Peek("Location")); location != "" {
-			return crawURL(httpClient, location, allowedContentTypes)
-		}
 	}
 
 	// Determinate if content type is allowed
 	allowed := false
-	contentType := string(resp.Header.Peek("Content-Type"))
+	contentType := r.Headers()["Content-Type"]
 	for _, allowedContentType := range allowedContentTypes {
 		if strings.Contains(contentType, allowedContentType) {
 			allowed = true
@@ -150,11 +135,10 @@ func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []stri
 		return "", nil, err
 	}
 
-	// Parse headers
-	headers := map[string]string{}
-	resp.Header.VisitAll(func(key, value []byte) {
-		headers[string(key)] = string(value) // TODO manage multiple values?
-	})
-
-	return string(resp.Body()), headers, nil
+	// Ready body
+	b, err := ioutil.ReadAll(r.Body())
+	if err != nil {
+		return "", nil, err
+	}
+	return string(b), r.Headers(), nil
 }
