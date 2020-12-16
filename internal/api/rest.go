@@ -56,23 +56,6 @@ func scheduleURLEndpoint(s service) echo.HandlerFunc {
 	}
 }
 
-func authenticateEndpoint(s service) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		// Validate provided credentials
-		var credentials api.CredentialsDto
-		if err := c.Bind(&credentials); err != nil {
-			return err
-		}
-
-		token, err := s.authenticate(credentials)
-		if err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusOK, token)
-	}
-}
-
 func readPagination(c echo.Context) (int, int) {
 	paginationPage, err := strconv.Atoi(c.QueryParam(api.PaginationPageQueryParam))
 	if err != nil {

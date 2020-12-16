@@ -27,21 +27,21 @@ services:
       - torproxy
   scheduler:
     image: creekorful/tdsh-scheduler:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login scheduler:ZjDXeaLGj4EEUGu6 --forbidden-extensions jpg --forbidden-extensions png
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY --forbidden-extensions jpg --forbidden-extensions png
     restart: always
     depends_on:
       - nats
       - api
   extractor:
     image: creekorful/tdsh-extractor:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-login extractor:hWx2KsrhWVQb5vxg
+    command: --log-level debug --nats-uri nats --api-uri http://api:8080 --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImV4dHJhY3RvciIsInJpZ2h0cyI6eyJQT1NUIjpbIi92MS9yZXNvdXJjZXMiXX19.mytGd_9zyK8y_T3fsWAmH8FnaBNr6qWefwCPDOx4in0
     restart: always
     depends_on:
       - nats
       - api
   api:
     image: creekorful/tdsh-api:latest
-    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200 --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25 --users extractor:hWx2KsrhWVQb5vxg --users scheduler:ZjDXeaLGj4EEUGu6 --users demo:demo
+    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200 --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
     restart: always
     depends_on:
       - elasticsearch
