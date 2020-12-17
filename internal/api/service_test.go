@@ -55,6 +55,12 @@ func TestAddResource(t *testing.T) {
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: database.ResSearchParams{
+		URL:        "https://example.onion",
+		PageSize:   1,
+		PageNumber: 1,
+	}}).Return(int64(0), nil)
+
 	dbMock.EXPECT().AddResource(database.ResourceIdx{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
@@ -65,7 +71,7 @@ func TestAddResource(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
-	s := svc{db: dbMock}
+	s := svc{db: dbMock, refreshDelay: 5 * time.Hour}
 
 	res, err := s.addResource(api.ResourceDto{
 		URL:         "https://example.onion",
@@ -106,6 +112,63 @@ func TestAddResource(t *testing.T) {
 	}
 }
 
+func TestAddResourceDuplicateNotAllowed(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	dbMock := database_mock.NewMockDatabase(mockCtrl)
+
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: database.ResSearchParams{
+		URL:        "https://example.onion",
+		PageSize:   1,
+		PageNumber: 1,
+	}, endDateZero: true}).Return(int64(1), nil)
+
+	s := svc{db: dbMock, refreshDelay: -1}
+
+	_, err := s.addResource(api.ResourceDto{
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
+	})
+	if err != nil {
+		t.FailNow()
+	}
+}
+
+func TestAddResourceTooYoung(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	dbMock := database_mock.NewMockDatabase(mockCtrl)
+
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: database.ResSearchParams{
+		URL:        "https://example.onion",
+		EndDate:    time.Now().Add(-10 * time.Minute),
+		PageSize:   1,
+		PageNumber: 1,
+	}}).Return(int64(1), nil)
+
+	s := svc{db: dbMock, refreshDelay: -10 * time.Minute}
+
+	_, err := s.addResource(api.ResourceDto{
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
+	})
+	if err != nil {
+		t.FailNow()
+	}
+}
+
 func TestScheduleURL(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -119,4 +182,21 @@ func TestScheduleURL(t *testing.T) {
 	if err := s.scheduleURL("https://example.onion"); err != nil {
 		t.FailNow()
 	}
+}
+
+// custom matcher to ignore time field when doing comparison ;(
+// todo: do less crappy?
+type searchParamsMatcher struct {
+	target      database.ResSearchParams
+	endDateZero bool
+}
+
+func (sm *searchParamsMatcher) Matches(x interface{}) bool {
+	arg := x.(*database.ResSearchParams)
+	return arg.URL == sm.target.URL && arg.PageSize == sm.target.PageSize && arg.PageNumber == sm.target.PageNumber &&
+		sm.endDateZero == arg.EndDate.IsZero()
+}
+
+func (sm *searchParamsMatcher) String() string {
+	return "is valid search params"
 }

@@ -3,9 +3,11 @@ package api
 import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
+	"github.com/creekorful/trandoshan/internal/duration"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"time"
 )
 
 type service interface {
@@ -16,8 +18,9 @@ type service interface {
 }
 
 type svc struct {
-	db  database.Database
-	pub messaging.Publisher
+	db           database.Database
+	pub          messaging.Publisher
+	refreshDelay time.Duration
 }
 
 func newService(c *cli.Context) (service, error) {
@@ -35,9 +38,12 @@ func newService(c *cli.Context) (service, error) {
 		return nil, err
 	}
 
+	refreshDelay := duration.ParseDuration(c.String("refresh-delay"))
+
 	return &svc{
-		db:  db,
-		pub: pub,
+		db:           db,
+		pub:          pub,
+		refreshDelay: refreshDelay,
 	}, nil
 }
 
@@ -69,6 +75,34 @@ func (s *svc) searchResources(params *database.ResSearchParams) ([]api.ResourceD
 
 func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 	log.Debug().Str("url", res.URL).Msg("Saving resource")
+
+	// Hacky stuff to prevent from adding 'duplicate resource'
+	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
+	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
+	// before the resource is saved. And this happen a LOT of time.
+	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
+	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
+	endDate := time.Time{}
+	if s.refreshDelay != -1 {
+		endDate = time.Now().Add(-s.refreshDelay)
+	}
+
+	count, err := s.db.CountResources(&database.ResSearchParams{
+		URL:        res.URL,
+		EndDate:    endDate,
+		PageSize:   1,
+		PageNumber: 1,
+	})
+	if err != nil {
+		log.Err(err).Msg("error while searching for resource")
+		return api.ResourceDto{}, nil
+	}
+
+	if count > 0 {
+		// Not an error
+		log.Debug().Str("url", res.URL).Msg("Skipping duplicate resource")
+		return res, nil
+	}
 
 	// Create Elasticsearch document
 	doc := database.ResourceIdx{
