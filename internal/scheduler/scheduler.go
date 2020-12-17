@@ -23,7 +23,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan scheduler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetEventSrvURI(),
+			util.GetHubURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
 			&cli.StringFlag{
@@ -46,7 +46,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("event-srv-uri", ctx.String("event-srv-uri")).
+		Str("hub-uri", ctx.String("hub-uri")).
 		Str("api-uri", ctx.String("api-uri")).
 		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
 		Dur("refresh-delay", refreshDelay).
@@ -56,7 +56,7 @@ func execute(ctx *cli.Context) error {
 	apiClient := util.GetAPIClient(ctx)
 
 	// Create the subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("event-srv-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}

@@ -27,7 +27,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetEventSrvURI(),
+			util.GetHubURI(),
 			&cli.StringFlag{
 				Name:     "tor-uri",
 				Usage:    "URI to the TOR SOCKS proxy",
@@ -53,7 +53,7 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("event-srv-uri", ctx.String("event-srv-uri")).
+		Str("hub-uri", ctx.String("hub-uri")).
 		Str("tor-uri", ctx.String("tor-uri")).
 		Strs("allowed-content-types", ctx.StringSlice("allowed-ct")).
 		Msg("Starting tdsh-crawler")
@@ -70,7 +70,7 @@ func execute(ctx *cli.Context) error {
 	})
 
 	// Create the subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("event-srv-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}

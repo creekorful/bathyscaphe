@@ -24,7 +24,7 @@ services:
     image: creekorful/tdsh-crawler:latest
     command: >
       --log-level debug
-      --event-srv-uri amqp://guest:guest@rabbitmq:5672
+      --hub-uri amqp://guest:guest@rabbitmq:5672
       --tor-uri torproxy:9050
     restart: always
     depends_on:
@@ -34,7 +34,7 @@ services:
     image: creekorful/tdsh-scheduler:latest
     command: >
       --log-level debug
-      --event-srv-uri amqp://guest:guest@rabbitmq:5672
+      --hub-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY
       --forbidden-extensions png
@@ -50,7 +50,7 @@ services:
     image: creekorful/tdsh-extractor:latest
     command: >
       --log-level debug
-      --event-srv-uri amqp://guest:guest@rabbitmq:5672
+      --hub-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImV4dHJhY3RvciIsInJpZ2h0cyI6eyJQT1NUIjpbIi92MS9yZXNvdXJjZXMiXX19.mytGd_9zyK8y_T3fsWAmH8FnaBNr6qWefwCPDOx4in0
     restart: always
@@ -61,7 +61,7 @@ services:
     image: creekorful/tdsh-api:latest
     command: >
       --log-level debug
-      --event-srv-uri amqp://guest:guest@rabbitmq:5672
+      --hub-uri amqp://guest:guest@rabbitmq:5672
       --elasticsearch-uri http://elasticsearch:9200
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
     restart: always

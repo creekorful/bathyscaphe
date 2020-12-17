@@ -29,7 +29,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetEventSrvURI(),
+			util.GetHubURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
 		},
@@ -42,14 +42,14 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("event-srv-uri", ctx.String("event-srv-uri")).
+		Str("hub-uri", ctx.String("hub-uri")).
 		Str("api-uri", ctx.String("api-uri")).
 		Msg("Starting tdsh-extractor")
 
 	apiClient := util.GetAPIClient(ctx)
 
 	// Create the event subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("event-srv-uri"))
+	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}

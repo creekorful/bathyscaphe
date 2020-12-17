@@ -22,9 +22,9 @@ type svc struct {
 
 func newService(c *cli.Context) (service, error) {
 	// Connect to the messaging server
-	pub, err := messaging.NewPublisher(c.String("event-srv-uri"))
+	pub, err := messaging.NewPublisher(c.String("hub-uri"))
 	if err != nil {
-		log.Err(err).Str("uri", c.String("event-srv-uri")).Msg("Error while connecting to event server")
+		log.Err(err).Str("uri", c.String("hub-uri")).Msg("Error while connecting to hub server")
 		return nil, err
 	}
 
