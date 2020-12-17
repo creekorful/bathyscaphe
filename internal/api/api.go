@@ -38,6 +38,10 @@ func GetApp() *cli.App {
 				Usage:    "List of API users. (Format user:password)",
 				Required: false,
 			},
+			&cli.StringFlag{
+				Name:  "refresh-delay",
+				Usage: "Duration before allowing indexation of existing resource (none = never)",
+			},
 		},
 		Action: execute,
 	}

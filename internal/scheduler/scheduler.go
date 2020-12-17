@@ -3,12 +3,12 @@ package scheduler
 import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/duration"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/xhit/go-str2duration/v2"
 	"io"
 	"net/url"
 	"strings"
@@ -42,7 +42,7 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	refreshDelay := parseRefreshDelay(ctx.String("refresh-delay"))
+	refreshDelay := duration.ParseDuration(ctx.String("refresh-delay"))
 
 	log.Info().
 		Str("ver", ctx.App.Version).
@@ -133,17 +133,4 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenEx
 
 		return nil
 	}
-}
-
-func parseRefreshDelay(delay string) time.Duration {
-	if delay == "" {
-		return -1
-	}
-
-	val, err := str2duration.ParseDuration(delay)
-	if err != nil {
-		return -1
-	}
-
-	return val
 }
