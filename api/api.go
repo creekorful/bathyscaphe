@@ -31,6 +31,7 @@ type ResourceDto struct {
 	Title       string            `json:"title"`
 	Meta        map[string]string `json:"meta"`
 	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
 }
 
 // CredentialsDto represent the credential when logging in the API

@@ -20,6 +20,7 @@ type ResourceIdx struct {
 	Title       string            `json:"title"`
 	Meta        map[string]string `json:"meta"`
 	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
 }
 
 // ResSearchParams is the search params used
@@ -32,6 +33,7 @@ type ResSearchParams struct {
 	PageSize   int
 	PageNumber int
 	// TODO allow searching by meta
+	// TODO allow searching by headers
 }
 
 // Database is the interface used to abstract communication
