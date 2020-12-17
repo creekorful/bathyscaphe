@@ -18,7 +18,7 @@ This is sparta
 
 <a href="https://google.com/test?test=test#12">
 
-<meta name="description" content="Zhello world">
+<meta name="Description" content="Zhello world">
 <meta property="og:url" content="https://example.org">
 `
 
@@ -84,7 +84,7 @@ This is sparta (hosted on https://example.org)
 
 <a href="https://google.com/test?test=test#12">
 
-<meta name="description" content="Zhello world">
+<meta name="DescriptIon" content="Zhello world">
 <meta property="og:url" content="https://example.org">`
 
 	mockCtrl := gomock.NewController(t)
@@ -110,7 +110,7 @@ This is sparta (hosted on https://example.org)
 		Title:       "Creekorful Inc",
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
-		Headers:     map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
@@ -136,14 +136,13 @@ type resMatcher struct {
 
 func (rm *resMatcher) Matches(x interface{}) bool {
 	arg := x.(api.ResourceDto)
-	return arg.Title ==
-		rm.target.Title &&
+	return arg.Title == rm.target.Title &&
 		arg.URL == rm.target.URL &&
 		arg.Body == rm.target.Body &&
 		arg.Description == rm.target.Description &&
 		exactMatch(arg.Meta, rm.target.Meta) &&
-		arg.Headers["Server"][0] == rm.target.Headers["Server"][0] &&
-		arg.Headers["Content-Type"] == rm.target.Headers["Content-Type"] // TODO allow other headers comparison
+		arg.Headers["server"] == rm.target.Headers["server"] &&
+		arg.Headers["content-type"] == rm.target.Headers["content-type"] // TODO allow other headers comparison
 }
 
 func (rm *resMatcher) String() string {
