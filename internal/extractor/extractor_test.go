@@ -1,12 +1,12 @@
 package extractor
 
 import (
+	"bytes"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/messaging_mock"
 	"github.com/golang/mock/gomock"
-	"github.com/nats-io/nats.go"
 	"testing"
 )
 
@@ -93,15 +93,14 @@ This is sparta (hosted on https://example.org)
 	apiClientMock := api_mock.NewMockClient(mockCtrl)
 	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
 
-	msg := nats.Msg{}
+	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
-		ReadMsg(&msg, &messaging.NewResourceMsg{}).
+		ReadMsg(msg, &messaging.NewResourceMsg{}).
 		SetArg(1, messaging.NewResourceMsg{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
-		}).
-		Return(nil)
+		}).Return(nil)
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
@@ -123,7 +122,7 @@ This is sparta (hosted on https://example.org)
 		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
-	if err := handleMessage(apiClientMock)(subscriberMock, &msg); err != nil {
+	if err := handleMessage(apiClientMock)(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
 }

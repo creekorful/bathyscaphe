@@ -1,79 +1,92 @@
 package messaging
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
+	"github.com/streadway/amqp"
+	"io"
 )
 
-// MsgHandler represent an handler for a NATS subscriber
-type MsgHandler func(s Subscriber, msg *nats.Msg) error
+// MsgHandler represent an handler for a subscriber
+type MsgHandler func(s Subscriber, body io.Reader) error
 
 // Subscriber is something that read msg from an event queue
 type Subscriber interface {
 	Publisher
 
-	ReadMsg(natsMsg *nats.Msg, msg Msg) error
+	ReadMsg(body io.Reader, msg Msg) error
 	QueueSubscribe(subject, queue string, handler MsgHandler) error
 	Close()
 }
 
-// Subscriber represent a NATS subscriber
+// Subscriber represent a subscriber
 type subscriber struct {
-	nc *nats.Conn
+	rc *amqp.Channel
 }
 
-// NewSubscriber create a new subscriber and connect it to given NATS server
-func NewSubscriber(address string) (Subscriber, error) {
-	nc, err := nats.Connect(address)
+// NewSubscriber create a new subscriber and connect it to given server
+func NewSubscriber(amqpURI string) (Subscriber, error) {
+	conn, err := amqp.Dial(amqpURI)
 	if err != nil {
 		return nil, err
 	}
 
+	c, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.Qos(1, 0, false); err != nil {
+		return nil, err
+	}
+
 	return &subscriber{
-		nc: nc,
+		rc: c,
 	}, nil
 }
 
-func (s *subscriber) ReadMsg(natsMsg *nats.Msg, msg Msg) error {
-	return readJSON(natsMsg, msg)
+func (s *subscriber) ReadMsg(body io.Reader, msg Msg) error {
+	return readJSON(body, msg)
 }
 
 func (s *subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) error {
-	// Create the subscriber
-	sub, err := s.nc.QueueSubscribeSync(subject, queue)
+	q, err := s.rc.QueueDeclare(subject, true, false, false, false, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while declaring queue: %s", err)
 	}
 
-	for {
-		// Read incoming message
-		msg, err := sub.NextMsgWithContext(context.Background())
-		if err != nil {
-			log.Warn().Str("err", err.Error()).Msg("error while reading incoming message, skipping it")
-			continue
-		}
+	deliveries, err := s.rc.Consume(q.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("error while consuming queue: %s", err)
+	}
 
-		// ... And process it
-		if err := handler(s, msg); err != nil {
+	for d := range deliveries {
+		if err := handler(s, bytes.NewReader(d.Body)); err != nil {
 			log.Err(err).Msg("error while processing message")
 			continue
 		}
+
+		// Ack no matter what since we doesn't care about failing messages
+		if err := d.Ack(false); err != nil {
+			log.Err(err).Msg("error while ack`ing message")
+			continue
+		}
 	}
+
+	return nil
 }
 
 func (s *subscriber) PublishMsg(msg Msg) error {
-	return publishJSON(s.nc, msg.Subject(), msg)
+	return publishJSON(s.rc, msg.Subject(), msg)
 }
 
 func (s *subscriber) Close() {
-	s.nc.Close()
+	_ = s.rc.Close()
 }
 
-func readJSON(msg *nats.Msg, body interface{}) error {
-	if err := json.Unmarshal(msg.Data, body); err != nil {
+func readJSON(body io.Reader, where interface{}) error {
+	if err := json.NewDecoder(body).Decode(where); err != nil {
 		return fmt.Errorf("error while decoding message: %s", err)
 	}
 

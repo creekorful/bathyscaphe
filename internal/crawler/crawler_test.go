@@ -1,11 +1,11 @@
 package crawler
 
 import (
+	"bytes"
 	"github.com/creekorful/trandoshan/internal/http_mock"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/messaging_mock"
 	"github.com/golang/mock/gomock"
-	"github.com/nats-io/nats.go"
 	"strings"
 	"testing"
 )
@@ -95,9 +95,9 @@ func TestHandleMessage(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 
-	msg := nats.Msg{}
+	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
-		ReadMsg(&msg, &messaging.URLTodoMsg{}).
+		ReadMsg(msg, &messaging.URLTodoMsg{}).
 		SetArg(1, messaging.URLTodoMsg{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
@@ -112,7 +112,7 @@ func TestHandleMessage(t *testing.T) {
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},
 	}).Return(nil)
 
-	if err := handleMessage(httpClientMock, []string{"text/plain", "text/css"})(subscriberMock, &msg); err != nil {
+	if err := handleMessage(httpClientMock, []string{"text/plain", "text/css"})(subscriberMock, msg); err != nil {
 		t.Fail()
 	}
 }

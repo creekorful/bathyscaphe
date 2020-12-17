@@ -8,9 +8,9 @@ import (
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
-	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"io"
 	"mvdan.cc/xurls/v2"
 	"regexp"
 	"strings"
@@ -29,7 +29,7 @@ func GetApp() *cli.App {
 		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			util.GetNATSURIFlag(),
+			util.GetHubURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
 		},
@@ -42,14 +42,14 @@ func execute(ctx *cli.Context) error {
 
 	log.Info().
 		Str("ver", ctx.App.Version).
-		Str("nats-uri", ctx.String("nats-uri")).
+		Str("hub-uri", ctx.String("hub-uri")).
 		Str("api-uri", ctx.String("api-uri")).
 		Msg("Starting tdsh-extractor")
 
 	apiClient := util.GetAPIClient(ctx)
 
-	// Create the NATS subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("nats-uri"))
+	// Create the event subscriber
+	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func execute(ctx *cli.Context) error {
 }
 
 func handleMessage(apiClient api.Client) messaging.MsgHandler {
-	return func(sub messaging.Subscriber, msg *nats.Msg) error {
+	return func(sub messaging.Subscriber, msg io.Reader) error {
 		var resMsg messaging.NewResourceMsg
 		if err := sub.ReadMsg(msg, &resMsg); err != nil {
 			return err
