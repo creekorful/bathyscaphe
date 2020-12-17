@@ -5,6 +5,8 @@ services:
     image: rabbitmq:3.8.9-management-alpine
     ports:
       - 15003:15672
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
   torproxy:
     image: dperson/torproxy:latest
   elasticsearch:
@@ -72,4 +74,6 @@ services:
 
 volumes:
   esdata:
+    driver: local
+  rabbitdata:
     driver: local
