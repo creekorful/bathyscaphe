@@ -64,13 +64,11 @@ func (s *subscriber) QueueSubscribe(subject, queue string, handler MsgHandler) e
 	for d := range deliveries {
 		if err := handler(s, bytes.NewReader(d.Body)); err != nil {
 			log.Err(err).Msg("error while processing message")
-			continue
 		}
 
 		// Ack no matter what since we doesn't care about failing messages
 		if err := d.Ack(false); err != nil {
 			log.Err(err).Msg("error while ack`ing message")
-			continue
 		}
 	}
 
