@@ -79,7 +79,12 @@ func handleMessage(apiClient api.Client) messaging.MsgHandler {
 		if err != nil {
 			return fmt.Errorf("error while extracting resource: %s", err)
 		}
-		resDto.Headers = resMsg.Headers
+
+		// Lowercase headers
+		resDto.Headers = map[string]string{}
+		for key, value := range resMsg.Headers {
+			resDto.Headers[strings.ToLower(key)] = value
+		}
 
 		// Submit to the API
 		_, err = apiClient.AddResource(resDto)
@@ -138,7 +143,7 @@ func extractResource(msg messaging.NewResourceMsg) (api.ResourceDto, []string, e
 			}
 		}
 
-		meta[name] = value
+		meta[strings.ToLower(name)] = value
 	})
 
 	// Extract & normalize URLs
