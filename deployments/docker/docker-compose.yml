@@ -4,7 +4,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.8.9-management-alpine
     ports:
-      - 15672:15672
+      - 15003:15672
   torproxy:
     image: dperson/torproxy:latest
   elasticsearch:
