@@ -39,8 +39,9 @@ func (msg *URLFoundMsg) Subject() string {
 
 // NewResourceMsg represent a crawled resource
 type NewResourceMsg struct {
-	URL  string `json:"url"`
-	Body string `json:"body"`
+	URL     string            `json:"url"`
+	Body    string            `json:"body"`
+	Headers map[string]string `json:"headers"`
 }
 
 // Subject returns the subject where message should be push

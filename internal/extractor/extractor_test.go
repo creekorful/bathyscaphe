@@ -42,10 +42,13 @@ This is sparta
 		t.Fail()
 	}
 
-	if len(urls) == 0 {
+	if len(urls) != 2 {
 		t.FailNow()
 	}
 	if urls[0] != "https://google.com/test?test=test" {
+		t.Fail()
+	}
+	if urls[1] != "https://example.org" {
 		t.Fail()
 	}
 
@@ -77,7 +80,7 @@ func TestHandleMessage(t *testing.T) {
 	body := `
 <title>Creekorful Inc</title>
 
-This is sparta
+This is sparta (hosted on https://example.org)
 
 <a href="https://google.com/test?test=test#12">
 
@@ -93,8 +96,11 @@ This is sparta
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
 		ReadMsg(msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: body}).
-		Return(nil)
+		SetArg(1, messaging.NewResourceMsg{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+		}).Return(nil)
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
@@ -103,9 +109,12 @@ This is sparta
 		Title:       "Creekorful Inc",
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
+		Headers:     map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
+
+	// should be called only one time
 	subscriberMock.EXPECT().
 		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
 		Return(nil)
@@ -118,7 +127,7 @@ This is sparta
 	}
 }
 
-// custom matcher to ignore time field when doing comparison
+// custom matcher to ignore time field when doing comparison ;(
 // todo: do less crappy?
 type resMatcher struct {
 	target api.ResourceDto
@@ -131,7 +140,9 @@ func (rm *resMatcher) Matches(x interface{}) bool {
 		arg.URL == rm.target.URL &&
 		arg.Body == rm.target.Body &&
 		arg.Description == rm.target.Description &&
-		exactMatch(arg.Meta, rm.target.Meta)
+		exactMatch(arg.Meta, rm.target.Meta) &&
+		arg.Headers["Server"][0] == rm.target.Headers["Server"][0] &&
+		arg.Headers["Content-Type"] == rm.target.Headers["Content-Type"] // TODO allow other headers comparison
 }
 
 func (rm *resMatcher) String() string {

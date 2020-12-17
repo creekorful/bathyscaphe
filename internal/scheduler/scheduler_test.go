@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
 	"github.com/creekorful/trandoshan/internal/messaging"
@@ -44,6 +45,27 @@ func TestHandleMessageNotOnion(t *testing.T) {
 
 	if err := handleMessage(apiClientMock, -1, []string{})(subscriberMock, msg); err != nil {
 		t.FailNow()
+	}
+}
+
+func TestHandleMessageWrongProtocol(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
+
+	msg := bytes.NewReader(nil)
+
+	for _, protocol := range []string{"irc", "ftp"} {
+		subscriberMock.EXPECT().
+			ReadMsg(msg, &messaging.URLFoundMsg{}).
+			SetArg(1, messaging.URLFoundMsg{URL: fmt.Sprintf("%s://example.onion", protocol)}).
+			Return(nil)
+
+		if err := handleMessage(apiClientMock, -1, []string{})(subscriberMock, msg); err != nil {
+			t.FailNow()
+		}
 	}
 }
 

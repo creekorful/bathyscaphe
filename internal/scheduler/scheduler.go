@@ -92,6 +92,12 @@ func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenEx
 			return nil // Technically not an error
 		}
 
+		// Make sure protocol is allowed
+		if !strings.HasPrefix(u.Scheme, "http") {
+			log.Trace().Stringer("url", u).Msg("URL has invalid scheme")
+			return nil // Technically not an error
+		}
+
 		// Make sure extension is not forbidden
 		for _, ext := range forbiddenExtensions {
 			if strings.HasSuffix(u.Path, "."+ext) {

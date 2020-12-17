@@ -78,6 +78,7 @@ func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 		Title:       res.Title,
 		Meta:        res.Meta,
 		Description: res.Description,
+		Headers:     res.Headers,
 	}
 
 	if err := s.db.AddResource(doc); err != nil {
