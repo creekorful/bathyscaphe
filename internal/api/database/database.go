@@ -128,7 +128,7 @@ func buildSearchQuery(params *ResSearchParams) elastic.Query {
 	var queries []elastic.Query
 	if params.URL != "" {
 		log.Trace().Str("url", params.URL).Msg("SearchQuery: Setting url")
-		queries = append(queries, elastic.NewTermQuery("url", params.URL))
+		queries = append(queries, elastic.NewMatchQuery("url", params.URL))
 	}
 	if params.Keyword != "" {
 		log.Trace().Str("body", params.Keyword).Msg("SearchQuery: Setting body")
