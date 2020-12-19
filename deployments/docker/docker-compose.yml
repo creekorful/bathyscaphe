@@ -13,7 +13,7 @@ services:
     image: elasticsearch:7.10.1
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms2g -Xmx4g
     volumes:
       - esdata:/usr/share/elasticsearch/data
   kibana:

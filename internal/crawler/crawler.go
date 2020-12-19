@@ -23,7 +23,7 @@ const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-crawler",
-		Version: "0.5.1",
+		Version: "0.6.0",
 		Usage:   "Trandoshan crawler component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
