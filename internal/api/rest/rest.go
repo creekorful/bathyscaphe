@@ -1,9 +1,10 @@
-package api
+package rest
 
 import (
 	"encoding/base64"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
+	"github.com/creekorful/trandoshan/internal/api/service"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"strconv"
@@ -11,14 +12,22 @@ import (
 	"time"
 )
 
-func searchResourcesEndpoint(s service) echo.HandlerFunc {
+var (
+	// DefaultPaginationSize is the default number of results to returns
+	DefaultPaginationSize = 50
+	// MaxPaginationSize is the max number of results to returns
+	MaxPaginationSize = 100
+)
+
+// SearchResources is the endpoint used to search resources
+func SearchResources(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		searchParams, err := newSearchParams(c)
 		if err != nil {
 			return err
 		}
 
-		resources, total, err := s.searchResources(searchParams)
+		resources, total, err := s.SearchResources(searchParams)
 		if err != nil {
 			return err
 		}
@@ -29,14 +38,15 @@ func searchResourcesEndpoint(s service) echo.HandlerFunc {
 	}
 }
 
-func addResourceEndpoint(s service) echo.HandlerFunc {
+// AddResource is the endpoint used to save a new resource
+func AddResource(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var res api.ResourceDto
 		if err := c.Bind(&res); err != nil {
 			return err
 		}
 
-		res, err := s.addResource(res)
+		res, err := s.AddResource(res)
 		if err != nil {
 			return err
 		}
@@ -45,14 +55,15 @@ func addResourceEndpoint(s service) echo.HandlerFunc {
 	}
 }
 
-func scheduleURLEndpoint(s service) echo.HandlerFunc {
+// ScheduleURL is the endpoint to schedule an URL for crawling
+func ScheduleURL(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var url string
 		if err := c.Bind(&url); err != nil {
 			return err
 		}
 
-		return s.scheduleURL(url)
+		return s.ScheduleURL(url)
 	}
 }
 
@@ -63,11 +74,11 @@ func readPagination(c echo.Context) (int, int) {
 	}
 	paginationSize, err := strconv.Atoi(c.QueryParam(api.PaginationSizeQueryParam))
 	if err != nil {
-		paginationSize = defaultPaginationSize
+		paginationSize = DefaultPaginationSize
 	}
 	// Prevent too much results from being returned
-	if paginationSize > maxPaginationSize {
-		paginationSize = maxPaginationSize
+	if paginationSize > MaxPaginationSize {
+		paginationSize = MaxPaginationSize
 	}
 
 	return paginationPage, paginationSize

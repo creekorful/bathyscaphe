@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"github.com/creekorful/trandoshan/api"
@@ -10,11 +10,12 @@ import (
 	"time"
 )
 
-type service interface {
-	searchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error)
-	addResource(res api.ResourceDto) (api.ResourceDto, error)
-	scheduleURL(url string) error
-	close()
+// Service expose the API functionality
+type Service interface {
+	SearchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error)
+	AddResource(res api.ResourceDto) (api.ResourceDto, error)
+	ScheduleURL(url string) error
+	Close()
 }
 
 type svc struct {
@@ -23,7 +24,8 @@ type svc struct {
 	refreshDelay time.Duration
 }
 
-func newService(c *cli.Context) (service, error) {
+// NewService create a new Service from given details
+func NewService(c *cli.Context) (Service, error) {
 	// Connect to the messaging server
 	pub, err := messaging.NewPublisher(c.String("hub-uri"))
 	if err != nil {
@@ -47,7 +49,7 @@ func newService(c *cli.Context) (service, error) {
 	}, nil
 }
 
-func (s *svc) searchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error) {
+func (s *svc) SearchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error) {
 	totalCount, err := s.db.CountResources(params)
 	if err != nil {
 		log.Err(err).Msg("Error while counting on ES")
@@ -73,7 +75,7 @@ func (s *svc) searchResources(params *database.ResSearchParams) ([]api.ResourceD
 	return resources, totalCount, nil
 }
 
-func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
+func (s *svc) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 	log.Debug().Str("url", res.URL).Msg("Saving resource")
 
 	// Hacky stuff to prevent from adding 'duplicate resource'
@@ -124,7 +126,7 @@ func (s *svc) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 	return res, nil
 }
 
-func (s *svc) scheduleURL(url string) error {
+func (s *svc) ScheduleURL(url string) error {
 	// Publish the URL
 	if err := s.pub.PublishMsg(&messaging.URLFoundMsg{URL: url}); err != nil {
 		log.Err(err).Msg("Unable to publish URL")
@@ -135,6 +137,6 @@ func (s *svc) scheduleURL(url string) error {
 	return nil
 }
 
-func (s *svc) close() {
+func (s *svc) Close() {
 	s.pub.Close()
 }

@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"github.com/creekorful/trandoshan/api"
@@ -37,7 +37,7 @@ func TestSearchResources(t *testing.T) {
 
 	s := svc{db: dbMock}
 
-	res, count, err := s.searchResources(params)
+	res, count, err := s.SearchResources(params)
 	if err != nil {
 		t.FailNow()
 	}
@@ -73,7 +73,7 @@ func TestAddResource(t *testing.T) {
 
 	s := svc{db: dbMock, refreshDelay: 5 * time.Hour}
 
-	res, err := s.addResource(api.ResourceDto{
+	res, err := s.AddResource(api.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -126,7 +126,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 
 	s := svc{db: dbMock, refreshDelay: -1}
 
-	_, err := s.addResource(api.ResourceDto{
+	_, err := s.AddResource(api.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -155,7 +155,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 
 	s := svc{db: dbMock, refreshDelay: -10 * time.Minute}
 
-	_, err := s.addResource(api.ResourceDto{
+	_, err := s.AddResource(api.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -179,7 +179,7 @@ func TestScheduleURL(t *testing.T) {
 
 	pubMock.EXPECT().PublishMsg(&messaging.URLFoundMsg{URL: "https://example.onion"})
 
-	if err := s.scheduleURL("https://example.onion"); err != nil {
+	if err := s.ScheduleURL("https://example.onion"); err != nil {
 		t.FailNow()
 	}
 }
