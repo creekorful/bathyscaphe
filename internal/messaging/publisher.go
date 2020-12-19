@@ -48,7 +48,8 @@ func publishJSON(rc *amqp.Channel, subject string, msg interface{}) error {
 	}
 
 	return rc.Publish("", subject, false, false, amqp.Publishing{
-		ContentType: "application/json",
-		Body:        msgBytes,
+		ContentType:  "application/json",
+		Body:         msgBytes,
+		DeliveryMode: amqp.Persistent,
 	})
 }
