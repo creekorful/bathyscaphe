@@ -12,13 +12,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"io"
 	"mvdan.cc/xurls/v2"
-	"regexp"
 	"strings"
 	"time"
-)
-
-var (
-	protocolRegex = regexp.MustCompile("https?://")
 )
 
 // GetApp return the extractor app
