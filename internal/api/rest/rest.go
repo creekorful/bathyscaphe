@@ -1,9 +1,10 @@
-package api
+package rest
 
 import (
 	"encoding/base64"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
+	"github.com/creekorful/trandoshan/internal/api/service"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"strconv"
@@ -11,14 +12,20 @@ import (
 	"time"
 )
 
-func searchResourcesEndpoint(s service) echo.HandlerFunc {
+var (
+	defaultPaginationSize = 50
+	maxPaginationSize     = 100
+)
+
+// SearchResources allows to search resources
+func SearchResources(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		searchParams, err := newSearchParams(c)
 		if err != nil {
 			return err
 		}
 
-		resources, total, err := s.searchResources(searchParams)
+		resources, total, err := s.SearchResources(searchParams)
 		if err != nil {
 			return err
 		}
@@ -29,14 +36,15 @@ func searchResourcesEndpoint(s service) echo.HandlerFunc {
 	}
 }
 
-func addResourceEndpoint(s service) echo.HandlerFunc {
+// AddResource persist a new resource
+func AddResource(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var res api.ResourceDto
 		if err := c.Bind(&res); err != nil {
 			return err
 		}
 
-		res, err := s.addResource(res)
+		res, err := s.AddResource(res)
 		if err != nil {
 			return err
 		}
@@ -45,14 +53,15 @@ func addResourceEndpoint(s service) echo.HandlerFunc {
 	}
 }
 
-func scheduleURLEndpoint(s service) echo.HandlerFunc {
+// ScheduleURL schedule given URL for crawling
+func ScheduleURL(s service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var url string
 		if err := c.Bind(&url); err != nil {
 			return err
 		}
 
-		return s.scheduleURL(url)
+		return s.ScheduleURL(url)
 	}
 }
 
