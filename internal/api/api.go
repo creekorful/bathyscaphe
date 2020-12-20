@@ -2,16 +2,13 @@ package api
 
 import (
 	"github.com/creekorful/trandoshan/internal/api/auth"
+	"github.com/creekorful/trandoshan/internal/api/rest"
+	"github.com/creekorful/trandoshan/internal/api/service"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-)
-
-var (
-	defaultPaginationSize = 50
-	maxPaginationSize     = 100
 )
 
 // GetApp return the api app
@@ -65,7 +62,7 @@ func execute(c *cli.Context) error {
 	signingKey := []byte(c.String("signing-key"))
 
 	// Create the service
-	svc, err := newService(c)
+	svc, err := service.New(c)
 	if err != nil {
 		log.Err(err).Msg("Unable to start API")
 		return err
@@ -76,9 +73,9 @@ func execute(c *cli.Context) error {
 	e.Use(authMiddleware.Middleware())
 
 	// Add endpoints
-	e.GET("/v1/resources", searchResourcesEndpoint(svc))
-	e.POST("/v1/resources", addResourceEndpoint(svc))
-	e.POST("/v1/urls", scheduleURLEndpoint(svc))
+	e.GET("/v1/resources", rest.SearchResources(svc))
+	e.POST("/v1/resources", rest.AddResource(svc))
+	e.POST("/v1/urls", rest.ScheduleURL(svc))
 
 	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")
 
