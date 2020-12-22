@@ -4,8 +4,8 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/api/database_mock"
-	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/messaging_mock"
+	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
 	"time"
@@ -173,11 +173,11 @@ func TestScheduleURL(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	pubMock := messaging_mock.NewMockPublisher(mockCtrl)
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	s := svc{pub: pubMock}
 
-	pubMock.EXPECT().PublishMsg(&messaging.URLFoundMsg{URL: "https://example.onion"})
+	pubMock.EXPECT().Publish(&event.FoundURLEvent{URL: "https://example.onion"})
 
 	if err := s.ScheduleURL("https://example.onion"); err != nil {
 		t.FailNow()
