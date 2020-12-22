@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
-	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/messaging_mock"
+	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
 )
@@ -22,7 +22,7 @@ This is sparta
 <meta property="og:url" content="https://example.org">
 `
 
-	msg := messaging.NewResourceMsg{
+	msg := event.NewResourceEvent{
 		URL:  "https://example.org/300",
 		Body: body,
 	}
@@ -91,12 +91,12 @@ This is sparta (hosted on https://example.org)
 	defer mockCtrl.Finish()
 
 	apiClientMock := api_mock.NewMockClient(mockCtrl)
-	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
-		ReadMsg(msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{
+		Read(msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -116,13 +116,14 @@ This is sparta (hosted on https://example.org)
 
 	// should be called only one time
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
+		Publish(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com/test?test=test"}).
+		Publish(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
-	if err := handleMessage(apiClientMock)(subscriberMock, msg); err != nil {
+	s := State{apiClient: apiClientMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
 }
