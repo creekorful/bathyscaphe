@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/duration"
@@ -16,6 +17,13 @@ import (
 	"strings"
 	"syscall"
 	"time"
+)
+
+var (
+	ErrNotOnionHostname    = errors.New("hostname is not .onion")
+	ErrProtocolNotAllowed  = errors.New("protocol is not allowed")
+	ErrExtensionNotAllowed = errors.New("extension is not allowed")
+	ErrShouldNotSchedule   = errors.New("should not be scheduled")
 )
 
 // GetApp return the scheduler app
@@ -112,24 +120,18 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 
 	// Make sure URL is valid .onion
 	if !strings.Contains(u.Host, ".onion") {
-		log.Trace().Stringer("url", u).Msg("URL is not a valid hidden service")
-		return nil // Technically not an error
+		return fmt.Errorf("%s %w", u.Host, ErrNotOnionHostname)
 	}
 
 	// Make sure protocol is allowed
 	if !strings.HasPrefix(u.Scheme, "http") {
-		log.Trace().Stringer("url", u).Msg("URL has invalid scheme")
-		return nil // Technically not an error
+		return fmt.Errorf("%s %w", u, ErrProtocolNotAllowed)
 	}
 
 	// Make sure extension is not forbidden
 	for _, ext := range state.forbiddenExtensions {
 		if strings.HasSuffix(u.Path, "."+ext) {
-			log.Trace().
-				Stringer("url", u).
-				Str("ext", ext).
-				Msg("Skipping URL with forbidden extension")
-			return nil // Technically not an error
+			return fmt.Errorf("%s (.%s) %w", u, ext, ErrExtensionNotAllowed)
 		}
 	}
 
@@ -145,14 +147,15 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 		return fmt.Errorf("error while searching resource (%s): %s", u, err)
 	}
 
+	if count > 0 {
+		return fmt.Errorf("%s %w", u, ErrShouldNotSchedule)
+	}
+
 	// No matches: schedule!
-	if count == 0 {
-		log.Debug().Stringer("url", u).Msg("URL should be scheduled")
-		if err := subscriber.Publish(&event.NewURLEvent{URL: evt.URL}); err != nil {
-			return fmt.Errorf("error while publishing URL: %s", err)
-		}
-	} else {
-		log.Trace().Stringer("url", u).Msg("URL should not be scheduled")
+	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
+
+	if err := subscriber.Publish(&event.NewURLEvent{URL: evt.URL}); err != nil {
+		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 
 	return nil

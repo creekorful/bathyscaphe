@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
@@ -31,7 +32,7 @@ func TestHandleMessageNotOnion(t *testing.T) {
 		forbiddenExtensions: []string{},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrNotOnionHostname) {
 		t.FailNow()
 	}
 }
@@ -57,7 +58,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: fmt.Sprintf("%s://example.onion", protocol)}).
 			Return(nil)
 
-		if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
+		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrProtocolNotAllowed) {
 			t.FailNow()
 		}
 	}
@@ -86,7 +87,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 		forbiddenExtensions: []string{"png"},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrShouldNotSchedule) {
 		t.FailNow()
 	}
 }
@@ -110,7 +111,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 		forbiddenExtensions: []string{"png"},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrExtensionNotAllowed) {
 		t.FailNow()
 	}
 }
