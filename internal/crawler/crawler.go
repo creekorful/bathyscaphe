@@ -79,16 +79,16 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
-
-	s := State{
+	state := state{
 		httpClient:          httpClient,
 		allowedContentTypes: ctx.StringSlice("allowed-ct"),
 	}
 
-	if err := sub.SubscribeAsync(event.NewURLExchange, "crawlingQueue", s.handleNewURLEvent); err != nil {
+	if err := sub.SubscribeAsync(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
 		return err
 	}
+
+	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
 	// Handle graceful shutdown
 	c := make(chan os.Signal, 1)
@@ -104,12 +104,12 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-type State struct {
+type state struct {
 	httpClient          http.Client
 	allowedContentTypes []string
 }
 
-func (state *State) handleNewURLEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reader) error {
 	var evt event.NewURLEvent
 	if err := subscriber.Read(body, &evt); err != nil {
 		return err

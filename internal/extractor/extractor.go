@@ -53,13 +53,13 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
+	state := state{apiClient: apiClient}
 
-	s := State{apiClient: apiClient}
-
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "extractingQueue", s.handleNewResourceEvent); err != nil {
+	if err := sub.SubscribeAsync(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
 		return err
 	}
+
+	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
 
 	// Handle graceful shutdown
 	c := make(chan os.Signal, 1)
@@ -75,11 +75,11 @@ func execute(ctx *cli.Context) error {
 	return nil
 }
 
-type State struct {
+type state struct {
 	apiClient api.Client
 }
 
-func (state *State) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
 	var evt event.NewResourceEvent
 	if err := subscriber.Read(body, &evt); err != nil {
 		return err

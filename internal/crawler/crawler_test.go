@@ -112,7 +112,7 @@ func TestHandleMessage(t *testing.T) {
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},
 	}).Return(nil)
 
-	s := State{httpClient: httpClientMock, allowedContentTypes: []string{"text/plain", "text/css"}}
+	s := state{httpClient: httpClientMock, allowedContentTypes: []string{"text/plain", "text/css"}}
 	if err := s.handleNewURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}
