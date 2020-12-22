@@ -114,7 +114,7 @@ This is sparta (hosted on https://example.org)
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
 		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
-		Time: tn,
+		Time:        tn,
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
