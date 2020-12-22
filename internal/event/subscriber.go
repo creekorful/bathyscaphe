@@ -10,7 +10,7 @@ import (
 )
 
 // Handler represent an event handler
-type Handler func(s Subscriber, body io.Reader) error
+type Handler func(Subscriber, io.Reader) error
 
 // Subscriber is something that read msg from an event queue
 type Subscriber interface {
