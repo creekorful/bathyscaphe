@@ -2,7 +2,7 @@ package crawler
 
 import (
 	"bytes"
-	"github.com/creekorful/trandoshan/internal/http_mock"
+	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/messaging_mock"
 	"github.com/golang/mock/gomock"

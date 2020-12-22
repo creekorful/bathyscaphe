@@ -3,7 +3,7 @@ package crawler
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/http"
+	"github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
