@@ -20,10 +20,10 @@ import (
 )
 
 var (
-	ErrNotOnionHostname    = errors.New("hostname is not .onion")
-	ErrProtocolNotAllowed  = errors.New("protocol is not allowed")
-	ErrExtensionNotAllowed = errors.New("extension is not allowed")
-	ErrShouldNotSchedule   = errors.New("should not be scheduled")
+	errNotOnionHostname    = errors.New("hostname is not .onion")
+	errProtocolNotAllowed  = errors.New("protocol is not allowed")
+	errExtensionNotAllowed = errors.New("extension is not allowed")
+	errShouldNotSchedule   = errors.New("should not be scheduled")
 )
 
 // GetApp return the scheduler app
@@ -120,18 +120,18 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 
 	// Make sure URL is valid .onion
 	if !strings.Contains(u.Host, ".onion") {
-		return fmt.Errorf("%s %w", u.Host, ErrNotOnionHostname)
+		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
 	}
 
 	// Make sure protocol is allowed
 	if !strings.HasPrefix(u.Scheme, "http") {
-		return fmt.Errorf("%s %w", u, ErrProtocolNotAllowed)
+		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
 	}
 
 	// Make sure extension is not forbidden
 	for _, ext := range state.forbiddenExtensions {
 		if strings.HasSuffix(u.Path, "."+ext) {
-			return fmt.Errorf("%s (.%s) %w", u, ext, ErrExtensionNotAllowed)
+			return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
 		}
 	}
 
@@ -148,7 +148,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	}
 
 	if count > 0 {
-		return fmt.Errorf("%s %w", u, ErrShouldNotSchedule)
+		return fmt.Errorf("%s %w", u, errShouldNotSchedule)
 	}
 
 	// No matches: schedule!

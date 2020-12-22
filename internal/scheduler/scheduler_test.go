@@ -32,7 +32,7 @@ func TestHandleMessageNotOnion(t *testing.T) {
 		forbiddenExtensions: []string{},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrNotOnionHostname) {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errNotOnionHostname) {
 		t.FailNow()
 	}
 }
@@ -58,7 +58,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: fmt.Sprintf("%s://example.onion", protocol)}).
 			Return(nil)
 
-		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrProtocolNotAllowed) {
+		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errProtocolNotAllowed) {
 			t.FailNow()
 		}
 	}
@@ -87,7 +87,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 		forbiddenExtensions: []string{"png"},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrShouldNotSchedule) {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errShouldNotSchedule) {
 		t.FailNow()
 	}
 }
@@ -111,7 +111,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 		forbiddenExtensions: []string{"png"},
 	}
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, ErrExtensionNotAllowed) {
+	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errExtensionNotAllowed) {
 		t.FailNow()
 	}
 }
