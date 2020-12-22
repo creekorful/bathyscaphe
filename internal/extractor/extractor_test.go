@@ -8,6 +8,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
+	"time"
 )
 
 func TestExtractResource(t *testing.T) {
@@ -93,6 +94,8 @@ This is sparta (hosted on https://example.org)
 	apiClientMock := api_mock.NewMockClient(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
+	tn := time.Now()
+
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
 		Read(msg, &event.NewResourceEvent{}).
@@ -100,6 +103,7 @@ This is sparta (hosted on https://example.org)
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+			Time:    tn,
 		}).Return(nil)
 
 	// make sure we are creating the resource
@@ -110,6 +114,7 @@ This is sparta (hosted on https://example.org)
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
 		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
+		Time: tn,
 	}}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
@@ -128,7 +133,6 @@ This is sparta (hosted on https://example.org)
 	}
 }
 
-// custom matcher to ignore time field when doing comparison ;(
 // todo: do less crappy?
 type resMatcher struct {
 	target api.ResourceDto
@@ -140,6 +144,7 @@ func (rm *resMatcher) Matches(x interface{}) bool {
 		arg.URL == rm.target.URL &&
 		arg.Body == rm.target.Body &&
 		arg.Description == rm.target.Description &&
+		arg.Time == rm.target.Time &&
 		exactMatch(arg.Meta, rm.target.Meta) &&
 		arg.Headers["server"] == rm.target.Headers["server"] &&
 		arg.Headers["content-type"] == rm.target.Headers["content-type"] // TODO allow other headers comparison
