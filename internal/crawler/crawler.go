@@ -3,6 +3,7 @@ package crawler
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/clock"
 	"github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
@@ -82,6 +83,7 @@ func execute(ctx *cli.Context) error {
 	state := state{
 		httpClient:          httpClient,
 		allowedContentTypes: ctx.StringSlice("allowed-ct"),
+		clock:               &clock.SystemClock{},
 	}
 
 	if err := sub.SubscribeAsync(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
@@ -107,6 +109,7 @@ func execute(ctx *cli.Context) error {
 type state struct {
 	httpClient          http.Client
 	allowedContentTypes []string
+	clock               clock.Clock
 }
 
 func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reader) error {
@@ -124,6 +127,7 @@ func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reade
 		URL:     evt.URL,
 		Body:    b,
 		Headers: headers,
+		Time:    state.clock.Now(),
 	}
 
 	if err := subscriber.Publish(&res); err != nil {
