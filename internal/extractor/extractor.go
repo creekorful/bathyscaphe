@@ -16,7 +16,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 )
 
 // GetApp return the extractor app
@@ -176,7 +175,7 @@ func extractResource(msg event.NewResourceEvent) (api.ResourceDto, []string, err
 	return api.ResourceDto{
 		URL:         msg.URL,
 		Body:        msg.Body,
-		Time:        time.Now(),
+		Time:        msg.Time,
 		Title:       title,
 		Meta:        meta,
 		Description: meta["description"],

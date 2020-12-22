@@ -2,12 +2,14 @@ package crawler
 
 import (
 	"bytes"
+	"github.com/creekorful/trandoshan/internal/clock_mock"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCrawlURLForbiddenContentType(t *testing.T) {
@@ -87,13 +89,14 @@ func TestCrawlURLNoContentTypeFiltering(t *testing.T) {
 	}
 }
 
-func TestHandleMessage(t *testing.T) {
+func TestHandleNewURLEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
+	clockMock := clock_mock.NewMockClock(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
@@ -106,13 +109,21 @@ func TestHandleMessage(t *testing.T) {
 
 	httpClientMock.EXPECT().Get("https://example.onion/image.png?id=12&test=2").Return(httpResponseMock, nil)
 
+	tn := time.Now()
+	clockMock.EXPECT().Now().Return(tn)
+
 	subscriberMock.EXPECT().Publish(&event.NewResourceEvent{
 		URL:     "https://example.onion/image.png?id=12&test=2",
 		Body:    "Hello",
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},
+		Time:    tn,
 	}).Return(nil)
 
-	s := state{httpClient: httpClientMock, allowedContentTypes: []string{"text/plain", "text/css"}}
+	s := state{
+		httpClient:          httpClientMock,
+		allowedContentTypes: []string{"text/plain", "text/css"},
+		clock:               clockMock,
+	}
 	if err := s.handleNewURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}

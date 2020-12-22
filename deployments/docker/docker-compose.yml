@@ -59,6 +59,17 @@ services:
     depends_on:
       - rabbitmq
       - api
+  archiver:
+    image: creekorful/tdsh-archiver:latest
+    command: >
+      --log-level debug
+      --hub-uri amqp://guest:guest@rabbitmq:5672
+      --storage-dir /archive
+    restart: always
+    volumes:
+      - archiverdata:/archive
+    depends_on:
+      - rabbitmq
   api:
     image: creekorful/tdsh-api:latest
     command: >
@@ -76,4 +87,6 @@ volumes:
   esdata:
     driver: local
   rabbitdata:
+    driver: local
+  archiverdata:
     driver: local

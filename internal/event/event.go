@@ -1,5 +1,7 @@
 package event
 
+import "time"
+
 //go:generate mockgen -destination=../event_mock/event_mock.go -package=event_mock . Publisher,Subscriber
 
 const (
@@ -42,6 +44,7 @@ type NewResourceEvent struct {
 	URL     string            `json:"url"`
 	Body    string            `json:"body"`
 	Headers map[string]string `json:"headers"`
+	Time    time.Time         `json:"time"`
 }
 
 // Exchange returns the exchange where event should be push
