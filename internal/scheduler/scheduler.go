@@ -1,18 +1,29 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/duration"
+	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"io"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
+)
+
+var (
+	errNotOnionHostname    = errors.New("hostname is not .onion")
+	errProtocolNotAllowed  = errors.New("protocol is not allowed")
+	errExtensionNotAllowed = errors.New("extension is not allowed")
+	errShouldNotSchedule   = errors.New("should not be scheduled")
 )
 
 // GetApp return the scheduler app
@@ -56,81 +67,96 @@ func execute(ctx *cli.Context) error {
 	apiClient := util.GetAPIClient(ctx)
 
 	// Create the subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
+	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}
 	defer sub.Close()
 
+	state := state{
+		apiClient:           apiClient,
+		refreshDelay:        refreshDelay,
+		forbiddenExtensions: ctx.StringSlice("forbidden-extensions"),
+	}
+
+	if err := sub.SubscribeAsync(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
+		return err
+	}
+
 	log.Info().Msg("Successfully initialized tdsh-scheduler. Waiting for URLs")
 
-	handler := handleMessage(apiClient, refreshDelay, ctx.StringSlice("forbidden-extensions"))
-	if err := sub.QueueSubscribe(messaging.URLFoundSubject, "schedulers", handler); err != nil {
+	// Handle graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	// Block until we receive our signal.
+	<-c
+
+	if err := sub.Close(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(apiClient api.Client, refreshDelay time.Duration, forbiddenExtensions []string) messaging.MsgHandler {
-	return func(sub messaging.Subscriber, msg io.Reader) error {
-		var urlMsg messaging.URLFoundMsg
-		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
-			return err
-		}
+type state struct {
+	apiClient           api.Client
+	refreshDelay        time.Duration
+	forbiddenExtensions []string
+}
 
-		log.Trace().Str("url", urlMsg.URL).Msg("Processing URL")
-
-		u, err := url.Parse(urlMsg.URL)
-		if err != nil {
-			return fmt.Errorf("error while parsing URL: %s", err)
-		}
-
-		// Make sure URL is valid .onion
-		if !strings.Contains(u.Host, ".onion") {
-			log.Trace().Stringer("url", u).Msg("URL is not a valid hidden service")
-			return nil // Technically not an error
-		}
-
-		// Make sure protocol is allowed
-		if !strings.HasPrefix(u.Scheme, "http") {
-			log.Trace().Stringer("url", u).Msg("URL has invalid scheme")
-			return nil // Technically not an error
-		}
-
-		// Make sure extension is not forbidden
-		for _, ext := range forbiddenExtensions {
-			if strings.HasSuffix(u.Path, "."+ext) {
-				log.Trace().
-					Stringer("url", u).
-					Str("ext", ext).
-					Msg("Skipping URL with forbidden extension")
-				return nil // Technically not an error
-			}
-		}
-
-		// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
-		// that are newer than `now - refreshDelay`.
-		endDate := time.Time{}
-		if refreshDelay != -1 {
-			endDate = time.Now().Add(-refreshDelay)
-		}
-
-		_, count, err := apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
-		if err != nil {
-			return fmt.Errorf("error while searching resource (%s): %s", u, err)
-		}
-
-		// No matches: schedule!
-		if count == 0 {
-			log.Debug().Stringer("url", u).Msg("URL should be scheduled")
-			if err := sub.PublishMsg(&messaging.URLTodoMsg{URL: urlMsg.URL}); err != nil {
-				return fmt.Errorf("error while publishing URL: %s", err)
-			}
-		} else {
-			log.Trace().Stringer("url", u).Msg("URL should not be scheduled")
-		}
-
-		return nil
+func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Reader) error {
+	var evt event.FoundURLEvent
+	if err := subscriber.Read(body, &evt); err != nil {
+		return err
 	}
+
+	log.Trace().Str("url", evt.URL).Msg("Processing URL")
+
+	u, err := url.Parse(evt.URL)
+	if err != nil {
+		return fmt.Errorf("error while parsing URL: %s", err)
+	}
+
+	// Make sure URL is valid .onion
+	if !strings.Contains(u.Host, ".onion") {
+		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
+	}
+
+	// Make sure protocol is allowed
+	if !strings.HasPrefix(u.Scheme, "http") {
+		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
+	}
+
+	// Make sure extension is not forbidden
+	for _, ext := range state.forbiddenExtensions {
+		if strings.HasSuffix(u.Path, "."+ext) {
+			return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+		}
+	}
+
+	// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
+	// that are newer than `now - refreshDelay`.
+	endDate := time.Time{}
+	if state.refreshDelay != -1 {
+		endDate = time.Now().Add(-state.refreshDelay)
+	}
+
+	_, count, err := state.apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
+	if err != nil {
+		return fmt.Errorf("error while searching resource (%s): %s", u, err)
+	}
+
+	if count > 0 {
+		return fmt.Errorf("%s %w", u, errShouldNotSchedule)
+	}
+
+	// No matches: schedule!
+	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
+
+	if err := subscriber.Publish(&event.NewURLEvent{URL: evt.URL}); err != nil {
+		return fmt.Errorf("error while publishing URL: %s", err)
+	}
+
+	return nil
 }

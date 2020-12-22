@@ -3,8 +3,8 @@ package crawler
 import (
 	"bytes"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
-	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/messaging_mock"
+	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"strings"
 	"testing"
@@ -91,14 +91,14 @@ func TestHandleMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
-		ReadMsg(msg, &messaging.URLTodoMsg{}).
-		SetArg(1, messaging.URLTodoMsg{URL: "https://example.onion/image.png?id=12&test=2"}).
+		Read(msg, &event.NewURLEvent{}).
+		SetArg(1, event.NewURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
 	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain", "Server": "Debian"})
@@ -106,13 +106,14 @@ func TestHandleMessage(t *testing.T) {
 
 	httpClientMock.EXPECT().Get("https://example.onion/image.png?id=12&test=2").Return(httpResponseMock, nil)
 
-	subscriberMock.EXPECT().PublishMsg(&messaging.NewResourceMsg{
+	subscriberMock.EXPECT().Publish(&event.NewResourceEvent{
 		URL:     "https://example.onion/image.png?id=12&test=2",
 		Body:    "Hello",
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},
 	}).Return(nil)
 
-	if err := handleMessage(httpClientMock, []string{"text/plain", "text/css"})(subscriberMock, msg); err != nil {
+	s := state{httpClient: httpClientMock, allowedContentTypes: []string{"text/plain", "text/css"}}
+	if err := s.handleNewURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}
 }

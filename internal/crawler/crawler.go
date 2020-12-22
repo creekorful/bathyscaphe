@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/crawler/http"
+	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -13,7 +13,10 @@ import (
 	"github.com/valyala/fasthttp/fasthttpproxy"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -70,46 +73,64 @@ func execute(ctx *cli.Context) error {
 	})
 
 	// Create the subscriber
-	sub, err := messaging.NewSubscriber(ctx.String("hub-uri"))
+	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
 	if err != nil {
 		return err
 	}
 	defer sub.Close()
 
+	state := state{
+		httpClient:          httpClient,
+		allowedContentTypes: ctx.StringSlice("allowed-ct"),
+	}
+
+	if err := sub.SubscribeAsync(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
+		return err
+	}
+
 	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
 
-	handler := handleMessage(httpClient, ctx.StringSlice("allowed-ct"))
-	if err := sub.QueueSubscribe(messaging.URLTodoSubject, "crawlers", handler); err != nil {
+	// Handle graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	// Block until we receive our signal.
+	<-c
+
+	if err := sub.Close(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleMessage(httpClient http.Client, allowedContentTypes []string) messaging.MsgHandler {
-	return func(sub messaging.Subscriber, msg io.Reader) error {
-		var urlMsg messaging.URLTodoMsg
-		if err := sub.ReadMsg(msg, &urlMsg); err != nil {
-			return err
-		}
+type state struct {
+	httpClient          http.Client
+	allowedContentTypes []string
+}
 
-		body, headers, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
-		if err != nil {
-			return fmt.Errorf("error while crawling URL: %s", err)
-		}
-
-		// Publish resource body
-		res := messaging.NewResourceMsg{
-			URL:     urlMsg.URL,
-			Body:    body,
-			Headers: headers,
-		}
-		if err := sub.PublishMsg(&res); err != nil {
-			return fmt.Errorf("error while publishing resource: %s", err)
-		}
-
-		return nil
+func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reader) error {
+	var evt event.NewURLEvent
+	if err := subscriber.Read(body, &evt); err != nil {
+		return err
 	}
+
+	b, headers, err := crawURL(state.httpClient, evt.URL, state.allowedContentTypes)
+	if err != nil {
+		return err
+	}
+
+	res := event.NewResourceEvent{
+		URL:     evt.URL,
+		Body:    b,
+		Headers: headers,
+	}
+
+	if err := subscriber.Publish(&res); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func crawURL(httpClient http.Client, url string, allowedContentTypes []string) (string, map[string]string, error) {

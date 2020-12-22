@@ -64,7 +64,7 @@ func execute(c *cli.Context) error {
 	// Create the service
 	svc, err := service.New(c)
 	if err != nil {
-		log.Err(err).Msg("Unable to start API")
+		log.Err(err).Msg("error while creating API service")
 		return err
 	}
 

@@ -1,10 +1,11 @@
 package service
 
 import (
+	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/duration"
-	"github.com/creekorful/trandoshan/internal/messaging"
+	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"time"
@@ -20,24 +21,22 @@ type Service interface {
 
 type svc struct {
 	db           database.Database
-	pub          messaging.Publisher
+	pub          event.Publisher
 	refreshDelay time.Duration
 }
 
 // New create a new Service instance
 func New(c *cli.Context) (Service, error) {
 	// Connect to the messaging server
-	pub, err := messaging.NewPublisher(c.String("hub-uri"))
+	pub, err := event.NewPublisher(c.String("hub-uri"))
 	if err != nil {
-		log.Err(err).Str("uri", c.String("hub-uri")).Msg("Error while connecting to hub server")
-		return nil, err
+		return nil, fmt.Errorf("error while connecting to hub server: %s", err)
 	}
 
 	// Create Elasticsearch client
 	db, err := database.NewElasticDB(c.String("elasticsearch-uri"))
 	if err != nil {
-		log.Err(err).Msg("Error while connecting to the database")
-		return nil, err
+		return nil, fmt.Errorf("error while connecting to the database: %s", err)
 	}
 
 	refreshDelay := duration.ParseDuration(c.String("refresh-delay"))
@@ -128,7 +127,7 @@ func (s *svc) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 
 func (s *svc) ScheduleURL(url string) error {
 	// Publish the URL
-	if err := s.pub.PublishMsg(&messaging.URLFoundMsg{URL: url}); err != nil {
+	if err := s.pub.Publish(&event.FoundURLEvent{URL: url}); err != nil {
 		log.Err(err).Msg("Unable to publish URL")
 		return err
 	}
