@@ -40,6 +40,7 @@ func execute(ctx *cli.Context) error {
 	log.Info().
 		Str("ver", ctx.App.Version).
 		Str("hub-uri", ctx.String("hub-uri")).
+		Str("storage-dir", ctx.String("storage-dir")).
 		Msg("Starting tdsh-archiver")
 
 	// Create the subscriber

@@ -14,6 +14,7 @@ type localStorage struct {
 	baseDir string
 }
 
+// NewLocalStorage returns a new Storage that use local file system
 func NewLocalStorage(root string) (Storage, error) {
 	return &localStorage{baseDir: root}, nil
 }
@@ -38,10 +39,10 @@ func (s *localStorage) Store(url string, time time.Time, body []byte) error {
 	return nil
 }
 
-func formatPath(rawUrl string, time time.Time) (string, error) {
+func formatPath(rawURL string, time time.Time) (string, error) {
 	b := strings.Builder{}
 
-	u, err := url.Parse(rawUrl)
+	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
 	}
