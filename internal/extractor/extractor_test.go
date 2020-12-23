@@ -107,7 +107,7 @@ This is sparta (hosted on https://example.org)
 		}).Return(nil)
 
 	// make sure we are creating the resource
-	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
+	apiClientMock.EXPECT().AddResource(api.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        body,
 		Title:       "Creekorful Inc",
@@ -115,7 +115,7 @@ This is sparta (hosted on https://example.org)
 		Description: "Zhello world",
 		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
 		Time:        tn,
-	}}).Return(api.ResourceDto{}, nil)
+	}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
 
@@ -131,35 +131,4 @@ This is sparta (hosted on https://example.org)
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
-}
-
-// todo: do less crappy?
-type resMatcher struct {
-	target api.ResourceDto
-}
-
-func (rm *resMatcher) Matches(x interface{}) bool {
-	arg := x.(api.ResourceDto)
-	return arg.Title == rm.target.Title &&
-		arg.URL == rm.target.URL &&
-		arg.Body == rm.target.Body &&
-		arg.Description == rm.target.Description &&
-		arg.Time == rm.target.Time &&
-		exactMatch(arg.Meta, rm.target.Meta) &&
-		arg.Headers["server"] == rm.target.Headers["server"] &&
-		arg.Headers["content-type"] == rm.target.Headers["content-type"] // TODO allow other headers comparison
-}
-
-func (rm *resMatcher) String() string {
-	return "is valid resource"
-}
-
-func exactMatch(left, right map[string]string) bool {
-	for key, want := range left {
-		if got, exist := right[key]; !exist || got != want {
-			return false
-		}
-	}
-
-	return true
 }
