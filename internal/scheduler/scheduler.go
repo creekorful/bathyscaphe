@@ -145,7 +145,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 
 	// Make sure hostname is not forbidden
 	for _, hostname := range state.forbiddenHostnames {
-		if u.Hostname() == hostname {
+		if strings.Contains(u.Hostname(), hostname) {
 			return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 		}
 	}
