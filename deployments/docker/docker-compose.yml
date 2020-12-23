@@ -45,6 +45,7 @@ services:
       --forbidden-extensions jpeg
       --forbidden-extensions bmp
       --forbidden-extensions css
+      --forbidden-extensions js
       --forbidden-hostnames facebookcorewwwi.onion
     restart: always
     depends_on:
