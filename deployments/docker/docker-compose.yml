@@ -3,10 +3,12 @@ version: '3'
 services:
   rabbitmq:
     image: rabbitmq:3.8.9-management-alpine
+    hostname: bunnymq
     ports:
+      - 15002:5672
       - 15003:15672
     volumes:
-      - rabbitdata:/var/lib/rabbitmq
+      - rabbitdata:/var/lib/rabbitmq/mnesia
   torproxy:
     image: dperson/torproxy:latest
   elasticsearch:
