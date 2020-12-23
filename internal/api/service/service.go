@@ -70,8 +70,6 @@ func (s *Service) SearchResources(params *api.ResSearchParams) ([]api.ResourceDt
 
 // AddResource allows to add given resource
 func (s *Service) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
-	log.Debug().Str("url", res.URL).Msg("Saving resource")
-
 	// Hacky stuff to prevent from adding 'duplicate resource'
 	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
 	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
