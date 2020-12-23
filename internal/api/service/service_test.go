@@ -177,7 +177,7 @@ func TestScheduleURL(t *testing.T) {
 
 	s := Service{pub: pubMock}
 
-	pubMock.EXPECT().Publish(&event.FoundURLEvent{URL: "https://example.onion"})
+	pubMock.EXPECT().PublishEvent(&event.FoundURLEvent{URL: "https://example.onion"})
 
 	if err := s.ScheduleURL("https://example.onion"); err != nil {
 		t.FailNow()

@@ -205,7 +205,7 @@ func TestHandleMessage(t *testing.T) {
 		Return([]api.ResourceDto{}, int64(0), nil)
 
 	subscriberMock.EXPECT().
-		Publish(&event.NewURLEvent{URL: "https://example.onion"}).
+		PublishEvent(&event.NewURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 
 	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{}, nil)

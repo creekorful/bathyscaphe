@@ -130,7 +130,7 @@ func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reade
 		Time:    state.clock.Now(),
 	}
 
-	if err := subscriber.Publish(&res); err != nil {
+	if err := subscriber.PublishEvent(&res); err != nil {
 		return err
 	}
 

@@ -121,10 +121,10 @@ This is sparta (hosted on https://example.org)
 
 	// should be called only one time
 	subscriberMock.EXPECT().
-		Publish(&event.FoundURLEvent{URL: "https://example.org"}).
+		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 	subscriberMock.EXPECT().
-		Publish(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
+		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
 	s := state{apiClient: apiClientMock}

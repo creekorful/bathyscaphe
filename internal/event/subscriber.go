@@ -45,8 +45,21 @@ func NewSubscriber(amqpURI string) (Subscriber, error) {
 	}, nil
 }
 
-func (s *subscriber) Publish(event Event) error {
-	return publishJSON(s.channel, event.Exchange(), event)
+func (s *subscriber) PublishEvent(event Event) error {
+	evtBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("error while encoding event: %s", err)
+	}
+
+	return s.PublishJSON(event.Exchange(), evtBytes)
+}
+
+func (p *subscriber) PublishJSON(exchange string, event []byte) error {
+	return p.channel.Publish(exchange, "", false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		Body:         event,
+		DeliveryMode: amqp.Persistent,
+	})
 }
 
 func (s *subscriber) Close() error {

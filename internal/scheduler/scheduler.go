@@ -172,7 +172,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	// No matches: schedule!
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	if err := subscriber.Publish(&event.NewURLEvent{URL: evt.URL}); err != nil {
+	if err := subscriber.PublishEvent(&event.NewURLEvent{URL: evt.URL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 

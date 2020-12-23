@@ -112,7 +112,7 @@ func TestHandleNewURLEvent(t *testing.T) {
 	tn := time.Now()
 	clockMock.EXPECT().Now().Return(tn)
 
-	subscriberMock.EXPECT().Publish(&event.NewResourceEvent{
+	subscriberMock.EXPECT().PublishEvent(&event.NewResourceEvent{
 		URL:     "https://example.onion/image.png?id=12&test=2",
 		Body:    "Hello",
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},

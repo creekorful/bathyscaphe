@@ -118,7 +118,7 @@ func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.
 			Str("url", url).
 			Msg("Publishing found URL")
 
-		if err := subscriber.Publish(&event.FoundURLEvent{URL: url}); err != nil {
+		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
 			log.Warn().
 				Str("url", url).
 				Str("err", err.Error()).
