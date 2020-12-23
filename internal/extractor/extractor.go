@@ -75,7 +75,7 @@ func execute(ctx *cli.Context) error {
 }
 
 type state struct {
-	apiClient api.Client
+	apiClient api.API
 }
 
 func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {

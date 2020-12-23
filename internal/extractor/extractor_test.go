@@ -91,7 +91,7 @@ This is sparta (hosted on https://example.org)
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	tn := time.Now()

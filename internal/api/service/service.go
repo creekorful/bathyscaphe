@@ -11,22 +11,15 @@ import (
 	"time"
 )
 
-// Service is the functionality the API provide
-type Service interface {
-	SearchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error)
-	AddResource(res api.ResourceDto) (api.ResourceDto, error)
-	ScheduleURL(url string) error
-	Close()
-}
-
-type svc struct {
+// Service represent the functionality the API expose
+type Service struct {
 	db           database.Database
 	pub          event.Publisher
 	refreshDelay time.Duration
 }
 
 // New create a new Service instance
-func New(c *cli.Context) (Service, error) {
+func New(c *cli.Context) (*Service, error) {
 	// Connect to the messaging server
 	pub, err := event.NewPublisher(c.String("hub-uri"))
 	if err != nil {
@@ -41,14 +34,15 @@ func New(c *cli.Context) (Service, error) {
 
 	refreshDelay := duration.ParseDuration(c.String("refresh-delay"))
 
-	return &svc{
+	return &Service{
 		db:           db,
 		pub:          pub,
 		refreshDelay: refreshDelay,
 	}, nil
 }
 
-func (s *svc) SearchResources(params *database.ResSearchParams) ([]api.ResourceDto, int64, error) {
+// SearchResources allows to search resources using given params
+func (s *Service) SearchResources(params *api.ResSearchParams) ([]api.ResourceDto, int64, error) {
 	totalCount, err := s.db.CountResources(params)
 	if err != nil {
 		log.Err(err).Msg("Error while counting on ES")
@@ -74,7 +68,8 @@ func (s *svc) SearchResources(params *database.ResSearchParams) ([]api.ResourceD
 	return resources, totalCount, nil
 }
 
-func (s *svc) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
+// AddResource allows to add given resource
+func (s *Service) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 	log.Debug().Str("url", res.URL).Msg("Saving resource")
 
 	// Hacky stuff to prevent from adding 'duplicate resource'
@@ -88,7 +83,7 @@ func (s *svc) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 		endDate = time.Now().Add(-s.refreshDelay)
 	}
 
-	count, err := s.db.CountResources(&database.ResSearchParams{
+	count, err := s.db.CountResources(&api.ResSearchParams{
 		URL:        res.URL,
 		EndDate:    endDate,
 		PageSize:   1,
@@ -125,7 +120,8 @@ func (s *svc) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 	return res, nil
 }
 
-func (s *svc) ScheduleURL(url string) error {
+// ScheduleURL schedule given url for crawling
+func (s *Service) ScheduleURL(url string) error {
 	// Publish the URL
 	if err := s.pub.Publish(&event.FoundURLEvent{URL: url}); err != nil {
 		log.Err(err).Msg("Unable to publish URL")
@@ -136,6 +132,7 @@ func (s *svc) ScheduleURL(url string) error {
 	return nil
 }
 
-func (s *svc) Close() {
+// Close disconnect the service consumer
+func (s *Service) Close() {
 	s.pub.Close()
 }

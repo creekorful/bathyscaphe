@@ -10,14 +10,13 @@ import (
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
-	"time"
 )
 
 func TestHandleMessageNotOnion(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
@@ -41,7 +40,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
@@ -68,7 +67,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
@@ -77,8 +76,13 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 
+	params := api.ResSearchParams{
+		URL:        "https://example.onion",
+		PageSize:   1,
+		PageNumber: 1,
+	}
 	apiClientMock.EXPECT().
-		SearchResources("https://example.onion", "", time.Time{}, time.Time{}, 1, 1).
+		SearchResources(&params).
 		Return([]api.ResourceDto{}, int64(1), nil)
 
 	s := state{
@@ -96,7 +100,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
@@ -120,7 +124,7 @@ func TestHandleMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	msg := bytes.NewReader(nil)
@@ -129,8 +133,13 @@ func TestHandleMessage(t *testing.T) {
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 
+	params := api.ResSearchParams{
+		URL:        "https://example.onion",
+		PageSize:   1,
+		PageNumber: 1,
+	}
 	apiClientMock.EXPECT().
-		SearchResources("https://example.onion", "", time.Time{}, time.Time{}, 1, 1).
+		SearchResources(&params).
 		Return([]api.ResourceDto{}, int64(0), nil)
 
 	subscriberMock.EXPECT().

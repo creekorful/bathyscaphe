@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/base64"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/api/service"
 	"github.com/labstack/echo/v4"
 	"net/http"
@@ -18,7 +17,7 @@ var (
 )
 
 // SearchResources allows to search resources
-func SearchResources(s service.Service) echo.HandlerFunc {
+func SearchResources(s *service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		searchParams, err := newSearchParams(c)
 		if err != nil {
@@ -37,7 +36,7 @@ func SearchResources(s service.Service) echo.HandlerFunc {
 }
 
 // AddResource persist a new resource
-func AddResource(s service.Service) echo.HandlerFunc {
+func AddResource(s *service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var res api.ResourceDto
 		if err := c.Bind(&res); err != nil {
@@ -54,7 +53,7 @@ func AddResource(s service.Service) echo.HandlerFunc {
 }
 
 // ScheduleURL schedule given URL for crawling
-func ScheduleURL(s service.Service) echo.HandlerFunc {
+func ScheduleURL(s *service.Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var url string
 		if err := c.Bind(&url); err != nil {
@@ -82,14 +81,14 @@ func readPagination(c echo.Context) (int, int) {
 	return paginationPage, paginationSize
 }
 
-func writePagination(c echo.Context, s *database.ResSearchParams, totalCount int64) {
+func writePagination(c echo.Context, s *api.ResSearchParams, totalCount int64) {
 	c.Response().Header().Set(api.PaginationPageHeader, strconv.Itoa(s.PageNumber))
 	c.Response().Header().Set(api.PaginationSizeHeader, strconv.Itoa(s.PageSize))
 	c.Response().Header().Set(api.PaginationCountHeader, strconv.FormatInt(totalCount, 10))
 }
 
-func newSearchParams(c echo.Context) (*database.ResSearchParams, error) {
-	params := &database.ResSearchParams{}
+func newSearchParams(c echo.Context) (*api.ResSearchParams, error) {
+	params := &api.ResSearchParams{}
 
 	params.Keyword = c.QueryParam("keyword")
 

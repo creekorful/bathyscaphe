@@ -24,6 +24,6 @@ func GetAPIURIFlag() *cli.StringFlag {
 }
 
 // GetAPIClient return a new configured API client
-func GetAPIClient(c *cli.Context) api.Client {
+func GetAPIClient(c *cli.Context) api.API {
 	return api.NewClient(c.String("api-uri"), c.String("api-token"))
 }
