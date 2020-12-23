@@ -19,7 +19,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-archiver",
-		Version: "0.6.0",
+		Version: "0.7.0",
 		Usage:   "Trandoshan archiver component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),

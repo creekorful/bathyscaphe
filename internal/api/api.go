@@ -15,7 +15,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-api",
-		Version: "0.6.0",
+		Version: "0.7.0",
 		Usage:   "Trandoshan API component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),

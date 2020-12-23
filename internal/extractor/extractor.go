@@ -22,7 +22,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "tdsh-extractor",
-		Version: "0.6.0",
+		Version: "0.7.0",
 		Usage:   "Trandoshan extractor component",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
