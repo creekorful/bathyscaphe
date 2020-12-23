@@ -1,13 +1,14 @@
 package extractor
 
 import (
+	"bytes"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
-	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/messaging_mock"
+	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
-	"github.com/nats-io/nats.go"
 	"testing"
+	"time"
 )
 
 func TestExtractResource(t *testing.T) {
@@ -18,11 +19,11 @@ This is sparta
 
 <a href="https://google.com/test?test=test#12">
 
-<meta name="description" content="Zhello world">
+<meta name="Description" content="Zhello world">
 <meta property="og:url" content="https://example.org">
 `
 
-	msg := messaging.NewResourceMsg{
+	msg := event.NewResourceEvent{
 		URL:  "https://example.org/300",
 		Body: body,
 	}
@@ -42,10 +43,13 @@ This is sparta
 		t.Fail()
 	}
 
-	if len(urls) == 0 {
+	if len(urls) != 2 {
 		t.FailNow()
 	}
 	if urls[0] != "https://google.com/test?test=test" {
+		t.Fail()
+	}
+	if urls[1] != "https://example.org" {
 		t.Fail()
 	}
 
@@ -77,73 +81,54 @@ func TestHandleMessage(t *testing.T) {
 	body := `
 <title>Creekorful Inc</title>
 
-This is sparta
+This is sparta (hosted on https://example.org)
 
 <a href="https://google.com/test?test=test#12">
 
-<meta name="description" content="Zhello world">
+<meta name="DescriptIon" content="Zhello world">
 <meta property="og:url" content="https://example.org">`
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockClient(mockCtrl)
-	subscriberMock := messaging_mock.NewMockSubscriber(mockCtrl)
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
-	msg := nats.Msg{}
+	tn := time.Now()
+
+	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
-		ReadMsg(&msg, &messaging.NewResourceMsg{}).
-		SetArg(1, messaging.NewResourceMsg{URL: "https://example.onion", Body: body}).
-		Return(nil)
+		Read(msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+			Time:    tn,
+		}).Return(nil)
 
 	// make sure we are creating the resource
-	apiClientMock.EXPECT().AddResource(&resMatcher{target: api.ResourceDto{
+	apiClientMock.EXPECT().AddResource(api.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        body,
 		Title:       "Creekorful Inc",
 		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
 		Description: "Zhello world",
-	}}).Return(api.ResourceDto{}, nil)
+		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
+		Time:        tn,
+	}).Return(api.ResourceDto{}, nil)
 
 	// make sure we are pushing found URLs
+
+	// should be called only one time
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://example.org"}).
+		Publish(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 	subscriberMock.EXPECT().
-		PublishMsg(&messaging.URLFoundMsg{URL: "https://google.com/test?test=test"}).
+		Publish(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
-	if err := handleMessage(apiClientMock)(subscriberMock, &msg); err != nil {
+	s := state{apiClient: apiClientMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
-}
-
-// custom matcher to ignore time field when doing comparison
-// todo: do less crappy?
-type resMatcher struct {
-	target api.ResourceDto
-}
-
-func (rm *resMatcher) Matches(x interface{}) bool {
-	arg := x.(api.ResourceDto)
-	return arg.Title ==
-		rm.target.Title &&
-		arg.URL == rm.target.URL &&
-		arg.Body == rm.target.Body &&
-		arg.Description == rm.target.Description &&
-		exactMatch(arg.Meta, rm.target.Meta)
-}
-
-func (rm *resMatcher) String() string {
-	return "is valid resource"
-}
-
-func exactMatch(left, right map[string]string) bool {
-	for key, want := range left {
-		if got, exist := right[key]; !exist || got != want {
-			return false
-		}
-	}
-
-	return true
 }

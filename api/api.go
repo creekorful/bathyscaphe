@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-//go:generate mockgen -destination=../api_mock/api_mock.go -package=api_mock . Client
+//go:generate mockgen -destination=../api_mock/api_mock.go -package=api_mock . API
 
 const (
 	// PaginationPageHeader is the header to determinate current page in paginated endpoint
@@ -31,6 +31,7 @@ type ResourceDto struct {
 	Title       string            `json:"title"`
 	Meta        map[string]string `json:"meta"`
 	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
 }
 
 // CredentialsDto represent the credential when logging in the API
@@ -39,10 +40,22 @@ type CredentialsDto struct {
 	Password string `json:"password"`
 }
 
-// Client is the interface to interact with the API component
-type Client interface {
-	SearchResources(url, keyword string, startDate, endDate time.Time,
-		paginationPage, paginationSize int) ([]ResourceDto, int64, error)
+// ResSearchParams is the search params used
+type ResSearchParams struct {
+	URL        string
+	Keyword    string
+	StartDate  time.Time
+	EndDate    time.Time
+	WithBody   bool
+	PageSize   int
+	PageNumber int
+	// TODO allow searching by meta
+	// TODO allow searching by headers
+}
+
+// API is the interface to interact with the API component
+type API interface {
+	SearchResources(params *ResSearchParams) ([]ResourceDto, int64, error)
 	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
 }
@@ -52,34 +65,33 @@ type client struct {
 	baseURL    string
 }
 
-func (c *client) SearchResources(url, keyword string,
-	startDate, endDate time.Time, paginationPage, paginationSize int) ([]ResourceDto, int64, error) {
+func (c *client) SearchResources(params *ResSearchParams) ([]ResourceDto, int64, error) {
 	targetEndpoint := fmt.Sprintf("%s/v1/resources?", c.baseURL)
 
 	req := c.httpClient.R()
 
-	if url != "" {
-		b64URL := base64.URLEncoding.EncodeToString([]byte(url))
+	if params.URL != "" {
+		b64URL := base64.URLEncoding.EncodeToString([]byte(params.URL))
 		req.SetQueryParam("url", b64URL)
 	}
 
-	if keyword != "" {
-		req.SetQueryParam("keyword", keyword)
+	if params.Keyword != "" {
+		req.SetQueryParam("keyword", params.Keyword)
 	}
 
-	if !startDate.IsZero() {
-		req.SetQueryParam("start-date", startDate.Format(time.RFC3339))
+	if !params.StartDate.IsZero() {
+		req.SetQueryParam("start-date", params.StartDate.Format(time.RFC3339))
 	}
 
-	if !endDate.IsZero() {
-		req.SetQueryParam("end-date", endDate.Format(time.RFC3339))
+	if !params.EndDate.IsZero() {
+		req.SetQueryParam("end-date", params.EndDate.Format(time.RFC3339))
 	}
 
-	if paginationPage != 0 {
-		req.Header.Set(PaginationPageHeader, strconv.Itoa(paginationPage))
+	if params.PageNumber != 0 {
+		req.Header.Set(PaginationPageHeader, strconv.Itoa(params.PageNumber))
 	}
-	if paginationSize != 0 {
-		req.Header.Set(PaginationSizeHeader, strconv.Itoa(paginationSize))
+	if params.PageSize != 0 {
+		req.Header.Set(PaginationSizeHeader, strconv.Itoa(params.PageSize))
 	}
 
 	var resources []ResourceDto
@@ -123,7 +135,7 @@ func (c *client) ScheduleURL(url string) error {
 }
 
 // NewClient create a new API client using given details
-func NewClient(baseURL, token string) Client {
+func NewClient(baseURL, token string) API {
 	httpClient := resty.New()
 	httpClient.SetAuthScheme("Bearer")
 	httpClient.SetAuthToken(token)
