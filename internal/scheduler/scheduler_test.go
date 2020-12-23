@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
@@ -18,6 +20,7 @@ func TestHandleMessageNotOnion(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
@@ -26,9 +29,8 @@ func TestHandleMessageNotOnion(t *testing.T) {
 		Return(nil)
 
 	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{},
+		apiClient:    apiClientMock,
+		configClient: configClientMock,
 	}
 
 	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errNotOnionHostname) {
@@ -42,13 +44,13 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 
 	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{},
+		apiClient:    apiClientMock,
+		configClient: configClientMock,
 	}
 
 	for _, protocol := range []string{"irc", "ftp"} {
@@ -69,6 +71,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
@@ -85,10 +88,13 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 		SearchResources(&params).
 		Return([]api.ResourceDto{}, int64(1), nil)
 
+	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{{Extensions: []string{"png"}}}, nil)
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
+
 	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{"png"},
+		apiClient:    apiClientMock,
+		configClient: configClientMock,
 	}
 
 	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errShouldNotSchedule) {
@@ -102,6 +108,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
@@ -109,10 +116,11 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
+	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{{Extensions: []string{"png"}}}, nil)
+
 	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{"png"},
+		apiClient:    apiClientMock,
+		configClient: configClientMock,
 	}
 
 	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errExtensionNotAllowed) {
@@ -126,28 +134,29 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	type test struct {
 		url                string
-		forbiddenHostnames []string
+		forbiddenHostnames []client.ForbiddenHostname
 	}
 
 	tests := []test{
 		{
 			url:                "https://facebookcorewwwi.onion/image.png?id=12&test=2",
-			forbiddenHostnames: []string{"facebookcorewwwi.onion"},
+			forbiddenHostnames: []client.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}},
 		},
 		{
 			url:                "https://google.onion:9099",
-			forbiddenHostnames: []string{"google.onion"},
+			forbiddenHostnames: []client.ForbiddenHostname{{Hostname: "google.onion"}},
 		},
 		{
 			url:                "http://facebook.onion:443/news/test.php?id=12&username=test",
-			forbiddenHostnames: []string{"facebook.onion"},
+			forbiddenHostnames: []client.ForbiddenHostname{{Hostname: "facebook.onion"}},
 		},
 		{
 			url:                "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login",
-			forbiddenHostnames: []string{"facebookcorewwwi.onion"},
+			forbiddenHostnames: []client.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}},
 		},
 	}
 
@@ -158,11 +167,12 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: test.url}).
 			Return(nil)
 
+		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{}, nil)
+		configClientMock.EXPECT().GetForbiddenHostnames().Return(test.forbiddenHostnames, nil)
+
 		s := state{
-			apiClient:           apiClientMock,
-			refreshDelay:        -1,
-			forbiddenExtensions: []string{},
-			forbiddenHostnames:  test.forbiddenHostnames,
+			apiClient:    apiClientMock,
+			configClient: configClientMock,
 		}
 
 		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errHostnameNotAllowed) {
@@ -177,6 +187,7 @@ func TestHandleMessage(t *testing.T) {
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
@@ -197,10 +208,13 @@ func TestHandleMessage(t *testing.T) {
 		Publish(&event.NewURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 
+	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{}, nil)
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
+
 	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{},
+		apiClient:    apiClientMock,
+		configClient: configClientMock,
 	}
 
 	if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {

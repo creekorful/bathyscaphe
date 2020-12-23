@@ -1,10 +1,16 @@
 package client
 
+import (
+	"github.com/creekorful/trandoshan/internal/event"
+	"time"
+)
+
 //go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
 
 const (
-	forbiddenMimeTypes = "forbidden-mime-types"
-	forbiddenHostnames = "forbidden-hostnames"
+	ForbiddenMimeTypesKey = "forbidden-mime-types"
+	ForbiddenHostnamesKey = "forbidden-hostnames"
+	RefreshDelayKey       = "refresh-delay"
 )
 
 // ForbiddenMimeType is the mime types who's crawling is forbidden
@@ -20,6 +26,11 @@ type ForbiddenHostname struct {
 	Hostname string `json:"hostname"`
 }
 
+// RefreshDelay is the refresh delay for re-crawling
+type RefreshDelay struct {
+	Delay time.Duration `json:"delay"`
+}
+
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
 	GetForbiddenMimeTypes() ([]ForbiddenMimeType, error)
@@ -27,4 +38,14 @@ type Client interface {
 
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
 	SetForbiddenHostnames(values []ForbiddenHostname) error
+
+	GetRefreshDelay() (RefreshDelay, error)
+	SetRefreshDelay(value RefreshDelay) error
+}
+
+type client struct {
+}
+
+func NewConfigClient(configApiURL string, subscriber event.Subscriber, keys []string) (Client, error) {
+	return nil, nil // TODO
 }
