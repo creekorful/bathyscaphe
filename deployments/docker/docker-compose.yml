@@ -44,6 +44,8 @@ services:
       --forbidden-extensions jpg
       --forbidden-extensions jpeg
       --forbidden-extensions bmp
+      --forbidden-extensions css
+      --forbidden-hostnames facebookcorewwwi.onion
     restart: always
     depends_on:
       - rabbitmq

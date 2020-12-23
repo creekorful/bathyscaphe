@@ -24,6 +24,7 @@ var (
 	errProtocolNotAllowed  = errors.New("protocol is not allowed")
 	errExtensionNotAllowed = errors.New("extension is not allowed")
 	errShouldNotSchedule   = errors.New("should not be scheduled")
+	errHostnameNotAllowed  = errors.New("hostname is not allowed")
 )
 
 // GetApp return the scheduler app
@@ -45,6 +46,10 @@ func GetApp() *cli.App {
 				Name:  "forbidden-extensions",
 				Usage: "Extensions to disable scheduling for (i.e png, exe, css, ...) (the dot will be added automatically)",
 			},
+			&cli.StringSliceFlag{
+				Name:  "forbidden-hostnames",
+				Usage: "Hostnames to disable scheduling for",
+			},
 		},
 		Action: execute,
 	}
@@ -60,6 +65,7 @@ func execute(ctx *cli.Context) error {
 		Str("hub-uri", ctx.String("hub-uri")).
 		Str("api-uri", ctx.String("api-uri")).
 		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
+		Strs("forbidden-hostnames", ctx.StringSlice("forbidden-hostnames")).
 		Dur("refresh-delay", refreshDelay).
 		Msg("Starting tdsh-scheduler")
 
@@ -77,6 +83,7 @@ func execute(ctx *cli.Context) error {
 		apiClient:           apiClient,
 		refreshDelay:        refreshDelay,
 		forbiddenExtensions: ctx.StringSlice("forbidden-extensions"),
+		forbiddenHostnames:  ctx.StringSlice("forbidden-hostnames"),
 	}
 
 	if err := sub.SubscribeAsync(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
@@ -103,6 +110,7 @@ type state struct {
 	apiClient           api.API
 	refreshDelay        time.Duration
 	forbiddenExtensions []string
+	forbiddenHostnames  []string
 }
 
 func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Reader) error {
@@ -123,7 +131,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
 	}
 
-	// Make sure protocol is allowed
+	// Make sure protocol is not forbidden
 	if !strings.HasPrefix(u.Scheme, "http") {
 		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
 	}
@@ -132,6 +140,13 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	for _, ext := range state.forbiddenExtensions {
 		if strings.HasSuffix(u.Path, "."+ext) {
 			return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+		}
+	}
+
+	// Make sure hostname is not forbidden
+	for _, hostname := range state.forbiddenHostnames {
+		if u.Hostname() == hostname {
+			return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 		}
 	}
 

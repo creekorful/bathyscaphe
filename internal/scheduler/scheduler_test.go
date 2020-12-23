@@ -120,6 +120,53 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	}
 }
 
+func TestHandleMessageHostnameForbidden(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+
+	type test struct {
+		URL                string
+		forbiddenHostnames []string
+	}
+
+	tests := []test{
+		{
+			URL:                "https://facebookcorewwwi.onion/image.png?id=12&test=2",
+			forbiddenHostnames: []string{"facebookcorewwwi.onion"},
+		},
+		{
+			URL:                "https://google.onion:9099",
+			forbiddenHostnames: []string{"google.onion"},
+		},
+		{
+			URL:                "http://facebook.onion:443/news/test.php?id=12&username=test",
+			forbiddenHostnames: []string{"facebook.onion"},
+		},
+	}
+
+	for _, test := range tests {
+		msg := bytes.NewReader(nil)
+		subscriberMock.EXPECT().
+			Read(msg, &event.FoundURLEvent{}).
+			SetArg(1, event.FoundURLEvent{URL: test.URL}).
+			Return(nil)
+
+		s := state{
+			apiClient:           apiClientMock,
+			refreshDelay:        -1,
+			forbiddenExtensions: []string{},
+			forbiddenHostnames:  test.forbiddenHostnames,
+		}
+
+		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errHostnameNotAllowed) {
+			t.FailNow()
+		}
+	}
+}
+
 func TestHandleMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
