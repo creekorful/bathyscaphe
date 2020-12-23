@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"encoding/json"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -23,24 +24,11 @@ type ResourceIdx struct {
 	Headers     map[string]string `json:"headers"`
 }
 
-// ResSearchParams is the search params used
-type ResSearchParams struct {
-	URL        string
-	Keyword    string
-	StartDate  time.Time
-	EndDate    time.Time
-	WithBody   bool
-	PageSize   int
-	PageNumber int
-	// TODO allow searching by meta
-	// TODO allow searching by headers
-}
-
 // Database is the interface used to abstract communication
 // with the persistence unit
 type Database interface {
-	SearchResources(params *ResSearchParams) ([]ResourceIdx, error)
-	CountResources(params *ResSearchParams) (int64, error)
+	SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error)
+	CountResources(params *api.ResSearchParams) (int64, error)
 	AddResource(res ResourceIdx) error
 }
 
@@ -72,7 +60,7 @@ func NewElasticDB(uri string) (Database, error) {
 	}, nil
 }
 
-func (e *elasticSearchDB) SearchResources(params *ResSearchParams) ([]ResourceIdx, error) {
+func (e *elasticSearchDB) SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error) {
 	q := buildSearchQuery(params)
 	from := (params.PageNumber - 1) * params.PageSize
 
@@ -105,7 +93,7 @@ func (e *elasticSearchDB) SearchResources(params *ResSearchParams) ([]ResourceId
 	return resources, nil
 }
 
-func (e *elasticSearchDB) CountResources(params *ResSearchParams) (int64, error) {
+func (e *elasticSearchDB) CountResources(params *api.ResSearchParams) (int64, error) {
 	q := buildSearchQuery(params)
 
 	count, err := e.client.Count(resourcesIndex).Query(q).Do(context.Background())
@@ -124,7 +112,7 @@ func (e *elasticSearchDB) AddResource(res ResourceIdx) error {
 	return err
 }
 
-func buildSearchQuery(params *ResSearchParams) elastic.Query {
+func buildSearchQuery(params *api.ResSearchParams) elastic.Query {
 	var queries []elastic.Query
 	if params.URL != "" {
 		log.Trace().Str("url", params.URL).Msg("SearchQuery: Setting url")

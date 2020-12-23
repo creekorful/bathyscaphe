@@ -2,6 +2,7 @@ package trandoshanctl
 
 import (
 	"fmt"
+	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/olekukonko/tablewriter"
@@ -75,7 +76,13 @@ func search(c *cli.Context) error {
 	// Create the API client
 	apiClient := util.GetAPIClient(c)
 
-	res, count, err := apiClient.SearchResources("", keyword, time.Time{}, time.Time{}, 1, 10)
+	params := api.ResSearchParams{
+		Keyword:    keyword,
+		WithBody:   false,
+		PageSize:   1,
+		PageNumber: 10,
+	}
+	res, count, err := apiClient.SearchResources(&params)
 	if err != nil {
 		log.Err(err).Str("keyword", keyword).Msg("Unable to search resources")
 		return err

@@ -100,7 +100,7 @@ func execute(ctx *cli.Context) error {
 }
 
 type state struct {
-	apiClient           api.Client
+	apiClient           api.API
 	refreshDelay        time.Duration
 	forbiddenExtensions []string
 }
@@ -142,7 +142,14 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 		endDate = time.Now().Add(-state.refreshDelay)
 	}
 
-	_, count, err := state.apiClient.SearchResources(u.String(), "", time.Time{}, endDate, 1, 1)
+	params := api.ResSearchParams{
+		URL:        u.String(),
+		EndDate:    endDate,
+		WithBody:   false,
+		PageSize:   1,
+		PageNumber: 1,
+	}
+	_, count, err := state.apiClient.SearchResources(&params)
 	if err != nil {
 		return fmt.Errorf("error while searching resource (%s): %s", u, err)
 	}
