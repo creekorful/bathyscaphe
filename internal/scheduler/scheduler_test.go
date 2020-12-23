@@ -128,22 +128,26 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	type test struct {
-		URL                string
+		url                string
 		forbiddenHostnames []string
 	}
 
 	tests := []test{
 		{
-			URL:                "https://facebookcorewwwi.onion/image.png?id=12&test=2",
+			url:                "https://facebookcorewwwi.onion/image.png?id=12&test=2",
 			forbiddenHostnames: []string{"facebookcorewwwi.onion"},
 		},
 		{
-			URL:                "https://google.onion:9099",
+			url:                "https://google.onion:9099",
 			forbiddenHostnames: []string{"google.onion"},
 		},
 		{
-			URL:                "http://facebook.onion:443/news/test.php?id=12&username=test",
+			url:                "http://facebook.onion:443/news/test.php?id=12&username=test",
 			forbiddenHostnames: []string{"facebook.onion"},
+		},
+		{
+			url:                "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login",
+			forbiddenHostnames: []string{"facebookcorewwwi.onion"},
 		},
 	}
 
@@ -151,7 +155,7 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 		msg := bytes.NewReader(nil)
 		subscriberMock.EXPECT().
 			Read(msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: test.URL}).
+			SetArg(1, event.FoundURLEvent{URL: test.url}).
 			Return(nil)
 
 		s := state{
@@ -162,7 +166,7 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 		}
 
 		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errHostnameNotAllowed) {
-			t.FailNow()
+			t.Errorf("%s has not returned errHostnameNotAllowed", test.url)
 		}
 	}
 }
