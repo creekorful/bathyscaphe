@@ -54,8 +54,8 @@ func (s *subscriber) PublishEvent(event Event) error {
 	return s.PublishJSON(event.Exchange(), evtBytes)
 }
 
-func (p *subscriber) PublishJSON(exchange string, event []byte) error {
-	return p.channel.Publish(exchange, "", false, false, amqp.Publishing{
+func (s *subscriber) PublishJSON(exchange string, event []byte) error {
+	return s.channel.Publish(exchange, "", false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		Body:         event,
 		DeliveryMode: amqp.Persistent,

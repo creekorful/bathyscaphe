@@ -38,7 +38,7 @@ func GetApp() *cli.App {
 			util.GetHubURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
-			util.GetConfigApiURIFlag(),
+			util.GetConfigAPIURIFlag(),
 		},
 		Action: execute,
 	}

@@ -8,9 +8,12 @@ import (
 //go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
 
 const (
+	// ForbiddenMimeTypesKey is the key to access the forbidden mime types config
 	ForbiddenMimeTypesKey = "forbidden-mime-types"
+	// ForbiddenHostnamesKey is the key to access the forbidden hostnames config
 	ForbiddenHostnamesKey = "forbidden-hostnames"
-	RefreshDelayKey       = "refresh-delay"
+	// RefreshDelayKey is the key to access the refresh delay config
+	RefreshDelayKey = "refresh-delay"
 )
 
 // ForbiddenMimeType is the mime types who's crawling is forbidden
@@ -46,6 +49,7 @@ type Client interface {
 type client struct {
 }
 
-func NewConfigClient(configApiURL string, subscriber event.Subscriber, keys []string) (Client, error) {
+// NewConfigClient create a new client for the ConfigAPI
+func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []string) (Client, error) {
 	return nil, nil // TODO
 }
