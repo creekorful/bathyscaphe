@@ -41,14 +41,7 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY
-      --forbidden-extensions png
-      --forbidden-extensions gif
-      --forbidden-extensions jpg
-      --forbidden-extensions jpeg
-      --forbidden-extensions bmp
-      --forbidden-extensions css
-      --forbidden-extensions js
-      --forbidden-hostnames facebookcorewwwi.onion
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
@@ -84,9 +77,21 @@ services:
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
     restart: always
     depends_on:
+      - rabbitmq
       - elasticsearch
     ports:
       - 15005:8080
+  configapi:
+    image: creekorful/tdsh-configapi:latest
+    command: >
+      --log-level debug
+      --hub-uri amqp://guest:guest@rabbitmq:5672
+    restart: always
+    depends_on:
+      - rabbitmq
+    ports:
+      - 15006:8080
+
 
 volumes:
   esdata:

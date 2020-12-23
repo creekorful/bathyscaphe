@@ -14,7 +14,7 @@ func TestService_Get(t *testing.T) {
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	dbMock.EXPECT().Get("test").Return([]byte("hello"), nil)
 
-	s := Service{
+	s := service{
 		db: dbMock,
 	}
 
@@ -37,7 +37,7 @@ func TestService_Set(t *testing.T) {
 	dbMock.EXPECT().Set("test-key", []byte("hello")).Return(nil)
 	pubMock.EXPECT().PublishJSON("config.test-key", []byte("hello")).Return(nil)
 
-	s := Service{
+	s := service{
 		db:  dbMock,
 		pub: pubMock,
 	}
