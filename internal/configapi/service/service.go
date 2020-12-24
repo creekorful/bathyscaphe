@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/configapi/database"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -36,7 +35,7 @@ func (s *service) Set(key string, value []byte) error {
 	}
 
 	// publish event to notify config changed
-	return s.pub.PublishJSON(fmt.Sprintf("config.%s", key), event.RawMessage{
+	return s.pub.PublishJSON(event.ConfigExchange, event.RawMessage{
 		Body:    value,
 		Headers: map[string]interface{}{"Config-Key": key},
 	})

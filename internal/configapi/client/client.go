@@ -197,11 +197,26 @@ func (c *client) setValue(key string, value []byte) error {
 		return fmt.Errorf("non managed value type: %s", key)
 	}
 
-	log.Debug().Str("key", key).Bytes("value", value).Msg("Successfully set initial value")
+	log.Debug().Str("key", key).Bytes("value", value).Msg("Successfully set value")
 
 	return nil
 }
 
 func (c *client) handleConfigEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+	// Make sure we have the header
+	configKey, ok := msg.Headers["Config-Key"].(string)
+	if !ok {
+		return fmt.Errorf("message has no Config-Key header")
+	}
+
+	for _, key := range c.keys {
+		if key == configKey {
+			if err := c.setValue(configKey, msg.Body); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
 	return nil // TODO
 }

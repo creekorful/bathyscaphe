@@ -36,7 +36,7 @@ func TestService_Set(t *testing.T) {
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	dbMock.EXPECT().Set("test-key", []byte("hello")).Return(nil)
-	pubMock.EXPECT().PublishJSON("config.test-key", event.RawMessage{
+	pubMock.EXPECT().PublishJSON("config", event.RawMessage{
 		Body:    []byte("hello"),
 		Headers: map[string]interface{}{"Config-Key": "test-key"},
 	}).Return(nil)
