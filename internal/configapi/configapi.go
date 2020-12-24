@@ -24,6 +24,11 @@ func GetApp() *cli.App {
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			util.GetHubURI(),
+			&cli.StringFlag{
+				Name:     "db-uri",
+				Usage:    "URI to the database server",
+				Required: true,
+			},
 		},
 		Action: execute,
 	}
@@ -35,6 +40,7 @@ func execute(ctx *cli.Context) error {
 	log.Info().
 		Str("ver", ctx.App.Version).
 		Str("hub-uri", ctx.String("hub-uri")).
+		Str("db-uri", ctx.String("db-uri")).
 		Msg("Starting tdsh-configapi")
 
 	// Create publisher
@@ -44,7 +50,12 @@ func execute(ctx *cli.Context) error {
 	}
 
 	// Create the ConfigAPI service
-	s, err := service.NewService(&database.MemoryDatabase{}, pub)
+	db, err := database.NewRedisDatabase(ctx.String("db-uri"))
+	if err != nil {
+		return err
+	}
+
+	s, err := service.NewService(db, pub)
 
 	state := state{
 		api: s,

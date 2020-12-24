@@ -24,6 +24,10 @@ services:
       - elasticsearch
     ports:
       - 15004:5601
+  redis:
+    image: redis:alpine3.12
+    volumes:
+      - redisdata:/data
   crawler:
     image: creekorful/tdsh-crawler:latest
     command: >
@@ -86,6 +90,7 @@ services:
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
+      --db-uri redis:6379
     restart: always
     depends_on:
       - rabbitmq
@@ -99,4 +104,6 @@ volumes:
   rabbitdata:
     driver: local
   archiverdata:
+    driver: local
+  redisdata:
     driver: local
