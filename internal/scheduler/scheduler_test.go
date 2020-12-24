@@ -107,20 +107,24 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
-	msg := bytes.NewReader(nil)
-	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
-		SetArg(1, event.FoundURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
-		Return(nil)
+	urls := []string{"https://example.onion/image.png?id=12&test=2", "https://example.onion/image.PNG"}
 
-	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{"png"},
-	}
+	for _, url := range urls {
+		msg := bytes.NewReader(nil)
+		subscriberMock.EXPECT().
+			Read(msg, &event.FoundURLEvent{}).
+			SetArg(1, event.FoundURLEvent{URL: url}).
+			Return(nil)
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errExtensionNotAllowed) {
-		t.FailNow()
+		s := state{
+			apiClient:           apiClientMock,
+			refreshDelay:        -1,
+			forbiddenExtensions: []string{"png"},
+		}
+
+		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errExtensionNotAllowed) {
+			t.FailNow()
+		}
 	}
 }
 

@@ -138,7 +138,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 
 	// Make sure extension is not forbidden
 	for _, ext := range state.forbiddenExtensions {
-		if strings.HasSuffix(u.Path, "."+ext) {
+		if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
 			return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
 		}
 	}
