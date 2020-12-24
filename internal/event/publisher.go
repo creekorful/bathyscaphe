@@ -9,7 +9,7 @@ import (
 // Publisher is something that push an event
 type Publisher interface {
 	PublishEvent(event Event) error
-	PublishJSON(exchange string, event []byte) error
+	PublishJSON(exchange string, msg RawMessage) error
 	Close() error
 }
 
@@ -40,14 +40,15 @@ func (p *publisher) PublishEvent(event Event) error {
 		return fmt.Errorf("error while encoding event: %s", err)
 	}
 
-	return p.PublishJSON(event.Exchange(), evtBytes)
+	return p.PublishJSON(event.Exchange(), RawMessage{Body: evtBytes})
 }
 
-func (p *publisher) PublishJSON(exchange string, event []byte) error {
+func (p *publisher) PublishJSON(exchange string, msg RawMessage) error {
 	return p.channel.Publish(exchange, "", false, false, amqp.Publishing{
 		ContentType:  "application/json",
-		Body:         event,
+		Body:         msg.Body,
 		DeliveryMode: amqp.Persistent,
+		Headers:      msg.Headers,
 	})
 }
 

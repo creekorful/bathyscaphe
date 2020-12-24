@@ -1,7 +1,6 @@
 package extractor
 
 import (
-	"bytes"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -96,9 +95,9 @@ This is sparta (hosted on https://example.org)
 
 	tn := time.Now()
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.NewResourceEvent{}).
+		Read(&msg, &event.NewResourceEvent{}).
 		SetArg(1, event.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,

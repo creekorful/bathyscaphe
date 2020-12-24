@@ -10,7 +10,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -102,9 +101,9 @@ type state struct {
 	configClient client.Client
 }
 
-func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleURLFoundEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.FoundURLEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 

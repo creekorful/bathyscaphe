@@ -12,7 +12,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -112,9 +111,9 @@ type state struct {
 	clock               clock.Clock
 }
 
-func (state *state) handleNewURLEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewURLEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewURLEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 

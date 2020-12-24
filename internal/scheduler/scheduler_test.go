@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
@@ -22,9 +21,9 @@ func TestHandleMessageNotOnion(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
+		Read(&msg, &event.FoundURLEvent{}).
 		SetArg(1, event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 
@@ -46,7 +45,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 
 	s := state{
 		apiClient:    apiClientMock,
@@ -55,7 +54,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 
 	for _, protocol := range []string{"irc", "ftp"} {
 		subscriberMock.EXPECT().
-			Read(msg, &event.FoundURLEvent{}).
+			Read(&msg, &event.FoundURLEvent{}).
 			SetArg(1, event.FoundURLEvent{URL: fmt.Sprintf("%s://example.onion", protocol)}).
 			Return(nil)
 
@@ -73,9 +72,9 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
+		Read(&msg, &event.FoundURLEvent{}).
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 
@@ -110,9 +109,9 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
+		Read(&msg, &event.FoundURLEvent{}).
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
@@ -161,9 +160,9 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		msg := bytes.NewReader(nil)
+		msg := event.RawMessage{}
 		subscriberMock.EXPECT().
-			Read(msg, &event.FoundURLEvent{}).
+			Read(&msg, &event.FoundURLEvent{}).
 			SetArg(1, event.FoundURLEvent{URL: test.url}).
 			Return(nil)
 
@@ -189,9 +188,9 @@ func TestHandleMessage(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
+		Read(&msg, &event.FoundURLEvent{}).
 		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
 		Return(nil)
 

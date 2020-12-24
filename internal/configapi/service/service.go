@@ -36,5 +36,8 @@ func (s *service) Set(key string, value []byte) error {
 	}
 
 	// publish event to notify config changed
-	return s.pub.PublishJSON(fmt.Sprintf("config.%s", key), value)
+	return s.pub.PublishJSON(fmt.Sprintf("config.%s", key), event.RawMessage{
+		Body:    value,
+		Headers: map[string]interface{}{"Config-Key": key},
+	})
 }

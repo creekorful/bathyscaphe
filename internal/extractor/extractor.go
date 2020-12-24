@@ -10,7 +10,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"mvdan.cc/xurls/v2"
 	"os"
 	"os/signal"
@@ -78,9 +77,9 @@ type state struct {
 	apiClient api.API
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 

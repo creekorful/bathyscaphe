@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"bytes"
 	"github.com/creekorful/trandoshan/internal/clock_mock"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -98,9 +97,9 @@ func TestHandleNewURLEvent(t *testing.T) {
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	clockMock := clock_mock.NewMockClock(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.NewURLEvent{}).
+		Read(&msg, &event.NewURLEvent{}).
 		SetArg(1, event.NewURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 

@@ -6,7 +6,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/rs/zerolog/log"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -60,6 +59,7 @@ type client struct {
 	configAPIURL string
 	sub          event.Subscriber
 	mutexes      map[string]*sync.RWMutex
+	keys         []string
 
 	forbiddenMimeTypes []ForbiddenMimeType
 	forbiddenHostnames []ForbiddenHostname
@@ -72,6 +72,7 @@ func NewConfigClient(configAPIURL, processName string, subscriber event.Subscrib
 		configAPIURL: configAPIURL,
 		sub:          subscriber,
 		mutexes:      map[string]*sync.RWMutex{},
+		keys:         keys,
 	}
 
 	// Pre-load wanted keys & create mutex
@@ -201,6 +202,6 @@ func (c *client) setValue(key string, value []byte) error {
 	return nil
 }
 
-func (c *client) handleConfigEvent(subscriber event.Subscriber, body io.Reader) error {
+func (c *client) handleConfigEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	return nil // TODO
 }

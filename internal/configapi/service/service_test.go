@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/creekorful/trandoshan/internal/configapi/database_mock"
+	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
@@ -35,7 +36,10 @@ func TestService_Set(t *testing.T) {
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	dbMock.EXPECT().Set("test-key", []byte("hello")).Return(nil)
-	pubMock.EXPECT().PublishJSON("config.test-key", []byte("hello")).Return(nil)
+	pubMock.EXPECT().PublishJSON("config.test-key", event.RawMessage{
+		Body:    []byte("hello"),
+		Headers: map[string]interface{}{"Config-Key": "test-key"},
+	}).Return(nil)
 
 	s := service{
 		db:  dbMock,

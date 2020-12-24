@@ -1,22 +1,26 @@
 package event
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
-	"io"
 )
 
+// RawMessage is a raw message as viewed by the messaging system
+type RawMessage struct {
+	Body    []byte
+	Headers map[string]interface{}
+}
+
 // Handler represent an event handler
-type Handler func(Subscriber, io.Reader) error
+type Handler func(Subscriber, RawMessage) error
 
 // Subscriber is something that read msg from an event queue
 type Subscriber interface {
 	Publisher
 
-	Read(body io.Reader, event Event) error
+	Read(msg *RawMessage, event Event) error
 	SubscribeAsync(exchange, queue string, handler Handler) error
 }
 
@@ -51,14 +55,15 @@ func (s *subscriber) PublishEvent(event Event) error {
 		return fmt.Errorf("error while encoding event: %s", err)
 	}
 
-	return s.PublishJSON(event.Exchange(), evtBytes)
+	return s.PublishJSON(event.Exchange(), RawMessage{Body: evtBytes})
 }
 
-func (s *subscriber) PublishJSON(exchange string, event []byte) error {
+func (s *subscriber) PublishJSON(exchange string, msg RawMessage) error {
 	return s.channel.Publish(exchange, "", false, false, amqp.Publishing{
 		ContentType:  "application/json",
-		Body:         event,
+		Body:         msg.Body,
 		DeliveryMode: amqp.Persistent,
+		Headers:      msg.Headers,
 	})
 }
 
@@ -66,8 +71,12 @@ func (s *subscriber) Close() error {
 	return s.channel.Close()
 }
 
-func (s *subscriber) Read(body io.Reader, event Event) error {
-	return readJSON(body, event)
+func (s *subscriber) Read(msg *RawMessage, event Event) error {
+	if err := json.Unmarshal(msg.Body, event); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) error {
@@ -95,7 +104,11 @@ func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) err
 
 	go func() {
 		for delivery := range deliveries {
-			if err := handler(s, bytes.NewReader(delivery.Body)); err != nil {
+			msg := RawMessage{
+				Body:    delivery.Body,
+				Headers: delivery.Headers,
+			}
+			if err := handler(s, msg); err != nil {
 				log.Err(err).Msg("error while processing event")
 			}
 
@@ -105,14 +118,6 @@ func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) err
 			}
 		}
 	}()
-
-	return nil
-}
-
-func readJSON(body io.Reader, event interface{}) error {
-	if err := json.NewDecoder(body).Decode(event); err != nil {
-		return fmt.Errorf("error while decoding event: %s", err)
-	}
 
 	return nil
 }
