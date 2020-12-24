@@ -2,6 +2,7 @@ package configapi
 
 import (
 	"github.com/creekorful/trandoshan/internal/configapi/api"
+	"github.com/creekorful/trandoshan/internal/configapi/database"
 	"github.com/creekorful/trandoshan/internal/configapi/service"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
@@ -42,7 +43,7 @@ func execute(ctx *cli.Context) error {
 	}
 
 	// Create the ConfigAPI service
-	s, err := service.NewService(nil, pub)
+	s, err := service.NewService(&database.MemoryDatabase{}, pub)
 
 	state := state{
 		api: s,
