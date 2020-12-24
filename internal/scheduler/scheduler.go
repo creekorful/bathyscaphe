@@ -66,7 +66,7 @@ func execute(ctx *cli.Context) error {
 
 	// Create the ConfigAPI client
 	keys := []string{client.ForbiddenMimeTypesKey, client.ForbiddenHostnamesKey, client.RefreshDelayKey}
-	configClient, err := client.NewConfigClient(ctx.String("config-api-uri"), sub, keys)
+	configClient, err := client.NewConfigClient(ctx.String("config-api-uri"), "scheduler", sub, keys)
 	if err != nil {
 		log.Err(err).Msg("error while creating config client")
 		return err

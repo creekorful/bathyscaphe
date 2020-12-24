@@ -6,6 +6,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/rs/zerolog/log"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -66,7 +67,7 @@ type client struct {
 }
 
 // NewConfigClient create a new client for the ConfigAPI
-func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []string) (Client, error) {
+func NewConfigClient(configAPIURL, processName string, subscriber event.Subscriber, keys []string) (Client, error) {
 	client := &client{
 		configAPIURL: configAPIURL,
 		sub:          subscriber,
@@ -75,6 +76,8 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 
 	// Pre-load wanted keys & create mutex
 	for _, key := range keys {
+		client.mutexes[key] = &sync.RWMutex{}
+
 		val, err := client.Get(key)
 		if err != nil {
 			return nil, err
@@ -83,8 +86,12 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 		if err := client.setValue(key, val); err != nil {
 			return nil, err
 		}
+	}
 
-		client.mutexes[key] = &sync.RWMutex{}
+	// Subscribe for config changed
+	queueName := fmt.Sprintf("%sUpdatingConfigQueue", processName)
+	if err := client.sub.SubscribeAsync(event.ConfigExchange, queueName, client.handleConfigEvent); err != nil {
+		return nil, err
 	}
 
 	return client, nil
@@ -163,21 +170,27 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		c.forbiddenMimeTypes = val
+		if err := c.SetForbiddenMimeTypes(val); err != nil {
+			return err
+		}
 		break
 	case ForbiddenHostnamesKey:
 		var val []ForbiddenHostname
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		c.forbiddenHostnames = val
+		if err := c.SetForbiddenHostnames(val); err != nil {
+			return err
+		}
 		break
 	case RefreshDelayKey:
 		var val RefreshDelay
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		c.refreshDelay = val
+		if err := c.SetRefreshDelay(val); err != nil {
+			return err
+		}
 		break
 	default:
 		return fmt.Errorf("non managed value type: %s", key)
@@ -186,4 +199,8 @@ func (c *client) setValue(key string, value []byte) error {
 	log.Debug().Str("key", key).Bytes("value", value).Msg("Successfully set initial value")
 
 	return nil
+}
+
+func (c *client) handleConfigEvent(subscriber event.Subscriber, body io.Reader) error {
+	return nil // TODO
 }

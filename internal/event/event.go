@@ -11,6 +11,8 @@ const (
 	FoundURLExchange = "url.found"
 	// NewResourceExchange is the subject used when a new resource has been crawled
 	NewResourceExchange = "resource.new"
+	// ConfigExchange is the exchange used to dispatch new configuration
+	ConfigExchange = "config"
 )
 
 // Event represent a event
