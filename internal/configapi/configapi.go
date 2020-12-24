@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 // GetApp return the config api app
@@ -52,9 +53,17 @@ func execute(ctx *cli.Context) error {
 	r := mux.NewRouter()
 	r.HandleFunc("/config/{key}", state.getConfiguration).Methods(http.MethodGet)
 	r.HandleFunc("/config/{key}", state.setConfiguration).Methods(http.MethodPut)
-	http.Handle("/", r)
 
-	return nil
+	srv := &http.Server{
+		Addr: "0.0.0.0:8080",
+		// Good practice to set timeouts to avoid Slowloris attacks.
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
+		Handler:      r, // Pass our instance of gorilla/mux in.
+	}
+
+	return srv.ListenAndServe()
 }
 
 type state struct {

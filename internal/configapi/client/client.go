@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -181,6 +182,8 @@ func (c *client) setValue(key string, value []byte) error {
 	default:
 		return fmt.Errorf("non managed value type: %s", key)
 	}
+
+	log.Debug().Str("key", key).Bytes("value", value).Msg("Successfully set initial value")
 
 	return nil
 }
