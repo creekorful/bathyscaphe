@@ -1,7 +1,13 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/event"
+	"io/ioutil"
+	"net/http"
+	"sync"
 	"time"
 )
 
@@ -36,6 +42,8 @@ type RefreshDelay struct {
 
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
+	api.ConfigAPI
+
 	GetForbiddenMimeTypes() ([]ForbiddenMimeType, error)
 	SetForbiddenMimeTypes(values []ForbiddenMimeType) error
 
@@ -47,9 +55,132 @@ type Client interface {
 }
 
 type client struct {
+	configAPIURL string
+	sub          event.Subscriber
+	mutexes      map[string]*sync.RWMutex
+
+	forbiddenMimeTypes []ForbiddenMimeType
+	forbiddenHostnames []ForbiddenHostname
+	refreshDelay       RefreshDelay
 }
 
 // NewConfigClient create a new client for the ConfigAPI
 func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []string) (Client, error) {
-	return nil, nil // TODO
+	client := &client{
+		configAPIURL: configAPIURL,
+		sub:          subscriber,
+		mutexes:      map[string]*sync.RWMutex{},
+	}
+
+	// Pre-load wanted keys & create mutex
+	for _, key := range keys {
+		val, err := client.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := client.setValue(key, val); err != nil {
+			return nil, err
+		}
+
+		client.mutexes[key] = &sync.RWMutex{}
+	}
+
+	return client, nil
+}
+
+func (c *client) Get(key string) ([]byte, error) {
+	r, err := http.Get(fmt.Sprintf("%s/config/%s", c.configAPIURL, key))
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (c *client) Set(key string, value []byte) error {
+	return nil // TODO
+}
+
+func (c *client) GetForbiddenMimeTypes() ([]ForbiddenMimeType, error) {
+	c.mutexes[ForbiddenMimeTypesKey].RLock()
+	defer c.mutexes[ForbiddenMimeTypesKey].RUnlock()
+
+	return c.forbiddenMimeTypes, nil
+}
+
+func (c *client) SetForbiddenMimeTypes(values []ForbiddenMimeType) error {
+	c.mutexes[ForbiddenMimeTypesKey].Lock()
+	defer c.mutexes[ForbiddenMimeTypesKey].Unlock()
+
+	c.forbiddenMimeTypes = values
+
+	return nil
+}
+
+func (c *client) GetForbiddenHostnames() ([]ForbiddenHostname, error) {
+	c.mutexes[ForbiddenHostnamesKey].RLock()
+	defer c.mutexes[ForbiddenHostnamesKey].RUnlock()
+
+	return c.forbiddenHostnames, nil
+}
+
+func (c *client) SetForbiddenHostnames(values []ForbiddenHostname) error {
+	c.mutexes[ForbiddenHostnamesKey].Lock()
+	defer c.mutexes[ForbiddenHostnamesKey].Unlock()
+
+	c.forbiddenHostnames = values
+
+	return nil
+}
+
+func (c *client) GetRefreshDelay() (RefreshDelay, error) {
+	c.mutexes[RefreshDelayKey].RLock()
+	defer c.mutexes[RefreshDelayKey].RUnlock()
+
+	return c.refreshDelay, nil
+}
+
+func (c *client) SetRefreshDelay(value RefreshDelay) error {
+	c.mutexes[RefreshDelayKey].Lock()
+	defer c.mutexes[RefreshDelayKey].Unlock()
+
+	c.refreshDelay = value
+
+	return nil
+}
+
+func (c *client) setValue(key string, value []byte) error {
+	switch key {
+	case ForbiddenMimeTypesKey:
+		var val []ForbiddenMimeType
+		if err := json.Unmarshal(value, &val); err != nil {
+			return err
+		}
+		c.forbiddenMimeTypes = val
+		break
+	case ForbiddenHostnamesKey:
+		var val []ForbiddenHostname
+		if err := json.Unmarshal(value, &val); err != nil {
+			return err
+		}
+		c.forbiddenHostnames = val
+		break
+	case RefreshDelayKey:
+		var val RefreshDelay
+		if err := json.Unmarshal(value, &val); err != nil {
+			return err
+		}
+		c.refreshDelay = val
+		break
+	default:
+		return fmt.Errorf("non managed value type: %s", key)
+	}
+
+	return nil
 }
