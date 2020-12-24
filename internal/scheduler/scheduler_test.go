@@ -19,20 +19,24 @@ func TestHandleMessageNotOnion(t *testing.T) {
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 
-	msg := bytes.NewReader(nil)
-	subscriberMock.EXPECT().
-		Read(msg, &event.FoundURLEvent{}).
-		SetArg(1, event.FoundURLEvent{URL: "https://example.org"}).
-		Return(nil)
+	urls := []string{"https://example.org", "https://pastebin.onionsearchengine.com"}
 
-	s := state{
-		apiClient:           apiClientMock,
-		refreshDelay:        -1,
-		forbiddenExtensions: []string{},
-	}
+	for _, url := range urls {
+		msg := bytes.NewReader(nil)
+		subscriberMock.EXPECT().
+			Read(msg, &event.FoundURLEvent{}).
+			SetArg(1, event.FoundURLEvent{URL: url}).
+			Return(nil)
 
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errNotOnionHostname) {
-		t.FailNow()
+		s := state{
+			apiClient:           apiClientMock,
+			refreshDelay:        -1,
+			forbiddenExtensions: []string{},
+		}
+
+		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errNotOnionHostname) {
+			t.FailNow()
+		}
 	}
 }
 
@@ -181,11 +185,11 @@ func TestHandleMessage(t *testing.T) {
 	msg := bytes.NewReader(nil)
 	subscriberMock.EXPECT().
 		Read(msg, &event.FoundURLEvent{}).
-		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
+		SetArg(1, event.FoundURLEvent{URL: "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}).
 		Return(nil)
 
 	params := api.ResSearchParams{
-		URL:        "https://example.onion",
+		URL:        "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login",
 		PageSize:   1,
 		PageNumber: 1,
 	}
@@ -194,7 +198,7 @@ func TestHandleMessage(t *testing.T) {
 		Return([]api.ResourceDto{}, int64(0), nil)
 
 	subscriberMock.EXPECT().
-		Publish(&event.NewURLEvent{URL: "https://example.onion"}).
+		Publish(&event.NewURLEvent{URL: "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}).
 		Return(nil)
 
 	s := state{

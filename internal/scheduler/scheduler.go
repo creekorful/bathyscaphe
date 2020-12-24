@@ -127,7 +127,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	}
 
 	// Make sure URL is valid .onion
-	if !strings.Contains(u.Host, ".onion") {
+	if !strings.HasSuffix(u.Hostname(), ".onion") {
 		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
 	}
 
