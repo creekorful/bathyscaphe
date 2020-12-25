@@ -115,7 +115,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 	}
 
 	// Make sure URL is valid .onion
-	if !strings.Contains(u.Host, ".onion") {
+	if !strings.HasSuffix(u.Hostname(), ".onion") {
 		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
 	}
 
@@ -128,7 +128,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 	if mimeTypes, err := state.configClient.GetForbiddenMimeTypes(); err == nil {
 		for _, mimeType := range mimeTypes {
 			for _, ext := range mimeType.Extensions {
-				if strings.HasSuffix(u.Path, "."+ext) {
+				if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
 					return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
 				}
 			}
