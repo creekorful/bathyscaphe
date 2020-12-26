@@ -20,8 +20,14 @@ type Handler func(Subscriber, RawMessage) error
 type Subscriber interface {
 	Publisher
 
+	// Read RawMessage and deserialize it into proper Event
 	Read(msg *RawMessage, event Event) error
+
+	// Subscribe to named exchange with unique consuming guaranty
 	Subscribe(exchange, queue string, handler Handler) error
+
+	// SubscribeAll subscribe to given exchange but ensure everyone on the exchange receive the messages
+	SubscribeAll(exchange string, handler Handler) error
 }
 
 // Subscriber represent a subscriber
@@ -87,6 +93,49 @@ func (s *subscriber) Subscribe(exchange, queue string, handler Handler) error {
 
 	// Then declare the queue
 	q, err := s.channel.QueueDeclare(queue, true, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	// Bind the queue to the exchange
+	if err := s.channel.QueueBind(q.Name, "", exchange, false, nil); err != nil {
+		return err
+	}
+
+	// Start consuming asynchronously
+	deliveries, err := s.channel.Consume(q.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for delivery := range deliveries {
+			msg := RawMessage{
+				Body:    delivery.Body,
+				Headers: delivery.Headers,
+			}
+			if err := handler(s, msg); err != nil {
+				log.Err(err).Msg("error while processing event")
+			}
+
+			// Ack no matter what happen since we doesn't care about failing event (yet?)
+			if err := delivery.Ack(false); err != nil {
+				log.Err(err).Msg("error while acknowledging event")
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (s *subscriber) SubscribeAll(exchange string, handler Handler) error {
+	// First of all declare the exchange
+	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
+		return err
+	}
+
+	// Then declare the queue
+	q, err := s.channel.QueueDeclare("", false, true, true, false, nil)
 	if err != nil {
 		return err
 	}

@@ -98,10 +98,6 @@ func execute(ctx *cli.Context) error {
 	// Block until we receive our signal.
 	<-c
 
-	if err := sub.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 

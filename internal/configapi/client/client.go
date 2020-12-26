@@ -66,8 +66,8 @@ type client struct {
 	refreshDelay       RefreshDelay
 }
 
-// NewConfigClient create a new client for the ConfigAPI
-func NewConfigClient(configAPIURL, processName string, subscriber event.Subscriber, keys []string) (Client, error) {
+// NewConfigClient create a new client for the ConfigAPI.
+func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []string) (Client, error) {
 	client := &client{
 		configAPIURL: configAPIURL,
 		sub:          subscriber,
@@ -90,8 +90,7 @@ func NewConfigClient(configAPIURL, processName string, subscriber event.Subscrib
 	}
 
 	// Subscribe for config changed
-	queueName := fmt.Sprintf("%sUpdatingConfigQueue", processName)
-	if err := client.sub.Subscribe(event.ConfigExchange, queueName, client.handleConfigEvent); err != nil {
+	if err := client.sub.SubscribeAll(event.ConfigExchange, client.handleConfigEvent); err != nil {
 		return nil, err
 	}
 
