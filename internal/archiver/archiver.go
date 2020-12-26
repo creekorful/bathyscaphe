@@ -59,7 +59,7 @@ func execute(ctx *cli.Context) error {
 		storage: st,
 	}
 
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
+	if err := sub.Subscribe(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
 		return err
 	}
 

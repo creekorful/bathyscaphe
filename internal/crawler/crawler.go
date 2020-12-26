@@ -85,7 +85,7 @@ func execute(ctx *cli.Context) error {
 		clock:               &clock.SystemClock{},
 	}
 
-	if err := sub.SubscribeAsync(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
+	if err := sub.Subscribe(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
 		return err
 	}
 

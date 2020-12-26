@@ -76,7 +76,7 @@ func execute(ctx *cli.Context) error {
 		configClient: configClient,
 	}
 
-	if err := sub.SubscribeAsync(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
+	if err := sub.Subscribe(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
 		return err
 	}
 

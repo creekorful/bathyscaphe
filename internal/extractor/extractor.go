@@ -53,7 +53,7 @@ func execute(ctx *cli.Context) error {
 
 	state := state{apiClient: apiClient}
 
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
+	if err := sub.Subscribe(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
 		return err
 	}
 

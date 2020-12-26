@@ -21,7 +21,7 @@ type Subscriber interface {
 	Publisher
 
 	Read(msg *RawMessage, event Event) error
-	SubscribeAsync(exchange, queue string, handler Handler) error
+	Subscribe(exchange, queue string, handler Handler) error
 }
 
 // Subscriber represent a subscriber
@@ -79,7 +79,7 @@ func (s *subscriber) Read(msg *RawMessage, event Event) error {
 	return nil
 }
 
-func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) error {
+func (s *subscriber) Subscribe(exchange, queue string, handler Handler) error {
 	// First of all declare the exchange
 	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
 		return err

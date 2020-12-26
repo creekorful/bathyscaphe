@@ -91,7 +91,7 @@ func NewConfigClient(configAPIURL, processName string, subscriber event.Subscrib
 
 	// Subscribe for config changed
 	queueName := fmt.Sprintf("%sUpdatingConfigQueue", processName)
-	if err := client.sub.SubscribeAsync(event.ConfigExchange, queueName, client.handleConfigEvent); err != nil {
+	if err := client.sub.Subscribe(event.ConfigExchange, queueName, client.handleConfigEvent); err != nil {
 		return nil, err
 	}
 
@@ -202,7 +202,7 @@ func (c *client) setValue(key string, value []byte) error {
 	return nil
 }
 
-func (c *client) handleConfigEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+func (c *client) handleConfigEvent(_ event.Subscriber, msg event.RawMessage) error {
 	// Make sure we have the header
 	configKey, ok := msg.Headers["Config-Key"].(string)
 	if !ok {
