@@ -2,9 +2,7 @@ package configapi
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/configapi/database"
-	"github.com/creekorful/trandoshan/internal/configapi/service"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
@@ -56,13 +54,11 @@ func execute(ctx *cli.Context) error {
 		return err
 	}
 
-	// Create the ConfigAPI service
+	// Create database connection
 	db, err := database.NewRedisDatabase(ctx.String("db-uri"))
 	if err != nil {
 		return err
 	}
-
-	s, err := service.NewService(db, pub)
 
 	// Parse default values
 	defaultValues := map[string]string{}
@@ -76,14 +72,15 @@ func execute(ctx *cli.Context) error {
 
 	// Set default values if needed
 	if len(defaultValues) > 0 {
-		if err := setDefaultValues(s, defaultValues); err != nil {
+		if err := setDefaultValues(db, defaultValues); err != nil {
 			log.Err(err).Msg("error while setting default values")
 			return err
 		}
 	}
 
 	state := state{
-		api: s,
+		db:  db,
+		pub: pub,
 	}
 
 	r := mux.NewRouter()
@@ -103,14 +100,17 @@ func execute(ctx *cli.Context) error {
 }
 
 type state struct {
-	api api.ConfigAPI
+	db  database.Database
+	pub event.Publisher
 }
 
 func (state *state) getConfiguration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
-	b, err := state.api.Get(key)
+	log.Debug().Str("key", key).Msg("Getting key")
+
+	b, err := state.db.Get(key)
 	if err != nil {
 		log.Err(err).Msg("error while retrieving configuration")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -132,8 +132,19 @@ func (state *state) setConfiguration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := state.api.Set(key, b); err != nil {
+	log.Debug().Str("key", key).Bytes("value", b).Msg("Setting key")
+
+	if err := state.db.Set(key, b); err != nil {
 		log.Err(err).Msg("error while setting configuration")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// publish event to notify config changed
+	if err := state.pub.PublishJSON(event.ConfigExchange, event.RawMessage{
+		Body:    b,
+		Headers: map[string]interface{}{"Config-Key": key},
+	}); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -142,7 +153,7 @@ func (state *state) setConfiguration(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-func setDefaultValues(service api.ConfigAPI, values map[string]string) error {
+func setDefaultValues(service database.Database, values map[string]string) error {
 	for key, value := range values {
 		if _, err := service.Get(key); err == redis.Nil {
 			if err := service.Set(key, []byte(value)); err != nil {
