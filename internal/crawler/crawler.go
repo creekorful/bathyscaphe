@@ -24,7 +24,7 @@ func (state *State) Name() string {
 	return "crawler"
 }
 
-func (state *State) Flags() []string {
+func (state *State) FlagsNames() []string {
 	return []string{process.HubURIFlag, process.TorURIFlag, process.UserAgentFlag, process.ConfigAPIURIFlag}
 }
 

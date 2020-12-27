@@ -30,7 +30,7 @@ func (state *State) Name() string {
 	return "scheduler"
 }
 
-func (state *State) Flags() []string {
+func (state *State) FlagsNames() []string {
 	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag, process.ConfigAPIURIFlag}
 }
 

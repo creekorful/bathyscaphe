@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/archiver/storage"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/crawler/http"
@@ -27,6 +28,7 @@ const (
 	TorURIFlag       = "tor-uri"
 	UserAgentFlag    = "user-agent"
 	ConfigAPIURIFlag = "config-api-uri"
+	StorageDirFlag   = "storage-dir"
 )
 
 type Provider interface {
@@ -35,6 +37,7 @@ type Provider interface {
 	APIClient() (api.API, error)
 	FastHTTPClient() (http.Client, error)
 	Subscriber() (event.Subscriber, error)
+	ArchiverStorage() (storage.Storage, error)
 }
 
 type defaultProvider struct {
@@ -78,6 +81,10 @@ func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 	return event.NewSubscriber(p.ctx.String(HubURIFlag))
 }
 
+func (p *defaultProvider) ArchiverStorage() (storage.Storage, error) {
+	return storage.NewLocalStorage(p.ctx.String(StorageDirFlag))
+}
+
 type SubscriberDef struct {
 	Exchange string
 	Queue    string
@@ -86,7 +93,7 @@ type SubscriberDef struct {
 
 type Process interface {
 	Name() string
-	Flags() []string
+	FlagsNames() []string
 	Provide(provider Provider) error
 	Subscribers() []SubscriberDef
 }
@@ -104,7 +111,7 @@ func MakeApp(process Process) *cli.App {
 
 	// Add custom flags
 	flags := getCustomFlags()
-	for _, flag := range process.Flags() {
+	for _, flag := range process.FlagsNames() {
 		if customFlag, contains := flags[flag]; contains {
 			app.Flags = append(app.Flags, customFlag)
 		}
@@ -186,6 +193,11 @@ func getCustomFlags() map[string]cli.Flag {
 		Name:  UserAgentFlag,
 		Usage: "User agent to use",
 		Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
+	}
+	flags[StorageDirFlag] = &cli.StringFlag{
+		Name:     StorageDirFlag,
+		Usage:    "Path to the storage directory",
+		Required: true,
 	}
 
 	return flags

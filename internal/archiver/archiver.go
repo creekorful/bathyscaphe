@@ -4,82 +4,40 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/archiver/storage"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
-	"github.com/urfave/cli/v2"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 )
 
-// GetApp return the crawler app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-archiver",
-		Version: "0.7.0",
-		Usage:   "Trandoshan archiver component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			&cli.StringFlag{
-				Name:     "storage-dir",
-				Usage:    "Path to the storage directory",
-				Required: true,
-			},
-		},
-		Action: execute,
-	}
+type State struct {
+	storage storage.Storage
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+func (state *State) Name() string {
+	return "archiver"
+}
 
-	log.Info().
-		Str("ver", ctx.App.Version).
-		Str("hub-uri", ctx.String("hub-uri")).
-		Str("storage-dir", ctx.String("storage-dir")).
-		Msg("Starting tdsh-archiver")
+func (state *State) FlagsNames() []string {
+	return []string{process.HubURIFlag, process.StorageDirFlag}
+}
 
-	// Create the subscriber
-	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
+func (state *State) Provide(provider process.Provider) error {
+	st, err := provider.ArchiverStorage()
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
-
-	// Create local storage
-	st, err := storage.NewLocalStorage(ctx.String("storage-dir"))
-	if err != nil {
-		return err
-	}
-
-	state := state{
-		storage: st,
-	}
-
-	if err := sub.Subscribe(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
-		return err
-	}
-
-	log.Info().Msg("Successfully initialized tdsh-archiver. Waiting for resources")
-
-	// Handle graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until we receive our signal.
-	<-c
+	state.storage = st
 
 	return nil
 }
 
-type state struct {
-	storage storage.Storage
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{
+		{Exchange: event.NewResourceExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
+	}
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
