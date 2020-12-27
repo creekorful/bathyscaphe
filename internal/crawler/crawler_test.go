@@ -39,29 +39,48 @@ func TestCrawlURLSameContentType(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
+
 	url := "https://example.onion"
 
-	configClientMock := client_mock.NewMockClient(mockCtrl)
-	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{ContentType: "text/plain", Extensions: nil}}, nil)
-
-	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
-	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain"})
-	httpResponseMock.EXPECT().Body().Return(strings.NewReader("Hello"))
-
-	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
-
-	body, headers, err := crawURL(httpClientMock, url, configClientMock)
-	if err != nil {
-		t.Fail()
+	type test struct {
+		allowedMimeTypes []client.MimeType
+		contentType      string
 	}
-	if body != "Hello" {
-		t.Fail()
+
+	tests := []test{
+		{
+			allowedMimeTypes: []client.MimeType{{ContentType: "text/plain", Extensions: nil}},
+			contentType:      "text/plain",
+		},
+		{
+			allowedMimeTypes: []client.MimeType{{ContentType: "text/", Extensions: nil}},
+			contentType:      "text/plain",
+		},
 	}
-	if len(headers) != 1 {
-		t.Fail()
-	}
-	if headers["Content-Type"] != "text/plain" {
-		t.Fail()
+
+	for _, test := range tests {
+		configClientMock.EXPECT().GetAllowedMimeTypes().Return(test.allowedMimeTypes, nil)
+
+		httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": test.contentType})
+		httpResponseMock.EXPECT().Body().Return(strings.NewReader("Hello"))
+
+		httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
+
+		body, headers, err := crawURL(httpClientMock, url, configClientMock)
+		if err != nil {
+			t.Fail()
+		}
+		if body != "Hello" {
+			t.Fail()
+		}
+		if len(headers) != 1 {
+			t.Fail()
+		}
+		if headers["Content-Type"] != test.contentType {
+			t.Fail()
+		}
 	}
 }
 
