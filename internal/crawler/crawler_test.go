@@ -1,8 +1,9 @@
 package crawler
 
 import (
-	"bytes"
 	"github.com/creekorful/trandoshan/internal/clock_mock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
@@ -18,14 +19,16 @@ func TestCrawlURLForbiddenContentType(t *testing.T) {
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	url := "https://example.onion"
-	allowedContentTypes := []string{"text/plain"}
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{ContentType: "text/plain", Extensions: nil}}, nil)
 
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	httpResponseMock.EXPECT().Headers().Return(map[string]string{"Content-Type": "image/png"})
 
 	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
+	body, headers, err := crawURL(httpClientMock, url, configClientMock)
 	if body != "" || headers != nil || err == nil {
 		t.Fail()
 	}
@@ -36,27 +39,48 @@ func TestCrawlURLSameContentType(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
-	url := "https://example.onion"
-	allowedContentTypes := []string{"text/plain"}
-
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
-	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain"})
-	httpResponseMock.EXPECT().Body().Return(strings.NewReader("Hello"))
 
-	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
+	url := "https://example.onion"
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
-	if err != nil {
-		t.Fail()
+	type test struct {
+		allowedMimeTypes []client.MimeType
+		contentType      string
 	}
-	if body != "Hello" {
-		t.Fail()
+
+	tests := []test{
+		{
+			allowedMimeTypes: []client.MimeType{{ContentType: "text/plain", Extensions: nil}},
+			contentType:      "text/plain",
+		},
+		{
+			allowedMimeTypes: []client.MimeType{{ContentType: "text/", Extensions: nil}},
+			contentType:      "text/plain",
+		},
 	}
-	if len(headers) != 1 {
-		t.Fail()
-	}
-	if headers["Content-Type"] != "text/plain" {
-		t.Fail()
+
+	for _, test := range tests {
+		configClientMock.EXPECT().GetAllowedMimeTypes().Return(test.allowedMimeTypes, nil)
+
+		httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": test.contentType})
+		httpResponseMock.EXPECT().Body().Return(strings.NewReader("Hello"))
+
+		httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
+
+		body, headers, err := crawURL(httpClientMock, url, configClientMock)
+		if err != nil {
+			t.Fail()
+		}
+		if body != "Hello" {
+			t.Fail()
+		}
+		if len(headers) != 1 {
+			t.Fail()
+		}
+		if headers["Content-Type"] != test.contentType {
+			t.Fail()
+		}
 	}
 }
 
@@ -66,7 +90,9 @@ func TestCrawlURLNoContentTypeFiltering(t *testing.T) {
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	url := "https://example.onion"
-	allowedContentTypes := []string{""}
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{}, nil)
 
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain"})
@@ -74,7 +100,7 @@ func TestCrawlURLNoContentTypeFiltering(t *testing.T) {
 
 	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
+	body, headers, err := crawURL(httpClientMock, url, configClientMock)
 	if err != nil {
 		t.Fail()
 	}
@@ -97,10 +123,11 @@ func TestHandleNewURLEvent(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	clockMock := clock_mock.NewMockClock(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.NewURLEvent{}).
+		Read(&msg, &event.NewURLEvent{}).
 		SetArg(1, event.NewURLEvent{URL: "https://example.onion/image.png?id=12&test=2"}).
 		Return(nil)
 
@@ -112,7 +139,13 @@ func TestHandleNewURLEvent(t *testing.T) {
 	tn := time.Now()
 	clockMock.EXPECT().Now().Return(tn)
 
-	subscriberMock.EXPECT().Publish(&event.NewResourceEvent{
+	configClientMock.EXPECT().GetAllowedMimeTypes().
+		Return([]client.MimeType{
+			{ContentType: "text/plain", Extensions: nil},
+			{ContentType: "text/css", Extensions: nil},
+		}, nil)
+
+	subscriberMock.EXPECT().PublishEvent(&event.NewResourceEvent{
 		URL:     "https://example.onion/image.png?id=12&test=2",
 		Body:    "Hello",
 		Headers: map[string]string{"Content-Type": "text/plain", "Server": "Debian"},
@@ -120,9 +153,9 @@ func TestHandleNewURLEvent(t *testing.T) {
 	}).Return(nil)
 
 	s := state{
-		httpClient:          httpClientMock,
-		allowedContentTypes: []string{"text/plain", "text/css"},
-		clock:               clockMock,
+		httpClient:   httpClientMock,
+		configClient: configClientMock,
+		clock:        clockMock,
 	}
 	if err := s.handleNewURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()

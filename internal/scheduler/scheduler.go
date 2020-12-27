@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/duration"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -38,18 +37,7 @@ func GetApp() *cli.App {
 			util.GetHubURI(),
 			util.GetAPIURIFlag(),
 			util.GetAPITokenFlag(),
-			&cli.StringFlag{
-				Name:  "refresh-delay",
-				Usage: "Duration before allowing crawl of existing resource (none = never)",
-			},
-			&cli.StringSliceFlag{
-				Name:  "forbidden-extensions",
-				Usage: "Extensions to disable scheduling for (i.e png, exe, css, ...) (the dot will be added automatically)",
-			},
-			&cli.StringSliceFlag{
-				Name:  "forbidden-hostnames",
-				Usage: "Hostnames to disable scheduling for",
-			},
+			util.GetConfigAPIURIFlag(),
 		},
 		Action: execute,
 	}
@@ -58,15 +46,11 @@ func GetApp() *cli.App {
 func execute(ctx *cli.Context) error {
 	logging.ConfigureLogger(ctx)
 
-	refreshDelay := duration.ParseDuration(ctx.String("refresh-delay"))
-
 	log.Info().
 		Str("ver", ctx.App.Version).
 		Str("hub-uri", ctx.String("hub-uri")).
 		Str("api-uri", ctx.String("api-uri")).
-		Strs("forbidden-exts", ctx.StringSlice("forbidden-extensions")).
-		Strs("forbidden-hostnames", ctx.StringSlice("forbidden-hostnames")).
-		Dur("refresh-delay", refreshDelay).
+		Str("config-api-uri", ctx.String("config-api-uri")).
 		Msg("Starting tdsh-scheduler")
 
 	// Create the API client
@@ -79,14 +63,20 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
-	state := state{
-		apiClient:           apiClient,
-		refreshDelay:        refreshDelay,
-		forbiddenExtensions: ctx.StringSlice("forbidden-extensions"),
-		forbiddenHostnames:  ctx.StringSlice("forbidden-hostnames"),
+	// Create the ConfigAPI client
+	keys := []string{client.ForbiddenMimeTypesKey, client.ForbiddenHostnamesKey, client.RefreshDelayKey}
+	configClient, err := client.NewConfigClient(ctx.String("config-api-uri"), sub, keys)
+	if err != nil {
+		log.Err(err).Msg("error while creating config client")
+		return err
 	}
 
-	if err := sub.SubscribeAsync(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
+	state := state{
+		apiClient:    apiClient,
+		configClient: configClient,
+	}
+
+	if err := sub.Subscribe(event.FoundURLExchange, "schedulingQueue", state.handleURLFoundEvent); err != nil {
 		return err
 	}
 
@@ -99,23 +89,17 @@ func execute(ctx *cli.Context) error {
 	// Block until we receive our signal.
 	<-c
 
-	if err := sub.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 type state struct {
-	apiClient           api.API
-	refreshDelay        time.Duration
-	forbiddenExtensions []string
-	forbiddenHostnames  []string
+	apiClient    api.API
+	configClient client.Client
 }
 
-func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleURLFoundEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.FoundURLEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 
@@ -137,24 +121,32 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	}
 
 	// Make sure extension is not forbidden
-	for _, ext := range state.forbiddenExtensions {
-		if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
-			return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+	if mimeTypes, err := state.configClient.GetForbiddenMimeTypes(); err == nil {
+		for _, mimeType := range mimeTypes {
+			for _, ext := range mimeType.Extensions {
+				if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
+					return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+				}
+			}
 		}
 	}
 
 	// Make sure hostname is not forbidden
-	for _, hostname := range state.forbiddenHostnames {
-		if strings.Contains(u.Hostname(), hostname) {
-			return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+	if hostnames, err := state.configClient.GetForbiddenHostnames(); err == nil {
+		for _, hostname := range hostnames {
+			if strings.Contains(u.Hostname(), hostname.Hostname) {
+				return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+			}
 		}
 	}
 
 	// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
 	// that are newer than `now - refreshDelay`.
 	endDate := time.Time{}
-	if state.refreshDelay != -1 {
-		endDate = time.Now().Add(-state.refreshDelay)
+	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
+		if refreshDelay.Delay != -1 {
+			endDate = time.Now().Add(-refreshDelay.Delay)
+		}
 	}
 
 	params := api.ResSearchParams{
@@ -176,7 +168,7 @@ func (state *state) handleURLFoundEvent(subscriber event.Subscriber, body io.Rea
 	// No matches: schedule!
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	if err := subscriber.Publish(&event.NewURLEvent{URL: evt.URL}); err != nil {
+	if err := subscriber.PublishEvent(&event.NewURLEvent{URL: evt.URL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 

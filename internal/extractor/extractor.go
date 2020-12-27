@@ -10,7 +10,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"mvdan.cc/xurls/v2"
 	"os"
 	"os/signal"
@@ -54,7 +53,7 @@ func execute(ctx *cli.Context) error {
 
 	state := state{apiClient: apiClient}
 
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
+	if err := sub.Subscribe(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
 		return err
 	}
 
@@ -67,10 +66,6 @@ func execute(ctx *cli.Context) error {
 	// Block until we receive our signal.
 	<-c
 
-	if err := sub.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -78,9 +73,9 @@ type state struct {
 	apiClient api.API
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 
@@ -118,7 +113,7 @@ func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.
 			Str("url", url).
 			Msg("Publishing found URL")
 
-		if err := subscriber.Publish(&event.FoundURLEvent{URL: url}); err != nil {
+		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
 			log.Warn().
 				Str("url", url).
 				Str("err", err.Error()).

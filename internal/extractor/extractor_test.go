@@ -1,7 +1,6 @@
 package extractor
 
 import (
-	"bytes"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -96,9 +95,9 @@ This is sparta (hosted on https://example.org)
 
 	tn := time.Now()
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.NewResourceEvent{}).
+		Read(&msg, &event.NewResourceEvent{}).
 		SetArg(1, event.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
@@ -121,10 +120,10 @@ This is sparta (hosted on https://example.org)
 
 	// should be called only one time
 	subscriberMock.EXPECT().
-		Publish(&event.FoundURLEvent{URL: "https://example.org"}).
+		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 	subscriberMock.EXPECT().
-		Publish(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
+		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
 	s := state{apiClient: apiClientMock}

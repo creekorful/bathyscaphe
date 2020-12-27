@@ -121,7 +121,7 @@ func (s *Service) AddResource(res api.ResourceDto) (api.ResourceDto, error) {
 // ScheduleURL schedule given url for crawling
 func (s *Service) ScheduleURL(url string) error {
 	// Publish the URL
-	if err := s.pub.Publish(&event.FoundURLEvent{URL: url}); err != nil {
+	if err := s.pub.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
 		log.Err(err).Msg("Unable to publish URL")
 		return err
 	}

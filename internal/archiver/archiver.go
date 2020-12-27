@@ -8,7 +8,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -60,7 +59,7 @@ func execute(ctx *cli.Context) error {
 		storage: st,
 	}
 
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
+	if err := sub.Subscribe(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
 		return err
 	}
 
@@ -73,10 +72,6 @@ func execute(ctx *cli.Context) error {
 	// Block until we receive our signal.
 	<-c
 
-	if err := sub.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -84,9 +79,9 @@ type state struct {
 	storage storage.Storage
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
+func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 
