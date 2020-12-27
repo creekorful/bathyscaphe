@@ -6,74 +6,41 @@ import (
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
-	"github.com/urfave/cli/v2"
 	"mvdan.cc/xurls/v2"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 )
 
-// GetApp return the extractor app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-extractor",
-		Version: "0.7.0",
-		Usage:   "Trandoshan extractor component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			util.GetAPIURIFlag(),
-			util.GetAPITokenFlag(),
-		},
-		Action: execute,
-	}
+type State struct {
+	apiClient api.API
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+func (state *State) Name() string {
+	return "extractor"
+}
 
-	log.Info().
-		Str("ver", ctx.App.Version).
-		Str("hub-uri", ctx.String("hub-uri")).
-		Str("api-uri", ctx.String("api-uri")).
-		Msg("Starting tdsh-extractor")
+func (state *State) FlagsNames() []string {
+	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag}
+}
 
-	apiClient := util.GetAPIClient(ctx)
-
-	// Create the event subscriber
-	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
+func (state *State) Provide(provider process.Provider) error {
+	apiClient, err := provider.APIClient()
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
-
-	state := state{apiClient: apiClient}
-
-	if err := sub.Subscribe(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
-		return err
-	}
-
-	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
-
-	// Handle graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until we receive our signal.
-	<-c
+	state.apiClient = apiClient
 
 	return nil
 }
 
-type state struct {
-	apiClient api.API
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{
+		{Exchange: event.NewResourceExchange, Queue: "extractingQueue", Handler: state.handleNewResourceEvent},
+	}
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err

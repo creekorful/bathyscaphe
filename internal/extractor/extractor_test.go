@@ -126,7 +126,7 @@ This is sparta (hosted on https://example.org)
 		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
-	s := state{apiClient: apiClientMock}
+	s := State{apiClient: apiClientMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
