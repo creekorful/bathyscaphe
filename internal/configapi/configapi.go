@@ -1,17 +1,20 @@
 package configapi
 
 import (
+	"fmt"
 	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/configapi/database"
 	"github.com/creekorful/trandoshan/internal/configapi/service"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -28,6 +31,10 @@ func GetApp() *cli.App {
 				Name:     "db-uri",
 				Usage:    "URI to the database server",
 				Required: true,
+			},
+			&cli.StringSliceFlag{
+				Name:  "default-value",
+				Usage: "Set default value of key. (format key=value)",
 			},
 		},
 		Action: execute,
@@ -56,6 +63,24 @@ func execute(ctx *cli.Context) error {
 	}
 
 	s, err := service.NewService(db, pub)
+
+	// Parse default values
+	defaultValues := map[string]string{}
+	for _, value := range ctx.StringSlice("default-value") {
+		parts := strings.Split(value, "=")
+
+		if len(parts) == 2 {
+			defaultValues[parts[0]] = parts[1]
+		}
+	}
+
+	// Set default values if needed
+	if len(defaultValues) > 0 {
+		if err := setDefaultValues(s, defaultValues); err != nil {
+			log.Err(err).Msg("error while setting default values")
+			return err
+		}
+	}
 
 	state := state{
 		api: s,
@@ -115,4 +140,16 @@ func (state *state) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(b)
+}
+
+func setDefaultValues(service api.ConfigAPI, values map[string]string) error {
+	for key, value := range values {
+		if _, err := service.Get(key); err == redis.Nil {
+			if err := service.Set(key, []byte(value)); err != nil {
+				return fmt.Errorf("error while setting default value of %s: %s", key, err)
+			}
+		}
+	}
+
+	return nil
 }
