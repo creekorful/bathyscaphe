@@ -16,14 +16,16 @@ import (
 const (
 	// ForbiddenMimeTypesKey is the key to access the forbidden mime types config
 	ForbiddenMimeTypesKey = "forbidden-mime-types"
+	// AllowedMimeTypesKey is the key to access the allowed mime types config
+	AllowedMimeTypesKey = "allowed-mime-types"
 	// ForbiddenHostnamesKey is the key to access the forbidden hostnames config
 	ForbiddenHostnamesKey = "forbidden-hostnames"
 	// RefreshDelayKey is the key to access the refresh delay config
 	RefreshDelayKey = "refresh-delay"
 )
 
-// ForbiddenMimeType is the mime types who's crawling is forbidden
-type ForbiddenMimeType struct {
+// MimeType is the mime type as represented in the config
+type MimeType struct {
 	// The content-type
 	ContentType string `json:"content-type"`
 	// The list of associated extensions
@@ -42,8 +44,11 @@ type RefreshDelay struct {
 
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
-	GetForbiddenMimeTypes() ([]ForbiddenMimeType, error)
-	SetForbiddenMimeTypes(values []ForbiddenMimeType) error
+	GetForbiddenMimeTypes() ([]MimeType, error)
+	SetForbiddenMimeTypes(values []MimeType) error
+
+	GetAllowedMimeTypes() ([]MimeType, error)
+	SetAllowedMimeTypes(values []MimeType) error
 
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
 	SetForbiddenHostnames(values []ForbiddenHostname) error
@@ -58,7 +63,8 @@ type client struct {
 	mutexes      map[string]*sync.RWMutex
 	keys         []string
 
-	forbiddenMimeTypes []ForbiddenMimeType
+	forbiddenMimeTypes []MimeType
+	allowedMimeTypes   []MimeType
 	forbiddenHostnames []ForbiddenHostname
 	refreshDelay       RefreshDelay
 }
@@ -94,18 +100,34 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 	return client, nil
 }
 
-func (c *client) GetForbiddenMimeTypes() ([]ForbiddenMimeType, error) {
+func (c *client) GetForbiddenMimeTypes() ([]MimeType, error) {
 	c.mutexes[ForbiddenMimeTypesKey].RLock()
 	defer c.mutexes[ForbiddenMimeTypesKey].RUnlock()
 
 	return c.forbiddenMimeTypes, nil
 }
 
-func (c *client) SetForbiddenMimeTypes(values []ForbiddenMimeType) error {
+func (c *client) SetForbiddenMimeTypes(values []MimeType) error {
 	c.mutexes[ForbiddenMimeTypesKey].Lock()
 	defer c.mutexes[ForbiddenMimeTypesKey].Unlock()
 
 	c.forbiddenMimeTypes = values
+
+	return nil
+}
+
+func (c *client) GetAllowedMimeTypes() ([]MimeType, error) {
+	c.mutexes[AllowedMimeTypesKey].RLock()
+	defer c.mutexes[AllowedMimeTypesKey].RUnlock()
+
+	return c.allowedMimeTypes, nil
+}
+
+func (c *client) SetAllowedMimeTypes(values []MimeType) error {
+	c.mutexes[AllowedMimeTypesKey].Lock()
+	defer c.mutexes[AllowedMimeTypesKey].Unlock()
+
+	c.allowedMimeTypes = values
 
 	return nil
 }
@@ -159,11 +181,20 @@ func (c *client) get(key string) ([]byte, error) {
 func (c *client) setValue(key string, value []byte) error {
 	switch key {
 	case ForbiddenMimeTypesKey:
-		var val []ForbiddenMimeType
+		var val []MimeType
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
 		if err := c.SetForbiddenMimeTypes(val); err != nil {
+			return err
+		}
+		break
+	case AllowedMimeTypesKey:
+		var val []MimeType
+		if err := json.Unmarshal(value, &val); err != nil {
+			return err
+		}
+		if err := c.SetAllowedMimeTypes(val); err != nil {
 			return err
 		}
 		break

@@ -34,6 +34,7 @@ services:
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --tor-uri torproxy:9050
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq

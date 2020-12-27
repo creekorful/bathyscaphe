@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/clock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
@@ -31,6 +32,7 @@ func GetApp() *cli.App {
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
 			util.GetHubURI(),
+			util.GetConfigAPIURIFlag(),
 			&cli.StringFlag{
 				Name:     "tor-uri",
 				Usage:    "URI to the TOR SOCKS proxy",
@@ -40,11 +42,6 @@ func GetApp() *cli.App {
 				Name:  "user-agent",
 				Usage: "User agent to use",
 				Value: defaultUserAgent,
-			},
-			&cli.StringSliceFlag{
-				Name:  "allowed-ct",
-				Usage: "Content types allowed to crawl",
-				Value: cli.NewStringSlice("text/"),
 			},
 		},
 		Action: execute,
@@ -58,7 +55,7 @@ func execute(ctx *cli.Context) error {
 		Str("ver", ctx.App.Version).
 		Str("hub-uri", ctx.String("hub-uri")).
 		Str("tor-uri", ctx.String("tor-uri")).
-		Strs("allowed-content-types", ctx.StringSlice("allowed-ct")).
+		Str("config-api-uri", ctx.String("config-api-uri")).
 		Msg("Starting tdsh-crawler")
 
 	// Create the HTTP client
@@ -79,10 +76,18 @@ func execute(ctx *cli.Context) error {
 	}
 	defer sub.Close()
 
+	// Create the ConfigAPI client
+	keys := []string{client.AllowedMimeTypesKey}
+	configClient, err := client.NewConfigClient(ctx.String("config-api-uri"), sub, keys)
+	if err != nil {
+		log.Err(err).Msg("error while creating config client")
+		return err
+	}
+
 	state := state{
-		httpClient:          httpClient,
-		allowedContentTypes: ctx.StringSlice("allowed-ct"),
-		clock:               &clock.SystemClock{},
+		httpClient:   httpClient,
+		clock:        &clock.SystemClock{},
+		configClient: configClient,
 	}
 
 	if err := sub.Subscribe(event.NewURLExchange, "crawlingQueue", state.handleNewURLEvent); err != nil {
@@ -102,9 +107,9 @@ func execute(ctx *cli.Context) error {
 }
 
 type state struct {
-	httpClient          http.Client
-	allowedContentTypes []string
-	clock               clock.Clock
+	httpClient   http.Client
+	clock        clock.Clock
+	configClient client.Client
 }
 
 func (state *state) handleNewURLEvent(subscriber event.Subscriber, msg event.RawMessage) error {
@@ -113,7 +118,7 @@ func (state *state) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 		return err
 	}
 
-	b, headers, err := crawURL(state.httpClient, evt.URL, state.allowedContentTypes)
+	b, headers, err := crawURL(state.httpClient, evt.URL, state.configClient)
 	if err != nil {
 		return err
 	}
@@ -132,7 +137,7 @@ func (state *state) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 	return nil
 }
 
-func crawURL(httpClient http.Client, url string, allowedContentTypes []string) (string, map[string]string, error) {
+func crawURL(httpClient http.Client, url string, configClient client.Client) (string, map[string]string, error) {
 	log.Debug().Str("url", url).Msg("Processing URL")
 
 	r, err := httpClient.Get(url)
@@ -143,10 +148,17 @@ func crawURL(httpClient http.Client, url string, allowedContentTypes []string) (
 	// Determinate if content type is allowed
 	allowed := false
 	contentType := r.Headers()["Content-Type"]
-	for _, allowedContentType := range allowedContentTypes {
-		if strings.Contains(contentType, allowedContentType) {
+
+	if allowedMimeTypes, err := configClient.GetAllowedMimeTypes(); err == nil {
+		if len(allowedMimeTypes) == 0 {
 			allowed = true
-			break
+		}
+
+		for _, allowedMimeType := range allowedMimeTypes {
+			if strings.Contains(contentType, allowedMimeType.ContentType) {
+				allowed = true
+				break
+			}
 		}
 	}
 

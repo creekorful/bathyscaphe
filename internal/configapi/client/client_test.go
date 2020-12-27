@@ -21,7 +21,7 @@ func TestClient(t *testing.T) {
 		sub:                subMock,
 		mutexes:            map[string]*sync.RWMutex{ForbiddenMimeTypesKey: {}},
 		keys:               []string{ForbiddenMimeTypesKey},
-		forbiddenMimeTypes: []ForbiddenMimeType{},
+		forbiddenMimeTypes: []MimeType{},
 		forbiddenHostnames: nil,
 		refreshDelay:       RefreshDelay{},
 	}

@@ -91,7 +91,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 		SearchResources(&params).
 		Return([]api.ResourceDto{}, int64(1), nil)
 
-	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{{Extensions: []string{"png"}}}, nil)
+	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{{Extensions: []string{"png"}}}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
@@ -122,7 +122,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: url}).
 			Return(nil)
 
-		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{{Extensions: []string{"png"}}}, nil)
+		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{{Extensions: []string{"png"}}}, nil)
 
 		s := state{
 			apiClient:    apiClientMock,
@@ -174,7 +174,7 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: test.url}).
 			Return(nil)
 
-		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{}, nil)
+		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{}, nil)
 		configClientMock.EXPECT().GetForbiddenHostnames().Return(test.forbiddenHostnames, nil)
 
 		s := state{
@@ -215,7 +215,7 @@ func TestHandleMessage(t *testing.T) {
 		PublishEvent(&event.NewURLEvent{URL: "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}).
 		Return(nil)
 
-	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.ForbiddenMimeType{}, nil)
+	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 

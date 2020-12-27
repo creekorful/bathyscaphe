@@ -2,6 +2,8 @@ package crawler
 
 import (
 	"github.com/creekorful/trandoshan/internal/clock_mock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
@@ -17,14 +19,16 @@ func TestCrawlURLForbiddenContentType(t *testing.T) {
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	url := "https://example.onion"
-	allowedContentTypes := []string{"text/plain"}
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{ContentType: "text/plain", Extensions: nil}}, nil)
 
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	httpResponseMock.EXPECT().Headers().Return(map[string]string{"Content-Type": "image/png"})
 
 	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
+	body, headers, err := crawURL(httpClientMock, url, configClientMock)
 	if body != "" || headers != nil || err == nil {
 		t.Fail()
 	}
@@ -36,7 +40,9 @@ func TestCrawlURLSameContentType(t *testing.T) {
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	url := "https://example.onion"
-	allowedContentTypes := []string{"text/plain"}
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{ContentType: "text/plain", Extensions: nil}}, nil)
 
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain"})
@@ -44,7 +50,7 @@ func TestCrawlURLSameContentType(t *testing.T) {
 
 	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
+	body, headers, err := crawURL(httpClientMock, url, configClientMock)
 	if err != nil {
 		t.Fail()
 	}
@@ -65,7 +71,9 @@ func TestCrawlURLNoContentTypeFiltering(t *testing.T) {
 
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	url := "https://example.onion"
-	allowedContentTypes := []string{""}
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{}, nil)
 
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	httpResponseMock.EXPECT().Headers().Times(2).Return(map[string]string{"Content-Type": "text/plain"})
@@ -73,7 +81,7 @@ func TestCrawlURLNoContentTypeFiltering(t *testing.T) {
 
 	httpClientMock.EXPECT().Get(url).Return(httpResponseMock, nil)
 
-	body, headers, err := crawURL(httpClientMock, url, allowedContentTypes)
+	body, headers, err := crawURL(httpClientMock, url, configClientMock)
 	if err != nil {
 		t.Fail()
 	}
@@ -96,6 +104,7 @@ func TestHandleNewURLEvent(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 	clockMock := clock_mock.NewMockClock(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
@@ -111,6 +120,12 @@ func TestHandleNewURLEvent(t *testing.T) {
 	tn := time.Now()
 	clockMock.EXPECT().Now().Return(tn)
 
+	configClientMock.EXPECT().GetAllowedMimeTypes().
+		Return([]client.MimeType{
+			{ContentType: "text/plain", Extensions: nil},
+			{ContentType: "text/css", Extensions: nil},
+		}, nil)
+
 	subscriberMock.EXPECT().PublishEvent(&event.NewResourceEvent{
 		URL:     "https://example.onion/image.png?id=12&test=2",
 		Body:    "Hello",
@@ -119,9 +134,9 @@ func TestHandleNewURLEvent(t *testing.T) {
 	}).Return(nil)
 
 	s := state{
-		httpClient:          httpClientMock,
-		allowedContentTypes: []string{"text/plain", "text/css"},
-		clock:               clockMock,
+		httpClient:   httpClientMock,
+		configClient: configClientMock,
+		clock:        clockMock,
 	}
 	if err := s.handleNewURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()
