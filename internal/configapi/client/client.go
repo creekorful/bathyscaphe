@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/configapi/api"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
@@ -43,8 +42,6 @@ type RefreshDelay struct {
 
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
-	api.ConfigAPI
-
 	GetForbiddenMimeTypes() ([]ForbiddenMimeType, error)
 	SetForbiddenMimeTypes(values []ForbiddenMimeType) error
 
@@ -79,7 +76,7 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 	for _, key := range keys {
 		client.mutexes[key] = &sync.RWMutex{}
 
-		val, err := client.Get(key)
+		val, err := client.get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -95,24 +92,6 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 	}
 
 	return client, nil
-}
-
-func (c *client) Get(key string) ([]byte, error) {
-	r, err := http.Get(fmt.Sprintf("%s/config/%s", c.configAPIURL, key))
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-func (c *client) Set(key string, value []byte) error {
-	return nil // TODO
 }
 
 func (c *client) GetForbiddenMimeTypes() ([]ForbiddenMimeType, error) {
@@ -161,6 +140,20 @@ func (c *client) SetRefreshDelay(value RefreshDelay) error {
 	c.refreshDelay = value
 
 	return nil
+}
+
+func (c *client) get(key string) ([]byte, error) {
+	r, err := http.Get(fmt.Sprintf("%s/config/%s", c.configAPIURL, key))
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func (c *client) setValue(key string, value []byte) error {
