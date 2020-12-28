@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/configapi/database"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -13,98 +12,72 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 )
 
-// GetApp return the config api app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-configapi",
-		Version: "0.7.0",
-		Usage:   "Trandoshan ConfigAPI component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			&cli.StringFlag{
-				Name:     "db-uri",
-				Usage:    "URI to the database server",
-				Required: true,
-			},
-			&cli.StringSliceFlag{
-				Name:  "default-value",
-				Usage: "Set default value of key. (format key=value)",
-			},
+type State struct {
+	db  database.Database
+	pub event.Publisher
+}
+
+func (state *State) Name() string {
+	return "configapi"
+}
+
+func (state *State) CommonFlags() []string {
+	return []string{}
+}
+
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:     "db-uri",
+			Usage:    "URI to the database server",
+			Required: true,
 		},
-		Action: execute,
+		&cli.StringSliceFlag{
+			Name:  "default-value",
+			Usage: "Set default value of key. (format key=value)",
+		},
 	}
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
-
-	log.Info().
-		Str("ver", ctx.App.Version).
-		Str("hub-uri", ctx.String("hub-uri")).
-		Str("db-uri", ctx.String("db-uri")).
-		Msg("Starting tdsh-configapi")
-
-	// Create publisher
-	pub, err := event.NewPublisher(ctx.String("hub-uri"))
+func (state *State) Provide(provider process.Provider) error {
+	db, err := database.NewRedisDatabase(provider.GetValue("db-uri"))
 	if err != nil {
 		return err
 	}
+	state.db = db
 
-	// Create database connection
-	db, err := database.NewRedisDatabase(ctx.String("db-uri"))
-	if err != nil {
-		return err
-	}
-
-	// Parse default values
 	defaultValues := map[string]string{}
-	for _, value := range ctx.StringSlice("default-value") {
+	for _, value := range provider.GetValues("default-value") {
 		parts := strings.Split(value, "=")
 
 		if len(parts) == 2 {
 			defaultValues[parts[0]] = parts[1]
 		}
 	}
-
-	// Set default values if needed
 	if len(defaultValues) > 0 {
 		if err := setDefaultValues(db, defaultValues); err != nil {
-			log.Err(err).Msg("error while setting default values")
 			return err
 		}
 	}
 
-	state := state{
-		db:  db,
-		pub: pub,
-	}
+	return nil // TODO
+}
 
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{}
+}
+
+func (state *State) HTTPHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/config/{key}", state.getConfiguration).Methods(http.MethodGet)
 	r.HandleFunc("/config/{key}", state.setConfiguration).Methods(http.MethodPut)
 
-	srv := &http.Server{
-		Addr: "0.0.0.0:8080",
-		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
-		Handler:      r, // Pass our instance of gorilla/mux in.
-	}
-
-	return srv.ListenAndServe()
+	return r
 }
 
-type state struct {
-	db  database.Database
-	pub event.Publisher
-}
-
-func (state *state) getConfiguration(w http.ResponseWriter, r *http.Request) {
+func (state *State) getConfiguration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
@@ -121,7 +94,7 @@ func (state *state) getConfiguration(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-func (state *state) setConfiguration(w http.ResponseWriter, r *http.Request) {
+func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 

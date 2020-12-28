@@ -20,7 +20,7 @@ func (state *State) Name() string {
 	return "extractor"
 }
 
-func (state *State) FlagsNames() []string {
+func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag}
 }
 

@@ -25,7 +25,7 @@ func TestGetConfiguration(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 
-	s := state{db: dbMock}
+	s := State{db: dbMock}
 	s.getConfiguration(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -63,7 +63,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 
-	s := state{db: dbMock, pub: pubMock}
+	s := State{db: dbMock, pub: pubMock}
 	s.setConfiguration(rec, req)
 
 	if rec.Code != http.StatusOK {

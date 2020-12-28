@@ -1,19 +1,16 @@
 package process
 
 import (
-	"crypto/tls"
+	"context"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/archiver/storage"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpproxy"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,19 +22,16 @@ const (
 	APIURIFlag       = "api-uri"
 	APITokenFlag     = "api-token"
 	HubURIFlag       = "hub-uri"
-	TorURIFlag       = "tor-uri"
-	UserAgentFlag    = "user-agent"
 	ConfigAPIURIFlag = "config-api-uri"
-	StorageDirFlag   = "storage-dir"
 )
 
 type Provider interface {
 	Clock() (clock.Clock, error)
 	ConfigClient(keys []string) (configapi.Client, error)
 	APIClient() (api.API, error)
-	FastHTTPClient() (http.Client, error)
 	Subscriber() (event.Subscriber, error)
-	ArchiverStorage() (storage.Storage, error)
+	GetValue(key string) string
+	GetValues(key string) []string
 }
 
 type defaultProvider struct {
@@ -65,24 +59,16 @@ func (p *defaultProvider) APIClient() (api.API, error) {
 	return api.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
 }
 
-func (p *defaultProvider) FastHTTPClient() (http.Client, error) {
-	return http.NewFastHTTPClient(&fasthttp.Client{
-		// Use given TOR proxy to reach the hidden services
-		Dial: fasthttpproxy.FasthttpSocksDialer(p.ctx.String(TorURIFlag)),
-		// Disable SSL verification since we do not really care about this
-		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
-		Name:         p.ctx.String(UserAgentFlag),
-	}), nil
-}
-
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 	return event.NewSubscriber(p.ctx.String(HubURIFlag))
 }
 
-func (p *defaultProvider) ArchiverStorage() (storage.Storage, error) {
-	return storage.NewLocalStorage(p.ctx.String(StorageDirFlag))
+func (p *defaultProvider) GetValue(key string) string {
+	return p.ctx.String(key)
+}
+
+func (p *defaultProvider) GetValues(key string) []string {
+	return p.ctx.StringSlice(key)
 }
 
 type SubscriberDef struct {
@@ -93,9 +79,11 @@ type SubscriberDef struct {
 
 type Process interface {
 	Name() string
-	FlagsNames() []string
+	CommonFlags() []string
+	CustomFlags() []cli.Flag
 	Provide(provider Provider) error
 	Subscribers() []SubscriberDef
+	HTTPHandler() http.Handler
 }
 
 func MakeApp(process Process) *cli.App {
@@ -109,12 +97,17 @@ func MakeApp(process Process) *cli.App {
 		Action: execute(process),
 	}
 
-	// Add custom flags
+	// Add common flags
 	flags := getCustomFlags()
-	for _, flag := range process.FlagsNames() {
+	for _, flag := range process.CommonFlags() {
 		if customFlag, contains := flags[flag]; contains {
 			app.Flags = append(app.Flags, customFlag)
 		}
+	}
+
+	// Add custom flags
+	for _, flag := range process.CustomFlags() {
+		app.Flags = append(app.Flags, flag)
 	}
 
 	return app
@@ -138,12 +131,31 @@ func execute(process Process) cli.ActionFunc {
 			if err != nil {
 				return err
 			}
+			// TODO sub.Close()
 
 			for _, subscriberDef := range process.Subscribers() {
 				if err := sub.Subscribe(subscriberDef.Exchange, subscriberDef.Queue, subscriberDef.Handler); err != nil {
 					return err
 				}
 			}
+		}
+
+		var srv *http.Server
+
+		// Expose HTTP API if any
+		if h := process.HTTPHandler(); h != nil {
+			srv = &http.Server{
+				Addr: "0.0.0.0:8080",
+				// Good practice to set timeouts to avoid Slowloris attacks.
+				WriteTimeout: time.Second * 15,
+				ReadTimeout:  time.Second * 15,
+				IdleTimeout:  time.Second * 60,
+				Handler:      h, // Pass our instance of gorilla/mux in.
+			}
+
+			go func() {
+				_ = srv.ListenAndServe()
+			}()
 		}
 
 		log.Info().
@@ -156,6 +168,13 @@ func execute(process Process) cli.ActionFunc {
 
 		// Block until we receive our signal.
 		<-ch
+
+		// Close HTTP API if any
+		if srv != nil {
+			_ = srv.Shutdown(context.Background())
+		}
+
+		// Connections are deferred here
 
 		return nil
 	}
@@ -182,21 +201,6 @@ func getCustomFlags() map[string]cli.Flag {
 	flags[ConfigAPIURIFlag] = &cli.StringFlag{
 		Name:     ConfigAPIURIFlag,
 		Usage:    "URI to the ConfigAPI server",
-		Required: true,
-	}
-	flags[TorURIFlag] = &cli.StringFlag{
-		Name:     TorURIFlag,
-		Usage:    "URI to the TOR SOCKS proxy",
-		Required: true,
-	}
-	flags[UserAgentFlag] = &cli.StringFlag{
-		Name:  UserAgentFlag,
-		Usage: "User agent to use",
-		Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
-	}
-	flags[StorageDirFlag] = &cli.StringFlag{
-		Name:     StorageDirFlag,
-		Usage:    "Path to the storage directory",
 		Required: true,
 	}
 

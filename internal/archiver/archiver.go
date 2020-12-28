@@ -6,6 +6,8 @@ import (
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v2"
+	"net/http"
 	"strings"
 )
 
@@ -17,12 +19,22 @@ func (state *State) Name() string {
 	return "archiver"
 }
 
-func (state *State) FlagsNames() []string {
-	return []string{process.HubURIFlag, process.StorageDirFlag}
+func (state *State) CommonFlags() []string {
+	return []string{process.HubURIFlag}
+}
+
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:     "storage-dir",
+			Usage:    "Path to the storage directory",
+			Required: true,
+		},
+	}
 }
 
 func (state *State) Provide(provider process.Provider) error {
-	st, err := provider.ArchiverStorage()
+	st, err := storage.NewLocalStorage(provider.GetValue("storage-dir"))
 	if err != nil {
 		return err
 	}
@@ -35,6 +47,10 @@ func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.NewResourceExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
 	}
+}
+
+func (state *State) HTTPHandler() http.Handler {
+	return nil
 }
 
 func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {

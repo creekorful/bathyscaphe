@@ -8,6 +8,8 @@ import (
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v2"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -30,8 +32,12 @@ func (state *State) Name() string {
 	return "scheduler"
 }
 
-func (state *State) FlagsNames() []string {
+func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag, process.ConfigAPIURIFlag}
+}
+
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{}
 }
 
 func (state *State) Provide(provider process.Provider) error {
@@ -55,6 +61,10 @@ func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.FoundURLExchange, Queue: "schedulingQueue", Handler: state.handleURLFoundEvent},
 	}
+}
+
+func (state *State) HTTPHandler() http.Handler {
+	return nil
 }
 
 func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.RawMessage) error {
