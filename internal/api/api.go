@@ -1,83 +1,322 @@
 package api
 
 import (
-	"github.com/creekorful/trandoshan/internal/api/auth"
-	"github.com/creekorful/trandoshan/internal/api/rest"
-	"github.com/creekorful/trandoshan/internal/api/service"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
-	"github.com/labstack/echo/v4"
+	"encoding/base64"
+	"encoding/json"
+	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/api/database"
+	"github.com/creekorful/trandoshan/internal/duration"
+	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 )
 
-// GetApp return the api app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-api",
-		Version: "0.7.0",
-		Usage:   "Trandoshan API component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			&cli.StringFlag{
-				Name:     "elasticsearch-uri",
-				Usage:    "URI to the Elasticsearch server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "signing-key",
-				Usage:    "Signing key for the JWT token",
-				Required: true,
-			},
-			&cli.StringSliceFlag{
-				Name:     "users",
-				Usage:    "List of API users. (Format user:password)",
-				Required: false,
-			},
-			&cli.StringFlag{
-				Name:  "refresh-delay",
-				Usage: "Duration before allowing indexation of existing resource (none = never)",
-			},
+var (
+	defaultPaginationSize = 50
+	maxPaginationSize     = 100
+)
+
+type State struct {
+	db           database.Database
+	pub          event.Publisher
+	refreshDelay time.Duration
+}
+
+func (state *State) Name() string {
+	return "api"
+}
+
+func (state *State) CommonFlags() []string {
+	return []string{process.HubURIFlag}
+}
+
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:     "elasticsearch-uri",
+			Usage:    "URI to the Elasticsearch server",
+			Required: true,
 		},
-		Action: execute,
+		&cli.StringFlag{
+			Name:     "signing-key",
+			Usage:    "Signing key for the JWT token",
+			Required: true,
+		},
+		&cli.StringSliceFlag{
+			Name:     "users",
+			Usage:    "List of API users. (Format user:password)",
+			Required: false,
+		},
+		&cli.StringFlag{
+			Name:  "refresh-delay",
+			Usage: "Duration before allowing indexation of existing resource (none = never)",
+		},
 	}
 }
 
-func execute(c *cli.Context) error {
-	logging.ConfigureLogger(c)
-
-	e := echo.New()
-	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		log.Err(err).Msg("error while processing API call")
-		e.DefaultHTTPErrorHandler(err, c)
-	}
-	e.HideBanner = true
-
-	log.Info().Str("ver", c.App.Version).
-		Str("elasticsearch-uri", c.String("elasticsearch-uri")).
-		Str("hub-uri", c.String("hub-uri")).
-		Msg("Starting tdsh-api")
-
-	signingKey := []byte(c.String("signing-key"))
-
-	// Create the service
-	svc, err := service.New(c)
+func (state *State) Provide(provider process.Provider) error {
+	db, err := database.NewElasticDB(provider.GetValue("elasticsearch-uri"))
 	if err != nil {
-		log.Err(err).Msg("error while creating API service")
 		return err
 	}
+	state.db = db
 
-	// Setup middlewares
-	authMiddleware := auth.NewMiddleware(signingKey)
-	e.Use(authMiddleware.Middleware())
+	pub, err := provider.Subscriber()
+	if err != nil {
+		return err
+	}
+	state.pub = pub
 
-	// Add endpoints
-	e.GET("/v1/resources", rest.SearchResources(svc))
-	e.POST("/v1/resources", rest.AddResource(svc))
-	e.POST("/v1/urls", rest.ScheduleURL(svc))
+	state.refreshDelay = duration.ParseDuration(provider.GetValue("refresh-delay"))
 
-	log.Info().Msg("Successfully initialized tdsh-api. Waiting for requests")
+	return nil
+}
 
-	return e.Start(":8080")
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{}
+}
+
+func (state *State) HTTPHandler() http.Handler {
+	r := mux.NewRouter()
+
+	// TODO auth middleware
+	// signingKey := []byte(c.String("signing-key"))
+	// 	authMiddleware := auth.NewMiddleware(signingKey)
+	//	e.Use(authMiddleware.Middleware())
+
+	r.HandleFunc("/v1/resources", state.searchResources).Methods(http.MethodGet)
+	r.HandleFunc("/v1/resources", state.addResource).Methods(http.MethodPost)
+	r.HandleFunc("/v1/urls", state.scheduleURL).Methods(http.MethodPost)
+
+	return r
+}
+
+func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
+	searchParams, err := getSearchParams(r)
+	if err != nil {
+		log.Err(err).Msg("error while getting search params")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	totalCount, err := state.db.CountResources(searchParams)
+	if err != nil {
+		log.Err(err).Msg("error while counting on ES")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res, err := state.db.SearchResources(searchParams)
+	if err != nil {
+		log.Err(err).Msg("error while searching on ES")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var resources []api.ResourceDto
+	for _, r := range res {
+		resources = append(resources, api.ResourceDto{
+			URL:   r.URL,
+			Body:  r.Body,
+			Title: r.Title,
+			Time:  r.Time,
+		})
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// Write pagination headers
+	writePagination(w, searchParams, totalCount)
+
+	// Write body
+	if err := json.NewEncoder(w).Encode(resources); err != nil {
+		log.Err(err).Msg("error while encoding response")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
+	var res api.ResourceDto
+	if err := json.NewDecoder(r.Body).Decode(&res); err != nil {
+		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+
+	// Hacky stuff to prevent from adding 'duplicate resource'
+	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
+	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
+	// before the resource is saved. And this happen a LOT of time.
+	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
+	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
+	endDate := time.Time{}
+	if state.refreshDelay != -1 {
+		endDate = time.Now().Add(-state.refreshDelay)
+	}
+
+	count, err := state.db.CountResources(&api.ResSearchParams{
+		URL:        res.URL,
+		EndDate:    endDate,
+		PageSize:   1,
+		PageNumber: 1,
+	})
+	if err != nil {
+		log.Err(err).Msg("error while searching for resource")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if count > 0 {
+		// Not an error
+		log.Debug().Str("url", res.URL).Msg("Skipping duplicate resource")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Create Elasticsearch document
+	doc := database.ResourceIdx{
+		URL:         res.URL,
+		Body:        res.Body,
+		Time:        res.Time,
+		Title:       res.Title,
+		Meta:        res.Meta,
+		Description: res.Description,
+		Headers:     res.Headers,
+	}
+
+	if err := state.db.AddResource(doc); err != nil {
+		log.Err(err).Msg("Error while adding resource")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		log.Err(err).Msg("error while encoding response")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
+	var url string
+	if err := json.NewDecoder(r.Body).Decode(&url); err != nil {
+		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err := state.pub.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
+		log.Err(err).Msg("unable to schedule URL")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Info().Str("url", url).Msg("successfully scheduled URL")
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func getSearchParams(r *http.Request) (*api.ResSearchParams, error) {
+	params := &api.ResSearchParams{}
+
+	if param := r.URL.Query()["keyword"]; len(param) == 1 {
+		params.Keyword = param[0]
+	}
+
+	if param := r.URL.Query()["with-body"]; len(param) == 1 {
+		params.WithBody = param[0] == "true"
+	}
+
+	// extract raw query params (unescaped to keep + sign when parsing date)
+	rawQueryParams := getRawQueryParam(r.URL.RawQuery)
+
+	if val, exist := rawQueryParams["start-date"]; exist {
+		d, err := time.Parse(time.RFC3339, val)
+		if err == nil {
+			params.StartDate = d
+		} else {
+			return nil, err
+		}
+	}
+
+	if val, exist := rawQueryParams["end-date"]; exist {
+		d, err := time.Parse(time.RFC3339, val)
+		if err == nil {
+			params.EndDate = d
+		} else {
+			return nil, err
+		}
+	}
+
+	// base64decode the URL
+	if param := r.URL.Query()["url"]; len(param) == 1 {
+		b, err := base64.URLEncoding.DecodeString(param[0])
+		if err != nil {
+			return nil, err
+		}
+		params.URL = string(b)
+	}
+
+	// Acquire pagination
+	page, size := getPagination(r)
+	params.PageNumber = page
+	params.PageSize = size
+
+	return params, nil
+}
+
+func writePagination(w http.ResponseWriter, searchParams *api.ResSearchParams, total int64) {
+	w.Header().Set(api.PaginationPageHeader, strconv.Itoa(searchParams.PageNumber))
+	w.Header().Set(api.PaginationSizeHeader, strconv.Itoa(searchParams.PageSize))
+	w.Header().Set(api.PaginationCountHeader, strconv.FormatInt(total, 10))
+}
+
+func getPagination(r *http.Request) (page int, size int) {
+	page = 1
+	size = defaultPaginationSize
+
+	// Get pagination page
+	if param := r.URL.Query()[api.PaginationPageQueryParam]; len(param) == 1 {
+		if val, err := strconv.Atoi(param[0]); err == nil {
+			page = val
+		}
+	}
+
+	// Get pagination size
+	if param := r.URL.Query()[api.PaginationSizeQueryParam]; len(param) == 1 {
+		if val, err := strconv.Atoi(param[0]); err == nil {
+			size = val
+		}
+	}
+
+	// Prevent too much results from being returned
+	if size > maxPaginationSize {
+		size = maxPaginationSize
+	}
+
+	return page, size
+}
+
+func getRawQueryParam(url string) map[string]string {
+	if url == "" {
+		return map[string]string{}
+	}
+
+	val := map[string]string{}
+	parts := strings.Split(url, "&")
+
+	for _, part := range parts {
+		p := strings.Split(part, "=")
+		val[p[0]] = p[1]
+	}
+
+	return val
 }

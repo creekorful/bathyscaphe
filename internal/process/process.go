@@ -30,6 +30,7 @@ type Provider interface {
 	ConfigClient(keys []string) (configapi.Client, error)
 	APIClient() (api.API, error)
 	Subscriber() (event.Subscriber, error)
+	Publisher() (event.Publisher, error)
 	GetValue(key string) string
 	GetValues(key string) []string
 }
@@ -61,6 +62,10 @@ func (p *defaultProvider) APIClient() (api.API, error) {
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 	return event.NewSubscriber(p.ctx.String(HubURIFlag))
+}
+
+func (p *defaultProvider) Publisher() (event.Publisher, error) {
+	return event.NewPublisher(p.ctx.String(HubURIFlag))
 }
 
 func (p *defaultProvider) GetValue(key string) string {
