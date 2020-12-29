@@ -95,7 +95,7 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --db-uri redis:6379
       --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}]"
-      --default-value forbidden-mime-types="[{\"content-type\":\"image/png\",\"extensions\":[\"png\"]},{\"content-type\":\"image/gif\",\"extensions\":[\"gif\"]},{\"content-type\":\"image/jpeg\",\"extensions\":[\"jpg\",\"jpeg\"]},{\"content-type\":\"image/bmp\",\"extensions\":[\"bmp\"]},{\"content-type\":\"text/css\",\"extensions\":[\"css\"]},{\"content-type\":\"application/javascript\",\"extensions\":[\"js\"]}]"
+      --default-value forbidden-mime-types="[{\"content-type\":\"image/png\",\"extensions\":[\"png\"]},{\"content-type\":\"image/gif\",\"extensions\":[\"gif\"]},{\"content-type\":\"image/jpeg\",\"extensions\":[\"jpg\",\"jpeg\"]},{\"content-type\":\"image/bmp\",\"extensions\":[\"bmp\"]},{\"content-type\":\"image/svg+xml\",\"extensions\":[\"svg\"]},{\"content-type\":\"text/css\",\"extensions\":[\"css\"]},{\"content-type\":\"application/javascript\",\"extensions\":[\"js\"]}]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[]}]"
       --default-value refresh-delay="{\"delay\": -1}"
     restart: always
