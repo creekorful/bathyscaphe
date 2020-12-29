@@ -329,6 +329,9 @@ func TestSearchResources(t *testing.T) {
 	s := State{db: dbMock}
 	s.searchResources(rec, req)
 
+	if rec.Code != http.StatusOK {
+		t.Fail()
+	}
 	if rec.Header().Get(api.PaginationCountHeader) != "150" {
 		t.Fail()
 	}

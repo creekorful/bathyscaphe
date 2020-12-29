@@ -136,8 +136,6 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	// Write pagination headers
 	writePagination(w, searchParams, totalCount)
 
@@ -207,7 +205,6 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(res); err != nil {
 		log.Err(err).Msg("error while encoding response")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -229,8 +226,6 @@ func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info().Str("url", url).Msg("successfully scheduled URL")
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func getSearchParams(r *http.Request) (*api.ResSearchParams, error) {

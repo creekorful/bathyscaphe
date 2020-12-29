@@ -27,7 +27,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{}
+	return []string{process.HubURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -52,6 +52,12 @@ func (state *State) Initialize(provider process.Provider) error {
 		return err
 	}
 	state.db = db
+
+	pub, err := provider.Publisher()
+	if err != nil {
+		return err
+	}
+	state.pub = pub
 
 	defaultValues := map[string]string{}
 	for _, value := range provider.GetValues("default-value") {
