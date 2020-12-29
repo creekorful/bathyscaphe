@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
-	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
@@ -42,7 +41,7 @@ func (m *Middleware) Middleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract authorization header
-			tokenStr := r.Header.Get(echo.HeaderAuthorization)
+			tokenStr := r.Header.Get("Authorization")
 			if tokenStr == "" {
 				log.Warn().Msg("missing token")
 				w.WriteHeader(http.StatusUnauthorized)

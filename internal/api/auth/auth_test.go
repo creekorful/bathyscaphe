@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +26,7 @@ func TestMiddleware_InvalidTokenShouldReturnUnauthorized(t *testing.T) {
 	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
-	req.Header.Add(echo.HeaderAuthorization, "zarBR")
+	req.Header.Add("Authorization", "zarBR")
 	rec := httptest.NewRecorder()
 
 	m.ServeHTTP(rec, req)
@@ -41,7 +40,7 @@ func TestMiddleware_BadRightsShouldReturnUnauthorized(t *testing.T) {
 	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodPost, "/users", nil)
-	req.Header.Add(echo.HeaderAuthorization, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
+	req.Header.Add("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
 	rec := httptest.NewRecorder()
 
 	m.ServeHTTP(rec, req)
@@ -55,7 +54,7 @@ func TestMiddleware(t *testing.T) {
 	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/users?id=10", nil)
-	req.Header.Add(echo.HeaderAuthorization, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
+	req.Header.Add("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
 	rec := httptest.NewRecorder()
 
 	m.ServeHTTP(rec, req)

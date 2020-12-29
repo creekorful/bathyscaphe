@@ -11,7 +11,6 @@ require (
 	github.com/go-resty/resty/v2 v2.3.0
 	github.com/golang/mock v1.4.4
 	github.com/gorilla/mux v1.8.0
-	github.com/labstack/echo/v4 v4.1.16
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/olivere/elastic/v7 v7.0.20
 	github.com/rs/zerolog v1.20.0
