@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/api/auth"
 	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/duration"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -22,20 +23,24 @@ var (
 	maxPaginationSize     = 100
 )
 
+// State represent the application state
 type State struct {
 	db           database.Database
 	pub          event.Publisher
 	refreshDelay time.Duration
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "api"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag}
 }
 
+// CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -60,7 +65,8 @@ func (state *State) CustomFlags() []cli.Flag {
 	}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	db, err := database.NewElasticDB(provider.GetValue("elasticsearch-uri"))
 	if err != nil {
 		return err
@@ -78,17 +84,18 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{}
 }
 
-func (state *State) HTTPHandler() http.Handler {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	r := mux.NewRouter()
 
-	// TODO auth middleware
-	// signingKey := []byte(c.String("signing-key"))
-	// 	authMiddleware := auth.NewMiddleware(signingKey)
-	//	e.Use(authMiddleware.Middleware())
+	signingKey := []byte(provider.GetValue("signing-key"))
+	authMiddleware := auth.NewMiddleware(signingKey)
+	r.Use(authMiddleware.Middleware())
 
 	r.HandleFunc("/v1/resources", state.searchResources).Methods(http.MethodGet)
 	r.HandleFunc("/v1/resources", state.addResource).Methods(http.MethodPost)

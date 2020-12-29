@@ -23,24 +23,29 @@ var (
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
 )
 
+// State represent the application state
 type State struct {
 	apiClient    api.API
 	configClient configapi.Client
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "scheduler"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag, process.ConfigAPIURIFlag}
 }
 
+// CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	apiClient, err := provider.APIClient()
 	if err != nil {
 		return err
@@ -57,13 +62,15 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.FoundURLExchange, Queue: "schedulingQueue", Handler: state.handleURLFoundEvent},
 	}
 }
 
-func (state *State) HTTPHandler() http.Handler {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	return nil
 }
 

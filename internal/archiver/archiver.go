@@ -11,18 +11,22 @@ import (
 	"strings"
 )
 
+// State represent the application state
 type State struct {
 	storage storage.Storage
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "archiver"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag}
 }
 
+// CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -33,7 +37,8 @@ func (state *State) CustomFlags() []cli.Flag {
 	}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	st, err := storage.NewLocalStorage(provider.GetValue("storage-dir"))
 	if err != nil {
 		return err
@@ -43,13 +48,15 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.NewResourceExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
 	}
 }
 
-func (state *State) HTTPHandler() http.Handler {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	return nil
 }
 

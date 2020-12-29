@@ -14,19 +14,23 @@ import (
 	"strings"
 )
 
+// State represent the application state
 type State struct {
 	db  database.Database
 	pub event.Publisher
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "configapi"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{}
 }
 
+// CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -41,7 +45,8 @@ func (state *State) CustomFlags() []cli.Flag {
 	}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	db, err := database.NewRedisDatabase(provider.GetValue("db-uri"))
 	if err != nil {
 		return err
@@ -65,11 +70,13 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil // TODO
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{}
 }
 
-func (state *State) HTTPHandler() http.Handler {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/config/{key}", state.getConfiguration).Methods(http.MethodGet)
 	r.HandleFunc("/config/{key}", state.setConfiguration).Methods(http.MethodPut)

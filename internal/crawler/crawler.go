@@ -20,20 +20,24 @@ import (
 
 var errContentTypeNotAllowed = fmt.Errorf("content type is not allowed")
 
+// State represent the application state
 type State struct {
 	httpClient   chttp.Client
 	clock        clock.Clock
 	configClient configapi.Client
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "crawler"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
 }
 
+// CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -49,7 +53,8 @@ func (state *State) CustomFlags() []cli.Flag {
 	}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	state.httpClient = chttp.NewFastHTTPClient(&fasthttp.Client{
 		// Use given TOR proxy to reach the hidden services
 		Dial: fasthttpproxy.FasthttpSocksDialer(provider.GetValue("tor-uri")),
@@ -75,13 +80,15 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.NewURLExchange, Queue: "crawlingQueue", Handler: state.handleNewURLEvent},
 	}
 }
 
-func (state *State) HTTPHandler() http.Handler {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	return nil
 }
 

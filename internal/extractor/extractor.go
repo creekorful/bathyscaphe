@@ -8,23 +8,34 @@ import (
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v2"
 	"mvdan.cc/xurls/v2"
+	"net/http"
 	"strings"
 )
 
+// State represent the application state
 type State struct {
 	apiClient api.API
 }
 
+// Name return the process name
 func (state *State) Name() string {
 	return "extractor"
 }
 
+// CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
 	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag}
 }
 
-func (state *State) Provide(provider process.Provider) error {
+// CustomFlags return process custom flags
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{}
+}
+
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
 	apiClient, err := provider.APIClient()
 	if err != nil {
 		return err
@@ -34,10 +45,16 @@ func (state *State) Provide(provider process.Provider) error {
 	return nil
 }
 
+// Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
 		{Exchange: event.NewResourceExchange, Queue: "extractingQueue", Handler: state.handleNewResourceEvent},
 	}
+}
+
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+	return nil
 }
 
 func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {

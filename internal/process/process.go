@@ -18,20 +18,32 @@ import (
 )
 
 const (
-	version          = "0.7.0"
-	APIURIFlag       = "api-uri"
-	APITokenFlag     = "api-token"
-	HubURIFlag       = "hub-uri"
+	version = "0.7.0"
+	// APIURIFlag is the api-uri flag
+	APIURIFlag = "api-uri"
+	// APITokenFlag is the api-token flag
+	APITokenFlag = "api-token"
+	// HubURIFlag is the hub-uri flag
+	HubURIFlag = "hub-uri"
+	// ConfigAPIURIFlag is the config-api-uri flag
 	ConfigAPIURIFlag = "config-api-uri"
 )
 
+// Provider is the implementation provider
 type Provider interface {
+	// Clock return a clock implementation
 	Clock() (clock.Clock, error)
+	// ConfigClient return a new configured configapi.Client
 	ConfigClient(keys []string) (configapi.Client, error)
+	// APIClient return a new configured api.API (client)
 	APIClient() (api.API, error)
+	// Subscriber return a new configured subscriber
 	Subscriber() (event.Subscriber, error)
+	// Publisher return a new configured publisher
 	Publisher() (event.Publisher, error)
+	// GetValue return value for given key
 	GetValue(key string) string
+	// GetValue return values for given key
 	GetValues(key string) []string
 }
 
@@ -39,6 +51,7 @@ type defaultProvider struct {
 	ctx *cli.Context
 }
 
+// NewDefaultProvider create a brand new default provider using given cli.Context
 func NewDefaultProvider(ctx *cli.Context) Provider {
 	return &defaultProvider{ctx: ctx}
 }
@@ -76,21 +89,24 @@ func (p *defaultProvider) GetValues(key string) []string {
 	return p.ctx.StringSlice(key)
 }
 
+// SubscriberDef is the subscriber definition
 type SubscriberDef struct {
 	Exchange string
 	Queue    string
 	Handler  event.Handler
 }
 
+// Process is a component of Trandoshan
 type Process interface {
 	Name() string
 	CommonFlags() []string
 	CustomFlags() []cli.Flag
-	Provide(provider Provider) error
+	Initialize(provider Provider) error
 	Subscribers() []SubscriberDef
-	HTTPHandler() http.Handler
+	HTTPHandler(provider Provider) http.Handler
 }
 
+// MakeApp return cli.App corresponding for given Process
 func MakeApp(process Process) *cli.App {
 	app := &cli.App{
 		Name:    fmt.Sprintf("tdsh-%s", process.Name()),
@@ -126,7 +142,7 @@ func execute(process Process) cli.ActionFunc {
 		logging.ConfigureLogger(c)
 
 		// Custom setup
-		if err := process.Provide(provider); err != nil {
+		if err := process.Initialize(provider); err != nil {
 			return err
 		}
 
@@ -148,7 +164,7 @@ func execute(process Process) cli.ActionFunc {
 		var srv *http.Server
 
 		// Expose HTTP API if any
-		if h := process.HTTPHandler(); h != nil {
+		if h := process.HTTPHandler(provider); h != nil {
 			srv = &http.Server{
 				Addr: "0.0.0.0:8080",
 				// Good practice to set timeouts to avoid Slowloris attacks.
