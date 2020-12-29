@@ -6,7 +6,7 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/auth"
 	"github.com/creekorful/trandoshan/internal/api/database"
-	"github.com/creekorful/trandoshan/internal/duration"
+	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/gorilla/mux"
@@ -27,7 +27,7 @@ var (
 type State struct {
 	db           database.Database
 	pub          event.Publisher
-	refreshDelay time.Duration
+	configClient configapi.Client
 }
 
 // Name return the process name
@@ -37,7 +37,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -58,10 +58,6 @@ func (state *State) CustomFlags() []cli.Flag {
 			Usage:    "List of API users. (Format user:password)",
 			Required: false,
 		},
-		&cli.StringFlag{
-			Name:  "refresh-delay",
-			Usage: "Duration before allowing indexation of existing resource (none = never)",
-		},
 	}
 }
 
@@ -79,7 +75,11 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.pub = pub
 
-	state.refreshDelay = duration.ParseDuration(provider.GetValue("refresh-delay"))
+	configClient, err := provider.ConfigClient([]string{configapi.RefreshDelayKey})
+	if err != nil {
+		return err
+	}
+	state.configClient = configClient
 
 	return nil
 }
@@ -163,8 +163,10 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
 	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
 	endDate := time.Time{}
-	if state.refreshDelay != -1 {
-		endDate = time.Now().Add(-state.refreshDelay)
+	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
+		if refreshDelay.Delay != -1 {
+			endDate = time.Now().Add(-refreshDelay.Delay)
+		}
 	}
 
 	count, err := state.db.CountResources(&api.ResSearchParams{

@@ -7,6 +7,8 @@ import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/api/database"
 	"github.com/creekorful/trandoshan/internal/api/database_mock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
@@ -157,6 +159,7 @@ func TestAddResource(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
 		URL:        "https://example.onion",
@@ -174,7 +177,9 @@ func TestAddResource(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
-	s := State{db: dbMock, refreshDelay: 5 * time.Hour}
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 5 * time.Hour}, nil)
+
+	s := State{db: dbMock, configClient: configClientMock}
 
 	s.addResource(rec, req)
 	if rec.Code != http.StatusOK {
@@ -235,6 +240,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
 		URL:        "https://example.onion",
@@ -242,7 +248,9 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 		PageNumber: 1,
 	}, endDateZero: true}).Return(int64(1), nil)
 
-	s := State{db: dbMock, refreshDelay: -1}
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
+
+	s := State{db: dbMock, configClient: configClientMock}
 
 	s.addResource(rec, req)
 	if rec.Code != http.StatusOK {
@@ -273,6 +281,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
 		URL:        "https://example.onion",
@@ -281,7 +290,9 @@ func TestAddResourceTooYoung(t *testing.T) {
 		PageNumber: 1,
 	}}).Return(int64(1), nil)
 
-	s := State{db: dbMock, refreshDelay: -10 * time.Minute}
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 10 * time.Minute}, nil)
+
+	s := State{db: dbMock, configClient: configClientMock}
 
 	s.addResource(rec, req)
 	if rec.Code != http.StatusOK {
