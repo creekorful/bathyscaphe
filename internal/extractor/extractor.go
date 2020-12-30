@@ -5,18 +5,23 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
+	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"mvdan.cc/xurls/v2"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
+var errHostnameNotAllowed = fmt.Errorf("hostname is not allowed")
+
 // State represent the application state
 type State struct {
-	apiClient api.API
+	apiClient    api.API
+	configClient configapi.Client
 }
 
 // Name return the process name
@@ -26,7 +31,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag}
+	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag, process.ConfigAPIURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -41,6 +46,12 @@ func (state *State) Initialize(provider process.Provider) error {
 		return err
 	}
 	state.apiClient = apiClient
+
+	configClient, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey})
+	if err != nil {
+		return err
+	}
+	state.configClient = configClient
 
 	return nil
 }
@@ -64,6 +75,22 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	}
 
 	log.Debug().Str("url", evt.URL).Msg("Processing new resource")
+
+	u, err := url.Parse(evt.URL)
+	if err != nil {
+		return err
+	}
+
+	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
+	if err != nil {
+		return err
+	}
+	for _, hostname := range forbiddenHostnames {
+		if strings.Contains(u.Hostname(), hostname.Hostname) {
+			log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+			return errHostnameNotAllowed
+		}
+	}
 
 	// Extract & process resource
 	resDto, urls, err := extractResource(evt)

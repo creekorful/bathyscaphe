@@ -3,6 +3,8 @@ package extractor
 import (
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/api_mock"
+	"github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
@@ -92,6 +94,7 @@ This is sparta (hosted on https://example.org)
 
 	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	tn := time.Now()
 
@@ -104,6 +107,8 @@ This is sparta (hosted on https://example.org)
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
 			Time:    tn,
 		}).Return(nil)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
 
 	// make sure we are creating the resource
 	apiClientMock.EXPECT().AddResource(api.ResourceDto{
@@ -126,8 +131,46 @@ This is sparta (hosted on https://example.org)
 		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
-	s := State{apiClient: apiClientMock}
+	s := State{apiClient: apiClientMock, configClient: configClientMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
+		t.FailNow()
+	}
+}
+
+func TestHandleMessageForbiddenHostname(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta (hosted on https://example.org)
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="DescriptIon" content="Zhello world">
+<meta property="og:url" content="https://example.org">`
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	apiClientMock := api_mock.NewMockAPI(mockCtrl)
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	tn := time.Now()
+
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+			Time:    tn,
+		}).Return(nil)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example.onion"}}, nil)
+
+	s := State{apiClient: apiClientMock, configClient: configClientMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
 }
