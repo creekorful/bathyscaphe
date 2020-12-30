@@ -69,6 +69,14 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 		return err
 	}
 
+	// prevent duplicates
+	for _, hostname := range forbiddenHostnames {
+		if hostname.Hostname == u.Hostname() {
+			log.Trace().Str("hostname", u.Hostname()).Msg("skipping duplicate hostname")
+			return nil
+		}
+	}
+
 	forbiddenHostnames = append(forbiddenHostnames, configapi.ForbiddenHostname{Hostname: u.Hostname()})
 
 	if err := state.configClient.Set(configapi.ForbiddenHostnamesKey, forbiddenHostnames); err != nil {

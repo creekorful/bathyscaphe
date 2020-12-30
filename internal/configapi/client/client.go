@@ -239,7 +239,7 @@ func (c *client) setValue(key string, value []byte) error {
 		return fmt.Errorf("non managed value type: %s", key)
 	}
 
-	log.Debug().Str("key", key).Bytes("value", value).Msg("Successfully set value")
+	log.Trace().Str("key", key).Bytes("value", value).Msg("Successfully set value")
 
 	return nil
 }

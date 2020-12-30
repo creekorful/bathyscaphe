@@ -38,3 +38,27 @@ func TestHandleTimeoutURLEvent(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestHandleTimeoutURLEventNoDuplicates(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.TimeoutURLEvent{}).
+		SetArg(1, event.TimeoutURLEvent{
+			URL: "https://facebookcorewwwi.onion",
+		}).Return(nil)
+
+	configClientMock.EXPECT().
+		GetForbiddenHostnames().
+		Return([]configapi.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}}, nil)
+
+	s := State{configClient: configClientMock}
+	if err := s.handleTimeoutURLEvent(subscriberMock, msg); err != nil {
+		t.Fail()
+	}
+}
