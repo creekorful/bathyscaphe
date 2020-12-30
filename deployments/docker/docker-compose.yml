@@ -58,6 +58,7 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImV4dHJhY3RvciIsInJpZ2h0cyI6eyJQT1NUIjpbIi92MS9yZXNvdXJjZXMiXX19.mytGd_9zyK8y_T3fsWAmH8FnaBNr6qWefwCPDOx4in0
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
