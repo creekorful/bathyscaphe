@@ -8,10 +8,6 @@ else
   exit 1
 fi
 
-# create release commit
-git add .
-git commit -m "Release $tag"
-
 # create signed tag
 git tag -s "v$tag" -m "Release $tag"
 

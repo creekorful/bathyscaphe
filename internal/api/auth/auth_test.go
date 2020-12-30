@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,60 +9,60 @@ import (
 )
 
 func TestMiddleware_NoTokenShouldReturnUnauthorized(t *testing.T) {
-	e := echo.New()
 	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	// no token shouldn't be able to access
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
 
-	if err := m(c); err != ErrInvalidOrMissingAuth {
-		t.Errorf("ErrInvalidOrMissingAuth was expected")
+	m.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("StatusUnauthorized was expected")
 	}
 }
 
 func TestMiddleware_InvalidTokenShouldReturnUnauthorized(t *testing.T) {
-	e := echo.New()
-	m := (&Middleware{signingKey: []byte("test")}).Middleware()
+	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
-	req.Header.Add(echo.HeaderAuthorization, "zarBR")
+	req.Header.Add("Authorization", "zarBR")
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
 
-	if err := m(okHandler())(c); err != ErrInvalidOrMissingAuth {
-		t.Errorf("ErrInvalidOrMissingAuth was expected")
+	m.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("StatusUnauthorized was expected")
 	}
 }
 
 func TestMiddleware_BadRightsShouldReturnUnauthorized(t *testing.T) {
-	e := echo.New()
-	m := (&Middleware{signingKey: []byte("test")}).Middleware()
+	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodPost, "/users", nil)
-	req.Header.Add(echo.HeaderAuthorization, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
+	req.Header.Add("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
 
-	if err := m(okHandler())(c); err != ErrAccessUnauthorized {
-		t.Errorf("ErrAccessUnauthorized was expected")
+	m.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("StatusUnauthorized was expected")
 	}
 }
 
 func TestMiddleware(t *testing.T) {
-	e := echo.New()
-	m := (&Middleware{signingKey: []byte("test")}).Middleware()
+	m := (&Middleware{signingKey: []byte("test")}).Middleware()(okHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/users?id=10", nil)
-	req.Header.Add(echo.HeaderAuthorization, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
+	req.Header.Add("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkpvaG4gRG9lIiwicmlnaHRzIjp7IkdFVCI6WyIvdXNlcnMiXSwiUE9TVCI6WyIvc2VhcmNoIl19fQ.fRx0Q66ZgnY_rKCf-9Vaz6gzGKH_tKSgkVHhoQMtKfM")
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
 
-	_ = m(okHandler())(c)
+	m.ServeHTTP(rec, req)
+
 	if rec.Code != http.StatusOK {
-		t.Fail()
+		t.Errorf("StatusUnauthorized was expected")
 	}
+
 	b, err := ioutil.ReadAll(rec.Body)
 	if err != nil {
 		t.Fail()
@@ -71,18 +70,16 @@ func TestMiddleware(t *testing.T) {
 	if string(b) != "Hello, John Doe" {
 		t.Fail()
 	}
-
-	if token := c.Get("username").(string); token != "John Doe" {
-		t.Fail()
-	}
 }
 
-func okHandler() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if username := c.Get("username").(string); username != "" {
-			return c.String(http.StatusOK, fmt.Sprintf("Hello, %s", username))
+func okHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if username := r.Context().Value(usernameKey).(string); username != "" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf("Hello, %s", username)))
+			return
 		}
 
-		return c.NoContent(http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

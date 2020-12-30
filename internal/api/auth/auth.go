@@ -1,24 +1,20 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/labstack/echo/v4"
+	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 )
 
-// ErrInvalidOrMissingAuth is returned if the authorization header is absent or invalid
-var ErrInvalidOrMissingAuth = &echo.HTTPError{
-	Code:    http.StatusUnauthorized,
-	Message: "Invalid or missing `Authorization` header",
-}
+type key int
 
-// ErrAccessUnauthorized is returned if the token doesn't grant access to the current resource
-var ErrAccessUnauthorized = &echo.HTTPError{
-	Code:    http.StatusUnauthorized,
-	Message: "Access to the resource is not authorized",
-}
+const (
+	usernameKey key = iota
+)
 
 // Token is the authentication token used by processes when dialing with the API
 type Token struct {
@@ -40,14 +36,16 @@ func NewMiddleware(signingKey []byte) *Middleware {
 	return &Middleware{signingKey: signingKey}
 }
 
-// Middleware return an echo compatible middleware func to use
-func (m *Middleware) Middleware() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+// Middleware return an net/http compatible middleware func to use
+func (m *Middleware) Middleware() mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract authorization header
-			tokenStr := c.Request().Header.Get(echo.HeaderAuthorization)
+			tokenStr := r.Header.Get("Authorization")
 			if tokenStr == "" {
-				return ErrInvalidOrMissingAuth
+				log.Warn().Msg("missing token")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
 			}
 
 			tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
@@ -63,13 +61,17 @@ func (m *Middleware) Middleware() echo.MiddlewareFunc {
 				return m.signingKey, nil
 			})
 			if err != nil {
-				return ErrInvalidOrMissingAuth
+				log.Err(err).Msg("error while decoding JWT token")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
 			}
 
 			// From here we have a valid JWT token, extract claims
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
-				return fmt.Errorf("error while parsing token claims")
+				log.Err(err).Msg("error while decoding token claims")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 
 			rights := map[string][]string{}
@@ -85,28 +87,38 @@ func (m *Middleware) Middleware() echo.MiddlewareFunc {
 			}
 
 			// Validate rights
-			paths, contains := t.Rights[c.Request().Method]
+			paths, contains := t.Rights[r.Method]
 			if !contains {
-				return ErrAccessUnauthorized
+				log.Warn().
+					Str("username", t.Username).
+					Str("method", r.Method).
+					Str("resource", r.URL.Path).
+					Msg("Access to resources is unauthorized")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
 			}
 
 			authorized := false
 			for _, path := range paths {
-				if path == c.Request().URL.Path {
+				if path == r.URL.Path {
 					authorized = true
 					break
 				}
 			}
 
 			if !authorized {
-				return ErrAccessUnauthorized
+				log.Warn().
+					Str("username", t.Username).
+					Str("method", r.Method).
+					Str("resource", r.URL.Path).
+					Msg("Access to resources is unauthorized")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
 			}
 
-			// Set user context
-			c.Set("username", t.Username)
-
 			// Everything's fine, call next handler ;D
-			return next(c)
-		}
+			ctx := context.WithValue(r.Context(), usernameKey, t.Username)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }

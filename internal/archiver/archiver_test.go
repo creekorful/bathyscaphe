@@ -1,7 +1,6 @@
 package archiver
 
 import (
-	"bytes"
 	"github.com/creekorful/trandoshan/internal/archiver/storage_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
@@ -19,9 +18,9 @@ func TestHandleNewResourceEvent(t *testing.T) {
 
 	tn := time.Now()
 
-	msg := bytes.NewReader(nil)
+	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(msg, &event.NewResourceEvent{}).
+		Read(&msg, &event.NewResourceEvent{}).
 		SetArg(1, event.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    "Hello, world",
@@ -31,7 +30,7 @@ func TestHandleNewResourceEvent(t *testing.T) {
 
 	storageMock.EXPECT().Store("https://example.onion", tn, []byte("Server: Traefik\r\nContent-Type: application/html\r\n\r\nHello, world")).Return(nil)
 
-	s := state{storage: storageMock}
+	s := State{storage: storageMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}

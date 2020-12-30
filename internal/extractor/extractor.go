@@ -6,81 +6,60 @@ import (
 	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"mvdan.cc/xurls/v2"
-	"os"
-	"os/signal"
+	"net/http"
 	"strings"
-	"syscall"
 )
 
-// GetApp return the extractor app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-extractor",
-		Version: "0.7.0",
-		Usage:   "Trandoshan extractor component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			util.GetAPIURIFlag(),
-			util.GetAPITokenFlag(),
-		},
-		Action: execute,
-	}
+// State represent the application state
+type State struct {
+	apiClient api.API
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+// Name return the process name
+func (state *State) Name() string {
+	return "extractor"
+}
 
-	log.Info().
-		Str("ver", ctx.App.Version).
-		Str("hub-uri", ctx.String("hub-uri")).
-		Str("api-uri", ctx.String("api-uri")).
-		Msg("Starting tdsh-extractor")
+// CommonFlags return process common flags
+func (state *State) CommonFlags() []string {
+	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag}
+}
 
-	apiClient := util.GetAPIClient(ctx)
+// CustomFlags return process custom flags
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{}
+}
 
-	// Create the event subscriber
-	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
+	apiClient, err := provider.APIClient()
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
-
-	state := state{apiClient: apiClient}
-
-	if err := sub.SubscribeAsync(event.NewResourceExchange, "extractingQueue", state.handleNewResourceEvent); err != nil {
-		return err
-	}
-
-	log.Info().Msg("Successfully initialized tdsh-extractor. Waiting for resources")
-
-	// Handle graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until we receive our signal.
-	<-c
-
-	if err := sub.Close(); err != nil {
-		return err
-	}
+	state.apiClient = apiClient
 
 	return nil
 }
 
-type state struct {
-	apiClient api.API
+// Subscribers return the process subscribers
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{
+		{Exchange: event.NewResourceExchange, Queue: "extractingQueue", Handler: state.handleNewResourceEvent},
+	}
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.Reader) error {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+	return nil
+}
+
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
-	if err := subscriber.Read(body, &evt); err != nil {
+	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 
@@ -118,7 +97,7 @@ func (state *state) handleNewResourceEvent(subscriber event.Subscriber, body io.
 			Str("url", url).
 			Msg("Publishing found URL")
 
-		if err := subscriber.Publish(&event.FoundURLEvent{URL: url}); err != nil {
+		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
 			log.Warn().
 				Str("url", url).
 				Str("err", err.Error()).

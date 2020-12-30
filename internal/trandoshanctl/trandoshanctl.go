@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
 	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -14,18 +13,23 @@ import (
 
 // GetApp returns the Trandoshan CLI app
 func GetApp() *cli.App {
-	apiFlag := util.GetAPIURIFlag()
-	apiFlag.Value = "http://localhost:15005"
-	apiFlag.Required = false
-
 	return &cli.App{
 		Name:    "trandoshanctl",
-		Version: "0.7.0",
+		Version: "0.8.0",
 		Usage:   "Trandoshan CLI",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
-			apiFlag,
-			util.GetAPITokenFlag(),
+			&cli.StringFlag{
+				Name:     "api-uri",
+				Usage:    "URI to the API server",
+				Value:    "http://localhost:15005",
+				Required: false,
+			},
+			&cli.StringFlag{
+				Name:     "api-token",
+				Usage:    "Token to use to authenticate against the API",
+				Required: true,
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -58,7 +62,7 @@ func schedule(c *cli.Context) error {
 	url := c.Args().First()
 
 	// Create the API client
-	apiClient := util.GetAPIClient(c)
+	apiClient := api.NewClient(c.String("api-uri"), c.String("api-token"))
 
 	if err := apiClient.ScheduleURL(url); err != nil {
 		log.Err(err).Str("url", url).Msg("Unable to schedule crawling for URL")
@@ -74,7 +78,7 @@ func search(c *cli.Context) error {
 	keyword := c.Args().First()
 
 	// Create the API client
-	apiClient := util.GetAPIClient(c)
+	apiClient := api.NewClient(c.String("api-uri"), c.String("api-token"))
 
 	params := api.ResSearchParams{
 		Keyword:    keyword,

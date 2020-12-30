@@ -24,12 +24,17 @@ services:
       - elasticsearch
     ports:
       - 15004:5601
+  redis:
+    image: redis:alpine3.12
+    volumes:
+      - redisdata:/data
   crawler:
     image: creekorful/tdsh-crawler:latest
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --tor-uri torproxy:9050
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
@@ -41,14 +46,7 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --api-uri http://api:8080
       --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY
-      --forbidden-extensions png
-      --forbidden-extensions gif
-      --forbidden-extensions jpg
-      --forbidden-extensions jpeg
-      --forbidden-extensions bmp
-      --forbidden-extensions css
-      --forbidden-extensions js
-      --forbidden-hostnames facebookcorewwwi.onion
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
@@ -82,11 +80,39 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --elasticsearch-uri http://elasticsearch:9200
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
+      --config-api-uri http://configapi:8080
     restart: always
     depends_on:
+      - rabbitmq
       - elasticsearch
+      - configapi
     ports:
       - 15005:8080
+  configapi:
+    image: creekorful/tdsh-configapi:latest
+    command: >
+      --log-level debug
+      --hub-uri amqp://guest:guest@rabbitmq:5672
+      --db-uri redis:6379
+      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}]"
+      --default-value forbidden-mime-types="[{\"content-type\":\"image/png\",\"extensions\":[\"png\"]},{\"content-type\":\"image/gif\",\"extensions\":[\"gif\"]},{\"content-type\":\"image/jpeg\",\"extensions\":[\"jpg\",\"jpeg\"]},{\"content-type\":\"image/bmp\",\"extensions\":[\"bmp\"]},{\"content-type\":\"image/svg+xml\",\"extensions\":[\"svg\"]},{\"content-type\":\"text/css\",\"extensions\":[\"css\"]},{\"content-type\":\"application/javascript\",\"extensions\":[\"js\"]}]"
+      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[]}]"
+      --default-value refresh-delay="{\"delay\": -1}"
+    restart: always
+    depends_on:
+      - rabbitmq
+    ports:
+      - 15006:8080
+  blacklister:
+    image: creekorful/tdsh-blacklister:latest
+    command: >
+      --log-level debug
+      --hub-uri amqp://guest:guest@rabbitmq:5672
+      --config-api-uri http://configapi:8080
+    restart: always
+    depends_on:
+      - rabbitmq
+      - configapi
 
 volumes:
   esdata:
@@ -94,4 +120,6 @@ volumes:
   rabbitdata:
     driver: local
   archiverdata:
+    driver: local
+  redisdata:
     driver: local

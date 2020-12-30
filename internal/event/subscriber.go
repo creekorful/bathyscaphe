@@ -1,23 +1,33 @@
 package event
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
-	"io"
 )
 
+// RawMessage is a raw message as viewed by the messaging system
+type RawMessage struct {
+	Body    []byte
+	Headers map[string]interface{}
+}
+
 // Handler represent an event handler
-type Handler func(Subscriber, io.Reader) error
+type Handler func(Subscriber, RawMessage) error
 
 // Subscriber is something that read msg from an event queue
 type Subscriber interface {
 	Publisher
 
-	Read(body io.Reader, event Event) error
-	SubscribeAsync(exchange, queue string, handler Handler) error
+	// Read RawMessage and deserialize it into proper Event
+	Read(msg *RawMessage, event Event) error
+
+	// Subscribe to named exchange with unique consuming guaranty
+	Subscribe(exchange, queue string, handler Handler) error
+
+	// SubscribeAll subscribe to given exchange but ensure everyone on the exchange receive the messages
+	SubscribeAll(exchange string, handler Handler) error
 }
 
 // Subscriber represent a subscriber
@@ -45,19 +55,37 @@ func NewSubscriber(amqpURI string) (Subscriber, error) {
 	}, nil
 }
 
-func (s *subscriber) Publish(event Event) error {
-	return publishJSON(s.channel, event.Exchange(), event)
+func (s *subscriber) PublishEvent(event Event) error {
+	evtBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("error while encoding event: %s", err)
+	}
+
+	return s.PublishJSON(event.Exchange(), RawMessage{Body: evtBytes})
+}
+
+func (s *subscriber) PublishJSON(exchange string, msg RawMessage) error {
+	return s.channel.Publish(exchange, "", false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		Body:         msg.Body,
+		DeliveryMode: amqp.Persistent,
+		Headers:      msg.Headers,
+	})
 }
 
 func (s *subscriber) Close() error {
 	return s.channel.Close()
 }
 
-func (s *subscriber) Read(body io.Reader, event Event) error {
-	return readJSON(body, event)
+func (s *subscriber) Read(msg *RawMessage, event Event) error {
+	if err := json.Unmarshal(msg.Body, event); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) error {
+func (s *subscriber) Subscribe(exchange, queue string, handler Handler) error {
 	// First of all declare the exchange
 	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
 		return err
@@ -82,7 +110,11 @@ func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) err
 
 	go func() {
 		for delivery := range deliveries {
-			if err := handler(s, bytes.NewReader(delivery.Body)); err != nil {
+			msg := RawMessage{
+				Body:    delivery.Body,
+				Headers: delivery.Headers,
+			}
+			if err := handler(s, msg); err != nil {
 				log.Err(err).Msg("error while processing event")
 			}
 
@@ -96,10 +128,45 @@ func (s *subscriber) SubscribeAsync(exchange, queue string, handler Handler) err
 	return nil
 }
 
-func readJSON(body io.Reader, event interface{}) error {
-	if err := json.NewDecoder(body).Decode(event); err != nil {
-		return fmt.Errorf("error while decoding event: %s", err)
+func (s *subscriber) SubscribeAll(exchange string, handler Handler) error {
+	// First of all declare the exchange
+	if err := s.channel.ExchangeDeclare(exchange, amqp.ExchangeFanout, true, false, false, false, nil); err != nil {
+		return err
 	}
+
+	// Then declare the queue
+	q, err := s.channel.QueueDeclare("", false, true, true, false, nil)
+	if err != nil {
+		return err
+	}
+
+	// Bind the queue to the exchange
+	if err := s.channel.QueueBind(q.Name, "", exchange, false, nil); err != nil {
+		return err
+	}
+
+	// Start consuming asynchronously
+	deliveries, err := s.channel.Consume(q.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for delivery := range deliveries {
+			msg := RawMessage{
+				Body:    delivery.Body,
+				Headers: delivery.Headers,
+			}
+			if err := handler(s, msg); err != nil {
+				log.Err(err).Msg("error while processing event")
+			}
+
+			// Ack no matter what happen since we doesn't care about failing event (yet?)
+			if err := delivery.Ack(false); err != nil {
+				log.Err(err).Msg("error while acknowledging event")
+			}
+		}
+	}()
 
 	return nil
 }
