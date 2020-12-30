@@ -140,7 +140,7 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 	writePagination(w, searchParams, totalCount)
 
 	// Write body
-	writeJson(w, resources)
+	writeJSON(w, resources)
 }
 
 func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +202,7 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
-	writeJson(w, res)
+	writeJSON(w, res)
 }
 
 func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
@@ -319,7 +319,7 @@ func getRawQueryParam(url string) map[string]string {
 	return val
 }
 
-func writeJson(w http.ResponseWriter, body interface{}) {
+func writeJSON(w http.ResponseWriter, body interface{}) {
 	b, err := json.Marshal(body)
 	if err != nil {
 		log.Err(err).Msg("error while serializing body")
