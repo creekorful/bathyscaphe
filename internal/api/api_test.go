@@ -185,6 +185,9 @@ func TestAddResource(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.FailNow()
 	}
+	if rec.Header().Get("Content-Type") != "application/json" {
+		t.Fail()
+	}
 
 	var res api.ResourceDto
 	if err := json.NewDecoder(rec.Body).Decode(&res); err != nil {
@@ -330,6 +333,9 @@ func TestSearchResources(t *testing.T) {
 	s.searchResources(rec, req)
 
 	if rec.Code != http.StatusOK {
+		t.Fail()
+	}
+	if rec.Header().Get("Content-Type") != "application/json" {
 		t.Fail()
 	}
 	if rec.Header().Get(api.PaginationCountHeader) != "150" {

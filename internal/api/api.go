@@ -140,10 +140,7 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 	writePagination(w, searchParams, totalCount)
 
 	// Write body
-	if err := json.NewEncoder(w).Encode(resources); err != nil {
-		log.Err(err).Msg("error while encoding response")
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	writeJson(w, resources)
 }
 
 func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
@@ -205,10 +202,7 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		log.Err(err).Msg("error while encoding response")
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	writeJson(w, res)
 }
 
 func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
@@ -323,4 +317,16 @@ func getRawQueryParam(url string) map[string]string {
 	}
 
 	return val
+}
+
+func writeJson(w http.ResponseWriter, body interface{}) {
+	b, err := json.Marshal(body)
+	if err != nil {
+		log.Err(err).Msg("error while serializing body")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(b)
 }
