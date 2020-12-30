@@ -3,9 +3,13 @@ package http
 //go:generate mockgen -destination=../http_mock/client_mock.go -package=http_mock . Client
 
 import (
+	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
 )
+
+// ErrTimeout is returned when the crawling failed because of timeout issue
+var ErrTimeout = errors.New("timeout has occurred")
 
 // Client is an HTTP client
 type Client interface {

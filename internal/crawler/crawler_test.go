@@ -5,6 +5,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/clock_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
+	"github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
@@ -39,8 +40,8 @@ func TestHandleNewURLEvent(t *testing.T) {
 		responseBody string
 		// internal state: allowed mime types
 		allowedMimeTypes []client.MimeType
-		// is the test expected to pass?
-		pass bool
+		// The expected error
+		err error
 	}
 
 	tests := []test{
@@ -52,14 +53,12 @@ func TestHandleNewURLEvent(t *testing.T) {
 				{ContentType: "text/plain", Extensions: nil},
 				{ContentType: "text/css", Extensions: nil},
 			},
-			pass: true,
 		},
 		{
 			url:              "https://example.onion",
 			responseHeaders:  map[string]string{"Content-Type": "text/plain"},
 			responseBody:     "Hello",
 			allowedMimeTypes: []client.MimeType{},
-			pass:             true,
 		},
 		{
 			url:             "https://example.onion",
@@ -71,7 +70,6 @@ func TestHandleNewURLEvent(t *testing.T) {
 					Extensions:  nil,
 				},
 			},
-			pass: true,
 		},
 		{
 			url:             "https://example.onion/image.png",
@@ -83,7 +81,19 @@ func TestHandleNewURLEvent(t *testing.T) {
 					Extensions:  nil,
 				},
 			},
-			pass: false,
+			err: errContentTypeNotAllowed,
+		},
+		{
+			url:             "https://downhostname.onion",
+			responseHeaders: map[string]string{"Content-Type": "text/plain"},
+			responseBody:    "Hello",
+			allowedMimeTypes: []client.MimeType{
+				{
+					ContentType: "text/plain",
+					Extensions:  nil,
+				},
+			},
+			err: http.ErrTimeout,
 		},
 	}
 
@@ -95,13 +105,21 @@ func TestHandleNewURLEvent(t *testing.T) {
 			Return(nil)
 
 		// mock crawling
-		httpResponseMock.EXPECT().Headers().Return(test.responseHeaders)
-		httpClientMock.EXPECT().Get(test.url).Return(httpResponseMock, nil)
+		switch test.err {
+		case http.ErrTimeout:
+			httpClientMock.EXPECT().Get(test.url).Return(httpResponseMock, http.ErrTimeout)
+			subscriberMock.EXPECT().PublishEvent(&event.TimeoutURLEvent{URL: test.url}).Return(nil)
+			break
+		default:
+			httpResponseMock.EXPECT().Headers().Return(test.responseHeaders)
+			httpClientMock.EXPECT().Get(test.url).Return(httpResponseMock, nil)
 
-		// mock config retrieval
-		configClientMock.EXPECT().GetAllowedMimeTypes().Return(test.allowedMimeTypes, nil)
+			// mock config retrieval
+			configClientMock.EXPECT().GetAllowedMimeTypes().Return(test.allowedMimeTypes, nil)
+			break
+		}
 
-		if test.pass {
+		if test.err == nil {
 			httpResponseMock.EXPECT().Headers().Return(test.responseHeaders)
 			httpResponseMock.EXPECT().Body().Return(strings.NewReader(test.responseBody))
 
@@ -118,10 +136,10 @@ func TestHandleNewURLEvent(t *testing.T) {
 		}
 
 		err := s.handleNewURLEvent(subscriberMock, msg)
-		if test.pass && err != nil {
+		if test.err == nil && err != nil {
 			t.Errorf("test should have passed but has failed with: %s", err)
 		}
-		if !test.pass && !errors.Is(err, errContentTypeNotAllowed) {
+		if !errors.Is(err, test.err) {
 			t.Errorf("test shouldn't have passed but hasn't returned expected error: %s", err)
 		}
 	}
