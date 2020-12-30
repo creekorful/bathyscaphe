@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -45,16 +46,11 @@ type RefreshDelay struct {
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
 	GetForbiddenMimeTypes() ([]MimeType, error)
-	SetForbiddenMimeTypes(values []MimeType) error
-
 	GetAllowedMimeTypes() ([]MimeType, error)
-	SetAllowedMimeTypes(values []MimeType) error
-
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
-	SetForbiddenHostnames(values []ForbiddenHostname) error
-
 	GetRefreshDelay() (RefreshDelay, error)
-	SetRefreshDelay(value RefreshDelay) error
+
+	Set(key string, value interface{}) error
 }
 
 type client struct {
@@ -107,7 +103,7 @@ func (c *client) GetForbiddenMimeTypes() ([]MimeType, error) {
 	return c.forbiddenMimeTypes, nil
 }
 
-func (c *client) SetForbiddenMimeTypes(values []MimeType) error {
+func (c *client) setForbiddenMimeTypes(values []MimeType) error {
 	c.mutexes[ForbiddenMimeTypesKey].Lock()
 	defer c.mutexes[ForbiddenMimeTypesKey].Unlock()
 
@@ -123,7 +119,7 @@ func (c *client) GetAllowedMimeTypes() ([]MimeType, error) {
 	return c.allowedMimeTypes, nil
 }
 
-func (c *client) SetAllowedMimeTypes(values []MimeType) error {
+func (c *client) setAllowedMimeTypes(values []MimeType) error {
 	c.mutexes[AllowedMimeTypesKey].Lock()
 	defer c.mutexes[AllowedMimeTypesKey].Unlock()
 
@@ -139,7 +135,7 @@ func (c *client) GetForbiddenHostnames() ([]ForbiddenHostname, error) {
 	return c.forbiddenHostnames, nil
 }
 
-func (c *client) SetForbiddenHostnames(values []ForbiddenHostname) error {
+func (c *client) setForbiddenHostnames(values []ForbiddenHostname) error {
 	c.mutexes[ForbiddenHostnamesKey].Lock()
 	defer c.mutexes[ForbiddenHostnamesKey].Unlock()
 
@@ -155,11 +151,34 @@ func (c *client) GetRefreshDelay() (RefreshDelay, error) {
 	return c.refreshDelay, nil
 }
 
-func (c *client) SetRefreshDelay(value RefreshDelay) error {
+func (c *client) setRefreshDelay(value RefreshDelay) error {
 	c.mutexes[RefreshDelayKey].Lock()
 	defer c.mutexes[RefreshDelayKey].Unlock()
 
 	c.refreshDelay = value
+
+	return nil
+}
+
+func (c *client) Set(key string, value interface{}) error {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/config/%s", c.configAPIURL, key), bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("invalid status code: %d", res.StatusCode)
+	}
 
 	return nil
 }
@@ -185,7 +204,7 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.SetForbiddenMimeTypes(val); err != nil {
+		if err := c.setForbiddenMimeTypes(val); err != nil {
 			return err
 		}
 		break
@@ -194,7 +213,7 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.SetAllowedMimeTypes(val); err != nil {
+		if err := c.setAllowedMimeTypes(val); err != nil {
 			return err
 		}
 		break
@@ -203,7 +222,7 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.SetForbiddenHostnames(val); err != nil {
+		if err := c.setForbiddenHostnames(val); err != nil {
 			return err
 		}
 		break
@@ -212,7 +231,7 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.SetRefreshDelay(val); err != nil {
+		if err := c.setRefreshDelay(val); err != nil {
 			return err
 		}
 		break
