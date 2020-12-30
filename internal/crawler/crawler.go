@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/constraint"
 	chttp "github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
@@ -14,7 +15,6 @@ import (
 	"github.com/valyala/fasthttp/fasthttpproxy"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -104,20 +104,11 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 
 	log.Debug().Str("url", evt.URL).Msg("Processing URL")
 
-	u, err := url.Parse(evt.URL)
-	if err != nil {
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
 		return err
-	}
-
-	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
-	if err != nil {
-		return err
-	}
-	for _, hostname := range forbiddenHostnames {
-		if strings.Contains(u.Hostname(), hostname.Hostname) {
-			log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
-			return errHostnameNotAllowed
-		}
+	} else if !allowed {
+		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		return errHostnameNotAllowed
 	}
 
 	r, err := state.httpClient.Get(evt.URL)
