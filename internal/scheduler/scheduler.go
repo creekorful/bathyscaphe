@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/constraint"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
@@ -109,12 +110,11 @@ func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 	}
 
 	// Make sure hostname is not forbidden
-	if hostnames, err := state.configClient.GetForbiddenHostnames(); err == nil {
-		for _, hostname := range hostnames {
-			if strings.Contains(u.Hostname(), hostname.Hostname) {
-				return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
-			}
-		}
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
+		return err
+	} else if !allowed {
+		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
 
 	// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
