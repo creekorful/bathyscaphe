@@ -3,9 +3,14 @@ package http
 //go:generate mockgen -destination=../http_mock/client_mock.go -package=http_mock . Client
 
 import (
+	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
+	"strings"
 )
+
+// ErrTimeout is returned when the crawling failed because of timeout issue
+var ErrTimeout = errors.New("timeout has occurred")
 
 // Client is an HTTP client
 type Client interface {
@@ -32,6 +37,11 @@ func (c *client) Get(URL string) (Response, error) {
 	req.SetRequestURI(URL)
 
 	if err := c.c.Do(req, resp); err != nil {
+		// TODO better
+		if strings.Contains(err.Error(), "unknown error TTL expired") {
+			return nil, ErrTimeout
+		}
+
 		return nil, err
 	}
 

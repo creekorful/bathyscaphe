@@ -102,6 +102,11 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 
 	r, err := state.httpClient.Get(evt.URL)
 	if err != nil {
+		if err == chttp.ErrTimeout {
+			// indicate that crawling has failed
+			_ = subscriber.PublishEvent(&event.TimeoutURLEvent{URL: evt.URL})
+		}
+
 		return err
 	}
 
