@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.pub = pub
 
-	configClient, err := provider.ConfigClient([]string{configapi.RefreshDelayKey})
+	configClient, err := provider.ConfigClient([]string{configapi.RefreshDelayKey, configapi.ForbiddenHostnamesKey})
 	if err != nil {
 		return err
 	}
@@ -149,6 +150,28 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
+	}
+
+	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
+	if err != nil {
+		log.Err(err).Msg("error while getting forbidden hostnames")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	u, err := url.Parse(res.URL)
+	if err != nil {
+		log.Err(err).Msg("error while parsing resource URL")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	for _, hostname := range forbiddenHostnames {
+		if strings.Contains(u.Hostname(), hostname.Hostname) {
+			log.Debug().Str("url", res.URL).Msg("Skipping forbidden hostname")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 	}
 
 	// Hacky stuff to prevent from adding 'duplicate resource'

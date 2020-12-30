@@ -303,6 +303,40 @@ func TestAddResourceTooYoung(t *testing.T) {
 	}
 }
 
+func TestAddResourceForbiddenHostname(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	body := api.ResourceDto{
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
+	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		t.FailNow()
+	}
+
+	// The requests
+	req := httptest.NewRequest(http.MethodPost, "/v1/resources", bytes.NewReader(bodyBytes))
+	rec := httptest.NewRecorder()
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example.onion"}}, nil)
+
+	s := State{configClient: configClientMock}
+
+	s.addResource(rec, req)
+	if rec.Code != http.StatusOK {
+		t.FailNow()
+	}
+}
+
 func TestSearchResources(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
