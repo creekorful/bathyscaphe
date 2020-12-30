@@ -30,7 +30,7 @@ func TestHandleMessageNotOnion(t *testing.T) {
 			SetArg(1, event.FoundURLEvent{URL: url}).
 			Return(nil)
 
-		s := state{
+		s := State{
 			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
@@ -51,7 +51,7 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 
 	msg := event.RawMessage{}
 
-	s := state{
+	s := State{
 		apiClient:    apiClientMock,
 		configClient: configClientMock,
 	}
@@ -95,7 +95,7 @@ func TestHandleMessageAlreadyCrawled(t *testing.T) {
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
-	s := state{
+	s := State{
 		apiClient:    apiClientMock,
 		configClient: configClientMock,
 	}
@@ -124,7 +124,7 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 
 		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{{Extensions: []string{"png"}}}, nil)
 
-		s := state{
+		s := State{
 			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
@@ -177,7 +177,7 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{}, nil)
 		configClientMock.EXPECT().GetForbiddenHostnames().Return(test.forbiddenHostnames, nil)
 
-		s := state{
+		s := State{
 			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
@@ -219,7 +219,7 @@ func TestHandleMessage(t *testing.T) {
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
-	s := state{
+	s := State{
 		apiClient:    apiClientMock,
 		configClient: configClientMock,
 	}

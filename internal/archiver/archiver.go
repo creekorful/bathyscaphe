@@ -4,82 +4,63 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/archiver/storage"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/logging"
-	"github.com/creekorful/trandoshan/internal/util"
+	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
-	"os/signal"
+	"net/http"
 	"strings"
-	"syscall"
 )
 
-// GetApp return the crawler app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-archiver",
-		Version: "0.7.0",
-		Usage:   "Trandoshan archiver component",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			util.GetHubURI(),
-			&cli.StringFlag{
-				Name:     "storage-dir",
-				Usage:    "Path to the storage directory",
-				Required: true,
-			},
+// State represent the application state
+type State struct {
+	storage storage.Storage
+}
+
+// Name return the process name
+func (state *State) Name() string {
+	return "archiver"
+}
+
+// CommonFlags return process common flags
+func (state *State) CommonFlags() []string {
+	return []string{process.HubURIFlag}
+}
+
+// CustomFlags return process custom flags
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:     "storage-dir",
+			Usage:    "Path to the storage directory",
+			Required: true,
 		},
-		Action: execute,
 	}
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
-
-	log.Info().
-		Str("ver", ctx.App.Version).
-		Str("hub-uri", ctx.String("hub-uri")).
-		Str("storage-dir", ctx.String("storage-dir")).
-		Msg("Starting tdsh-archiver")
-
-	// Create the subscriber
-	sub, err := event.NewSubscriber(ctx.String("hub-uri"))
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
+	st, err := storage.NewLocalStorage(provider.GetValue("storage-dir"))
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
-
-	// Create local storage
-	st, err := storage.NewLocalStorage(ctx.String("storage-dir"))
-	if err != nil {
-		return err
-	}
-
-	state := state{
-		storage: st,
-	}
-
-	if err := sub.Subscribe(event.NewResourceExchange, "archivingQueue", state.handleNewResourceEvent); err != nil {
-		return err
-	}
-
-	log.Info().Msg("Successfully initialized tdsh-archiver. Waiting for resources")
-
-	// Handle graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until we receive our signal.
-	<-c
+	state.storage = st
 
 	return nil
 }
 
-type state struct {
-	storage storage.Storage
+// Subscribers return the process subscribers
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{
+		{Exchange: event.NewResourceExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
+	}
 }
 
-func (state *state) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+	return nil
+}
+
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
