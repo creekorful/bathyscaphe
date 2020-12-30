@@ -103,7 +103,16 @@ services:
       - rabbitmq
     ports:
       - 15006:8080
-
+  blacklister:
+    image: creekorful/tdsh-blacklister:latest
+    command: >
+      --log-level debug
+      --hub-uri amqp://guest:guest@rabbitmq:5672
+      --config-api-uri http://configapi:8080
+    restart: always
+    depends_on:
+      - rabbitmq
+      - configapi
 
 volumes:
   esdata:
