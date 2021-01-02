@@ -31,7 +31,7 @@ func TestHandleNewResourceEvent(t *testing.T) {
 	storageMock.EXPECT().Store("https://example.onion", tn, []byte("Server: Traefik\r\nContent-Type: application/html\r\n\r\nHello, world")).Return(nil)
 
 	s := State{storage: storageMock}
-	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
+	if err := s.handleNewIndexEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}
 }

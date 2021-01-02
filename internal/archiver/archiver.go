@@ -51,7 +51,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.NewIndexExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
+		{Exchange: event.NewIndexExchange, Queue: "archivingQueue", Handler: state.handleNewIndexEvent},
 	}
 }
 
@@ -60,7 +60,7 @@ func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	return nil
 }
 
-func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewIndexEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
