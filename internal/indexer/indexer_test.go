@@ -1,16 +1,16 @@
-package api
+package indexer
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/api/database"
-	"github.com/creekorful/trandoshan/internal/api/database_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	"github.com/creekorful/trandoshan/internal/indexer/database"
+	"github.com/creekorful/trandoshan/internal/indexer/database_mock"
 	"github.com/golang/mock/gomock"
 	"net/http"
 	"net/http/httptest"

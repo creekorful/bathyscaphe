@@ -1,13 +1,13 @@
-package api
+package indexer
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/api/auth"
-	"github.com/creekorful/trandoshan/internal/api/database"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/indexer/auth"
+	"github.com/creekorful/trandoshan/internal/indexer/database"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -33,7 +33,7 @@ type State struct {
 
 // Name return the process name
 func (state *State) Name() string {
-	return "api"
+	return "indexer"
 }
 
 // CommonFlags return process common flags
