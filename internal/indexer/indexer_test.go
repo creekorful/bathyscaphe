@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
@@ -242,7 +243,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); err != errAlreadyIndexed {
+	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -276,7 +277,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); err != errAlreadyIndexed {
+	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }

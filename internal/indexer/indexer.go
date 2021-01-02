@@ -244,7 +244,7 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		return client.ResourceDto{}, err
 	}
 	if count > 0 {
-		return client.ResourceDto{}, errAlreadyIndexed
+		return client.ResourceDto{}, fmt.Errorf("%s %w", res.URL, errAlreadyIndexed)
 	}
 
 	// Create Elasticsearch document
