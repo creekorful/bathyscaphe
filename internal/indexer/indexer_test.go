@@ -3,11 +3,11 @@ package indexer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	client2 "github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/indexer/database"
 	"github.com/creekorful/trandoshan/internal/indexer/database_mock"
 	"github.com/golang/mock/gomock"
@@ -20,7 +20,7 @@ import (
 
 func TestWritePagination(t *testing.T) {
 	rec := httptest.NewRecorder()
-	searchParams := &api.ResSearchParams{
+	searchParams := &client2.ResSearchParams{
 		PageSize:   15,
 		PageNumber: 7,
 	}
@@ -28,13 +28,13 @@ func TestWritePagination(t *testing.T) {
 
 	writePagination(rec, searchParams, total)
 
-	if rec.Header().Get(api.PaginationPageHeader) != "7" {
+	if rec.Header().Get(client2.PaginationPageHeader) != "7" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationSizeHeader) != "15" {
+	if rec.Header().Get(client2.PaginationSizeHeader) != "15" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationCountHeader) != "1200" {
+	if rec.Header().Get(client2.PaginationCountHeader) != "1200" {
 		t.Fail()
 	}
 }
@@ -139,7 +139,7 @@ func TestAddResource(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -153,7 +153,7 @@ func TestAddResource(t *testing.T) {
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		PageSize:   1,
 		PageNumber: 1,
@@ -218,7 +218,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -231,7 +231,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		PageSize:   1,
 		PageNumber: 1,
@@ -251,7 +251,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -264,7 +264,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		EndDate:    time.Now().Add(-10 * time.Minute),
 		PageSize:   1,
@@ -285,7 +285,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -341,11 +341,11 @@ func TestSearchResources(t *testing.T) {
 	if rec.Header().Get("Content-Type") != "application/json" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationCountHeader) != "150" {
+	if rec.Header().Get(client2.PaginationCountHeader) != "150" {
 		t.Fail()
 	}
 
-	var resources []api.ResourceDto
+	var resources []client2.ResourceDto
 	if err := json.NewDecoder(rec.Body).Decode(&resources); err != nil {
 		t.Fatalf("error while decoding body: %s", err)
 	}
@@ -454,7 +454,7 @@ This is sparta (hosted on https://example.org)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
-	dbMock.EXPECT().CountResources(&api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://example.onion",
 		PageSize:   1,
 		PageNumber: 1,
@@ -537,12 +537,12 @@ This is sparta (hosted on https://example.org)
 // custom matcher to ignore time field when doing comparison ;(
 // todo: do less crappy?
 type searchParamsMatcher struct {
-	target      api.ResSearchParams
+	target      client2.ResSearchParams
 	endDateZero bool
 }
 
 func (sm *searchParamsMatcher) Matches(x interface{}) bool {
-	arg := x.(*api.ResSearchParams)
+	arg := x.(*client2.ResSearchParams)
 	return arg.URL == sm.target.URL && arg.PageSize == sm.target.PageSize && arg.PageNumber == sm.target.PageNumber &&
 		sm.endDateZero == arg.EndDate.IsZero()
 }

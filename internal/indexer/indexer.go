@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/PuerkitoBio/purell"
-	"github.com/creekorful/trandoshan/api"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/indexer/auth"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/indexer/database"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/gorilla/mux"
@@ -130,9 +130,9 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resources []api.ResourceDto
+	var resources []client.ResourceDto
 	for _, r := range res {
-		resources = append(resources, api.ResourceDto{
+		resources = append(resources, client.ResourceDto{
 			URL:   r.URL,
 			Body:  r.Body,
 			Title: r.Title,
@@ -211,20 +211,20 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	return nil
 }
 
-func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
+func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, error) {
 	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 	if err != nil {
-		return api.ResourceDto{}, err
+		return client.ResourceDto{}, err
 	}
 
 	u, err := url.Parse(res.URL)
 	if err != nil {
-		return api.ResourceDto{}, err
+		return client.ResourceDto{}, err
 	}
 
 	for _, hostname := range forbiddenHostnames {
 		if strings.Contains(u.Hostname(), hostname.Hostname) {
-			return api.ResourceDto{}, errHostnameNotAllowed
+			return client.ResourceDto{}, errHostnameNotAllowed
 		}
 	}
 
@@ -241,18 +241,18 @@ func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 		}
 	}
 
-	count, err := state.db.CountResources(&api.ResSearchParams{
+	count, err := state.db.CountResources(&client.ResSearchParams{
 		URL:        res.URL,
 		EndDate:    endDate,
 		PageSize:   1,
 		PageNumber: 1,
 	})
 	if err != nil {
-		return api.ResourceDto{}, err
+		return client.ResourceDto{}, err
 	}
 
 	if count > 0 {
-		return api.ResourceDto{}, errAlreadyIndexed
+		return client.ResourceDto{}, errAlreadyIndexed
 	}
 
 	// Create Elasticsearch document
@@ -267,7 +267,7 @@ func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 	}
 
 	if err := state.db.AddResource(doc); err != nil {
-		return api.ResourceDto{}, err
+		return client.ResourceDto{}, err
 	}
 
 	// Publish linked event
@@ -280,7 +280,7 @@ func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 		Description: res.Description,
 		Headers:     res.Headers,
 	}); err != nil {
-		return api.ResourceDto{}, err
+		return client.ResourceDto{}, err
 	}
 
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
@@ -288,8 +288,8 @@ func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
 	return res, nil
 }
 
-func getSearchParams(r *http.Request) (*api.ResSearchParams, error) {
-	params := &api.ResSearchParams{}
+func getSearchParams(r *http.Request) (*client.ResSearchParams, error) {
+	params := &client.ResSearchParams{}
 
 	if param := r.URL.Query()["keyword"]; len(param) == 1 {
 		params.Keyword = param[0]
@@ -337,10 +337,10 @@ func getSearchParams(r *http.Request) (*api.ResSearchParams, error) {
 	return params, nil
 }
 
-func writePagination(w http.ResponseWriter, searchParams *api.ResSearchParams, total int64) {
-	w.Header().Set(api.PaginationPageHeader, strconv.Itoa(searchParams.PageNumber))
-	w.Header().Set(api.PaginationSizeHeader, strconv.Itoa(searchParams.PageSize))
-	w.Header().Set(api.PaginationCountHeader, strconv.FormatInt(total, 10))
+func writePagination(w http.ResponseWriter, searchParams *client.ResSearchParams, total int64) {
+	w.Header().Set(client.PaginationPageHeader, strconv.Itoa(searchParams.PageNumber))
+	w.Header().Set(client.PaginationSizeHeader, strconv.Itoa(searchParams.PageSize))
+	w.Header().Set(client.PaginationCountHeader, strconv.FormatInt(total, 10))
 }
 
 func getPagination(r *http.Request) (page int, size int) {
@@ -348,14 +348,14 @@ func getPagination(r *http.Request) (page int, size int) {
 	size = defaultPaginationSize
 
 	// Get pagination page
-	if param := r.URL.Query()[api.PaginationPageQueryParam]; len(param) == 1 {
+	if param := r.URL.Query()[client.PaginationPageQueryParam]; len(param) == 1 {
 		if val, err := strconv.Atoi(param[0]); err == nil {
 			page = val
 		}
 	}
 
 	// Get pagination size
-	if param := r.URL.Query()[api.PaginationSizeQueryParam]; len(param) == 1 {
+	if param := r.URL.Query()[client.PaginationSizeQueryParam]; len(param) == 1 {
 		if val, err := strconv.Atoi(param[0]); err == nil {
 			size = val
 		}
@@ -397,10 +397,10 @@ func writeJSON(w http.ResponseWriter, body interface{}) {
 	_, _ = w.Write(b)
 }
 
-func extractResource(msg event.NewResourceEvent) (api.ResourceDto, []string, error) {
+func extractResource(msg event.NewResourceEvent) (client.ResourceDto, []string, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(msg.Body))
 	if err != nil {
-		return api.ResourceDto{}, nil, err
+		return client.ResourceDto{}, nil, err
 	}
 
 	// Get resource title
@@ -438,7 +438,7 @@ func extractResource(msg event.NewResourceEvent) (api.ResourceDto, []string, err
 		normalizedURLS = append(normalizedURLS, normalizedURL)
 	}
 
-	return api.ResourceDto{
+	return client.ResourceDto{
 		URL:         msg.URL,
 		Body:        msg.Body,
 		Time:        msg.Time,

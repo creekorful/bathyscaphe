@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"time"
 )
 
@@ -21,7 +21,7 @@ type ResourceIdx struct {
 // Database is the interface used to abstract communication
 // with the persistence unit
 type Database interface {
-	SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error)
-	CountResources(params *api.ResSearchParams) (int64, error)
+	SearchResources(params *client.ResSearchParams) ([]ResourceIdx, error)
+	CountResources(params *client.ResSearchParams) (int64, error)
 	AddResource(res ResourceIdx) error
 }
