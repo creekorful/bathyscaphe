@@ -187,6 +187,8 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return err
 	}
 
+	log.Info().Str("url", evt.URL).Msg("Successfully indexed resource")
+
 	// Finally push found URLs
 	publishedURLS := map[string]string{}
 	for _, u := range urls {
@@ -272,8 +274,6 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 	}); err != nil {
 		return client.ResourceDto{}, err
 	}
-
-	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
 	return res, nil
 }
