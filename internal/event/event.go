@@ -68,7 +68,7 @@ func (msg *NewResourceEvent) Exchange() string {
 	return NewResourceExchange
 }
 
-// NewResourceEvent represent a indexed resource
+// NewIndexEvent represent a indexed resource
 type NewIndexEvent struct {
 	URL         string            `json:"url"`
 	Body        string            `json:"body"`
