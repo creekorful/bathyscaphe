@@ -452,7 +452,7 @@ This is sparta (hosted on https://example.org)
 		}).Return(nil)
 
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Times(3).Return(client.RefreshDelay{Delay: -1}, nil)
 
 	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://example.onion",
@@ -481,14 +481,21 @@ This is sparta (hosted on https://example.org)
 		Time:        tn,
 	}).Return(nil)
 
-	// make sure we are pushing found URLs
+	// make sure we are pushing found URLs (but only if refresh delay elapsed)
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
+		URL:        "https://example.org",
+		PageSize:   1,
+		PageNumber: 1,
+	}).Return(int64(0), nil)
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
+		URL:        "https://google.com/test?test=test",
+		PageSize:   1,
+		PageNumber: 1,
+	}).Return(int64(1), nil)
 
 	// should be called only one time
 	subscriberMock.EXPECT().
 		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
-		Return(nil)
-	subscriberMock.EXPECT().
-		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
 		Return(nil)
 
 	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}

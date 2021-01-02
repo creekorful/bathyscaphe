@@ -194,6 +194,15 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 			continue
 		}
 
+		// make sure url should be published
+		count, err := state.countResource(u)
+		if err != nil {
+			continue
+		}
+		if count > 0 {
+			continue
+		}
+
 		log.Trace().
 			Str("url", u).
 			Msg("Publishing found URL")
@@ -228,29 +237,10 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		}
 	}
 
-	// Hacky stuff to prevent from adding 'duplicate resource'
-	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
-	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
-	// before the resource is saved. And this happen a LOT of time.
-	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
-	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
-	endDate := time.Time{}
-	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
-		if refreshDelay.Delay != -1 {
-			endDate = time.Now().Add(-refreshDelay.Delay)
-		}
-	}
-
-	count, err := state.db.CountResources(&client.ResSearchParams{
-		URL:        res.URL,
-		EndDate:    endDate,
-		PageSize:   1,
-		PageNumber: 1,
-	})
+	count, err := state.countResource(res.URL)
 	if err != nil {
 		return client.ResourceDto{}, err
 	}
-
 	if count > 0 {
 		return client.ResourceDto{}, errAlreadyIndexed
 	}
@@ -286,6 +276,33 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
 	return res, nil
+}
+
+// Hacky stuff to prevent from adding 'duplicate resource'
+// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
+// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
+// before the resource is saved. And this happen a LOT of time.
+// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
+// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
+func (state *State) countResource(URL string) (int64, error) {
+	endDate := time.Time{}
+	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
+		if refreshDelay.Delay != -1 {
+			endDate = time.Now().Add(-refreshDelay.Delay)
+		}
+	}
+
+	count, err := state.db.CountResources(&client.ResSearchParams{
+		URL:        URL,
+		EndDate:    endDate,
+		PageSize:   1,
+		PageNumber: 1,
+	})
+	if err != nil {
+		return -1, err
+	}
+
+	return count, nil
 }
 
 func getSearchParams(r *http.Request) (*client.ResSearchParams, error) {
