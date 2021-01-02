@@ -20,8 +20,8 @@ func TestHandleNewResourceEvent(t *testing.T) {
 
 	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(&msg, &event.NewIndexEvent{}).
+		SetArg(1, event.NewIndexEvent{
 			URL:     "https://example.onion",
 			Body:    "Hello, world",
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -31,13 +31,13 @@ func TestHandleNewResourceEvent(t *testing.T) {
 	storageMock.EXPECT().Store("https://example.onion", tn, []byte("Server: Traefik\r\nContent-Type: application/html\r\n\r\nHello, world")).Return(nil)
 
 	s := State{storage: storageMock}
-	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
+	if err := s.handleNewIndexEvent(subscriberMock, msg); err != nil {
 		t.Fail()
 	}
 }
 
 func TestFormatResource(t *testing.T) {
-	evt := &event.NewResourceEvent{
+	evt := &event.NewIndexEvent{
 		URL:     "https://google.com",
 		Body:    "Hello, world",
 		Headers: map[string]string{"Server": "Traefik", "Content-Type": "text/html"},

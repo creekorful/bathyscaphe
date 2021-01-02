@@ -13,6 +13,8 @@ const (
 	TimeoutURLExchange = "url.timeout"
 	// NewResourceExchange is the exchange used when a new resource has been crawled
 	NewResourceExchange = "resource.new"
+	// NewIndexExchange is the exchange used when a resource has been indexed
+	NewIndexExchange = "index.new"
 	// ConfigExchange is the exchange used to dispatch new configuration
 	ConfigExchange = "config"
 )
@@ -64,4 +66,20 @@ type NewResourceEvent struct {
 // Exchange returns the exchange where event should be push
 func (msg *NewResourceEvent) Exchange() string {
 	return NewResourceExchange
+}
+
+// NewIndexEvent represent a indexed resource
+type NewIndexEvent struct {
+	URL         string            `json:"url"`
+	Body        string            `json:"body"`
+	Time        time.Time         `json:"time"`
+	Title       string            `json:"title"`
+	Meta        map[string]string `json:"meta"`
+	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
+}
+
+// Exchange returns the exchange where event should be push
+func (msg *NewIndexEvent) Exchange() string {
+	return NewIndexExchange
 }

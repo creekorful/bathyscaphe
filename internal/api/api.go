@@ -223,6 +223,21 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Publish linked event
+	if err := state.pub.PublishEvent(&event.NewIndexEvent{
+		URL:         res.URL,
+		Body:        res.Body,
+		Time:        res.Time,
+		Title:       res.Title,
+		Meta:        res.Meta,
+		Description: res.Description,
+		Headers:     res.Headers,
+	}); err != nil {
+		log.Err(err).Msg("Error while publishing new index event")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
 	writeJSON(w, res)

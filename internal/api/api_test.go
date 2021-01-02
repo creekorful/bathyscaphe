@@ -160,6 +160,7 @@ func TestAddResource(t *testing.T) {
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
 		URL:        "https://example.onion",
@@ -177,10 +178,20 @@ func TestAddResource(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
+	pubMock.EXPECT().PublishEvent(&event.NewIndexEvent{
+		URL:         "https://example.onion",
+		Body:        "TheBody",
+		Title:       "Example",
+		Time:        time.Time{},
+		Meta:        map[string]string{"content": "content-meta"},
+		Description: "the description",
+		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
+	})
+
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 5 * time.Hour}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	s := State{db: dbMock, configClient: configClientMock}
+	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}
 
 	s.addResource(rec, req)
 	if rec.Code != http.StatusOK {
