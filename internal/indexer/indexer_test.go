@@ -1,16 +1,16 @@
-package api
+package indexer
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/internal/api/database"
-	"github.com/creekorful/trandoshan/internal/api/database_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	client2 "github.com/creekorful/trandoshan/internal/indexer/client"
+	"github.com/creekorful/trandoshan/internal/indexer/database"
+	"github.com/creekorful/trandoshan/internal/indexer/database_mock"
 	"github.com/golang/mock/gomock"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +21,7 @@ import (
 
 func TestWritePagination(t *testing.T) {
 	rec := httptest.NewRecorder()
-	searchParams := &api.ResSearchParams{
+	searchParams := &client2.ResSearchParams{
 		PageSize:   15,
 		PageNumber: 7,
 	}
@@ -29,13 +29,13 @@ func TestWritePagination(t *testing.T) {
 
 	writePagination(rec, searchParams, total)
 
-	if rec.Header().Get(api.PaginationPageHeader) != "7" {
+	if rec.Header().Get(client2.PaginationPageHeader) != "7" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationSizeHeader) != "15" {
+	if rec.Header().Get(client2.PaginationSizeHeader) != "15" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationCountHeader) != "1200" {
+	if rec.Header().Get(client2.PaginationCountHeader) != "1200" {
 		t.Fail()
 	}
 }
@@ -140,7 +140,7 @@ func TestAddResource(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -149,20 +149,12 @@ func TestAddResource(t *testing.T) {
 		Description: "the description",
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// The requests
-	req := httptest.NewRequest(http.MethodPost, "/v1/resources", bytes.NewReader(bodyBytes))
-	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		PageSize:   1,
 		PageNumber: 1,
@@ -192,17 +184,8 @@ func TestAddResource(t *testing.T) {
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
 	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}
-
-	s.addResource(rec, req)
-	if rec.Code != http.StatusOK {
-		t.FailNow()
-	}
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Fail()
-	}
-
-	var res api.ResourceDto
-	if err := json.NewDecoder(rec.Body).Decode(&res); err != nil {
+	res, err := s.addResource(body)
+	if err != nil {
 		t.FailNow()
 	}
 
@@ -236,7 +219,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -245,19 +228,11 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 		Description: "the description",
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// The requests
-	req := httptest.NewRequest(http.MethodPost, "/v1/resources", bytes.NewReader(bodyBytes))
-	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		PageSize:   1,
 		PageNumber: 1,
@@ -268,8 +243,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	s.addResource(rec, req)
-	if rec.Code != http.StatusOK {
+	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -278,7 +252,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -287,19 +261,11 @@ func TestAddResourceTooYoung(t *testing.T) {
 		Description: "the description",
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// The requests
-	req := httptest.NewRequest(http.MethodPost, "/v1/resources", bytes.NewReader(bodyBytes))
-	rec := httptest.NewRecorder()
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: api.ResSearchParams{
+	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
 		EndDate:    time.Now().Add(-10 * time.Minute),
 		PageSize:   1,
@@ -311,8 +277,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	s.addResource(rec, req)
-	if rec.Code != http.StatusOK {
+	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -321,7 +286,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	body := api.ResourceDto{
+	body := client2.ResourceDto{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -330,14 +295,6 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 		Description: "the description",
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// The requests
-	req := httptest.NewRequest(http.MethodPost, "/v1/resources", bytes.NewReader(bodyBytes))
-	rec := httptest.NewRecorder()
 
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
@@ -345,8 +302,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 
 	s := State{configClient: configClientMock}
 
-	s.addResource(rec, req)
-	if rec.Code != http.StatusOK {
+	if _, err := s.addResource(body); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
 }
@@ -386,11 +342,11 @@ func TestSearchResources(t *testing.T) {
 	if rec.Header().Get("Content-Type") != "application/json" {
 		t.Fail()
 	}
-	if rec.Header().Get(api.PaginationCountHeader) != "150" {
+	if rec.Header().Get(client2.PaginationCountHeader) != "150" {
 		t.Fail()
 	}
 
-	var resources []api.ResourceDto
+	var resources []client2.ResourceDto
 	if err := json.NewDecoder(rec.Body).Decode(&resources); err != nil {
 		t.Fatalf("error while decoding body: %s", err)
 	}
@@ -399,15 +355,202 @@ func TestSearchResources(t *testing.T) {
 	}
 }
 
+func TestExtractResource(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="Description" content="Zhello world">
+<meta property="og:url" content="https://example.org">
+`
+
+	msg := event.NewResourceEvent{
+		URL:  "https://example.org/300",
+		Body: body,
+	}
+
+	resDto, urls, err := extractResource(msg)
+	if err != nil {
+		t.FailNow()
+	}
+
+	if resDto.URL != "https://example.org/300" {
+		t.Fail()
+	}
+	if resDto.Title != "Creekorful Inc" {
+		t.Fail()
+	}
+	if resDto.Body != msg.Body {
+		t.Fail()
+	}
+
+	if len(urls) != 2 {
+		t.FailNow()
+	}
+	if urls[0] != "https://google.com/test?test=test" {
+		t.Fail()
+	}
+	if urls[1] != "https://example.org" {
+		t.Fail()
+	}
+
+	if resDto.Description != "Zhello world" {
+		t.Fail()
+	}
+
+	if resDto.Meta["description"] != "Zhello world" {
+		t.Fail()
+	}
+
+	if resDto.Meta["og:url"] != "https://example.org" {
+		t.Fail()
+	}
+}
+
+func TestNormalizeURL(t *testing.T) {
+	url, err := normalizeURL("https://this-is-sparta.de?url=url-query-param#fragment-23")
+	if err != nil {
+		t.FailNow()
+	}
+
+	if url != "https://this-is-sparta.de?url=url-query-param" {
+		t.Fail()
+	}
+}
+
+func TestHandleNewResourceEvent(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta (hosted on https://example.org)
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="DescriptIon" content="Zhello world">
+<meta property="og:url" content="https://example.org">`
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	dbMock := database_mock.NewMockDatabase(mockCtrl)
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
+
+	tn := time.Now()
+
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+			Time:    tn,
+		}).Return(nil)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Times(3).Return(client.RefreshDelay{Delay: -1}, nil)
+
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
+		URL:        "https://example.onion",
+		PageSize:   1,
+		PageNumber: 1,
+	}).Return(int64(0), nil)
+
+	// make sure we are creating the resource
+	dbMock.EXPECT().AddResource(database.ResourceIdx{
+		URL:         "https://example.onion",
+		Body:        body,
+		Title:       "Creekorful Inc",
+		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
+		Description: "Zhello world",
+		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
+		Time:        tn,
+	}).Return(nil)
+
+	pubMock.EXPECT().PublishEvent(&event.NewIndexEvent{
+		URL:         "https://example.onion",
+		Body:        body,
+		Title:       "Creekorful Inc",
+		Meta:        map[string]string{"description": "Zhello world", "og:url": "https://example.org"},
+		Description: "Zhello world",
+		Headers:     map[string]string{"server": "Traefik", "content-type": "application/html"},
+		Time:        tn,
+	}).Return(nil)
+
+	// make sure we are pushing found URLs (but only if refresh delay elapsed)
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
+		URL:        "https://example.org",
+		PageSize:   1,
+		PageNumber: 1,
+	}).Return(int64(0), nil)
+	dbMock.EXPECT().CountResources(&client2.ResSearchParams{
+		URL:        "https://google.com/test?test=test",
+		PageSize:   1,
+		PageNumber: 1,
+	}).Return(int64(1), nil)
+
+	// should be called only one time
+	subscriberMock.EXPECT().
+		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
+		Return(nil)
+
+	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
+		t.FailNow()
+	}
+}
+
+func TestHandleMessageForbiddenHostname(t *testing.T) {
+	body := `
+<title>Creekorful Inc</title>
+
+This is sparta (hosted on https://example.org)
+
+<a href="https://google.com/test?test=test#12">
+
+<meta name="DescriptIon" content="Zhello world">
+<meta property="og:url" content="https://example.org">`
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	tn := time.Now()
+
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
+			URL:     "https://example.onion",
+			Body:    body,
+			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
+			Time:    tn,
+		}).Return(nil)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example.onion"}}, nil)
+
+	s := State{configClient: configClientMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != errHostnameNotAllowed {
+		t.FailNow()
+	}
+}
+
 // custom matcher to ignore time field when doing comparison ;(
 // todo: do less crappy?
 type searchParamsMatcher struct {
-	target      api.ResSearchParams
+	target      client2.ResSearchParams
 	endDateZero bool
 }
 
 func (sm *searchParamsMatcher) Matches(x interface{}) bool {
-	arg := x.(*api.ResSearchParams)
+	arg := x.(*client2.ResSearchParams)
 	return arg.URL == sm.target.URL && arg.PageSize == sm.target.PageSize && arg.PageNumber == sm.target.PageNumber &&
 		sm.endDateZero == arg.EndDate.IsZero()
 }

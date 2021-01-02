@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"encoding/base64"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-//go:generate mockgen -destination=../api_mock/api_mock.go -package=api_mock . API
+//go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
 
 const (
 	// PaginationPageHeader is the header to determinate current page in paginated endpoint
@@ -53,10 +53,9 @@ type ResSearchParams struct {
 	// TODO allow searching by headers
 }
 
-// API is the interface to interact with the API component
-type API interface {
+// Client is the interface to interact with the indexer API
+type Client interface {
 	SearchResources(params *ResSearchParams) ([]ResourceDto, int64, error)
-	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
 }
 
@@ -110,19 +109,6 @@ func (c *client) SearchResources(params *ResSearchParams) ([]ResourceDto, int64,
 	return resources, count, nil
 }
 
-func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
-	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
-
-	req := c.httpClient.R()
-	req.SetBody(res)
-
-	var resourceDto ResourceDto
-	req.SetResult(&resourceDto)
-
-	_, err := req.Post(targetEndpoint)
-	return resourceDto, err
-}
-
 func (c *client) ScheduleURL(url string) error {
 	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
 
@@ -135,7 +121,7 @@ func (c *client) ScheduleURL(url string) error {
 }
 
 // NewClient create a new API client using given details
-func NewClient(baseURL, token string) API {
+func NewClient(baseURL, token string) Client {
 	httpClient := resty.New()
 	httpClient.SetAuthScheme("Bearer")
 	httpClient.SetAuthToken(token)

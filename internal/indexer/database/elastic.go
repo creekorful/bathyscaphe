@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 	"encoding/json"
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -39,7 +39,7 @@ func NewElasticDB(uri string) (Database, error) {
 	}, nil
 }
 
-func (e *elasticSearchDB) SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error) {
+func (e *elasticSearchDB) SearchResources(params *client.ResSearchParams) ([]ResourceIdx, error) {
 	q := buildSearchQuery(params)
 	from := (params.PageNumber - 1) * params.PageSize
 
@@ -72,7 +72,7 @@ func (e *elasticSearchDB) SearchResources(params *api.ResSearchParams) ([]Resour
 	return resources, nil
 }
 
-func (e *elasticSearchDB) CountResources(params *api.ResSearchParams) (int64, error) {
+func (e *elasticSearchDB) CountResources(params *client.ResSearchParams) (int64, error) {
 	q := buildSearchQuery(params)
 
 	count, err := e.client.Count(resourcesIndex).Query(q).Do(context.Background())
@@ -91,7 +91,7 @@ func (e *elasticSearchDB) AddResource(res ResourceIdx) error {
 	return err
 }
 
-func buildSearchQuery(params *api.ResSearchParams) elastic.Query {
+func buildSearchQuery(params *client.ResSearchParams) elastic.Query {
 	var queries []elastic.Query
 	if params.URL != "" {
 		log.Trace().Str("url", params.URL).Msg("SearchQuery: Setting url")

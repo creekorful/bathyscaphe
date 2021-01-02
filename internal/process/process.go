@@ -3,10 +3,10 @@ package process
 import (
 	"context"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -35,8 +35,8 @@ type Provider interface {
 	Clock() (clock.Clock, error)
 	// ConfigClient return a new configured configapi.Client
 	ConfigClient(keys []string) (configapi.Client, error)
-	// APIClient return a new configured api.API (client)
-	APIClient() (api.API, error)
+	// IndexerClient return a new configured indexer client
+	IndexerClient() (client.Client, error)
 	// Subscriber return a new configured subscriber
 	Subscriber() (event.Subscriber, error)
 	// Publisher return a new configured publisher
@@ -69,8 +69,8 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 	return configapi.NewConfigClient(p.ctx.String(ConfigAPIURIFlag), sub, keys)
 }
 
-func (p *defaultProvider) APIClient() (api.API, error) {
-	return api.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
+func (p *defaultProvider) IndexerClient() (client.Client, error) {
+	return client.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
 }
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {

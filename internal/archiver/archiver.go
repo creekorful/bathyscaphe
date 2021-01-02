@@ -66,8 +66,6 @@ func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.R
 		return err
 	}
 
-	log.Debug().Str("url", evt.URL).Msg("Processing new resource")
-
 	res, err := formatResource(&evt)
 	if err != nil {
 		return fmt.Errorf("error while formatting resource: %s", err)
@@ -76,6 +74,8 @@ func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.R
 	if err := state.storage.Store(evt.URL, evt.Time, res); err != nil {
 		return fmt.Errorf("error while storing resource: %s", err)
 	}
+
+	log.Debug().Str("url", evt.URL).Msg("Successfully archived resource")
 
 	return nil
 }
