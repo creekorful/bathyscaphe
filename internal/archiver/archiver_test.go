@@ -20,8 +20,8 @@ func TestHandleNewResourceEvent(t *testing.T) {
 
 	msg := event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(&msg, &event.NewIndexEvent{}).
+		SetArg(1, event.NewIndexEvent{
 			URL:     "https://example.onion",
 			Body:    "Hello, world",
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -37,7 +37,7 @@ func TestHandleNewResourceEvent(t *testing.T) {
 }
 
 func TestFormatResource(t *testing.T) {
-	evt := &event.NewResourceEvent{
+	evt := &event.NewIndexEvent{
 		URL:     "https://google.com",
 		Body:    "Hello, world",
 		Headers: map[string]string{"Server": "Traefik", "Content-Type": "text/html"},
