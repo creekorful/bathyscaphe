@@ -8,7 +8,6 @@ import (
 	"github.com/PuerkitoBio/purell"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/indexer/auth"
 	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/indexer/database"
 	"github.com/creekorful/trandoshan/internal/process"
@@ -34,7 +33,6 @@ var (
 // State represent the application state
 type State struct {
 	db           database.Database
-	pub          event.Publisher
 	configClient configapi.Client
 }
 
@@ -56,11 +54,6 @@ func (state *State) CustomFlags() []cli.Flag {
 			Usage:    "URI to the Elasticsearch server",
 			Required: true,
 		},
-		&cli.StringFlag{
-			Name:     "signing-key",
-			Usage:    "Signing key for the JWT token",
-			Required: true,
-		},
 	}
 }
 
@@ -71,12 +64,6 @@ func (state *State) Initialize(provider process.Provider) error {
 		return err
 	}
 	state.db = db
-
-	pub, err := provider.Subscriber()
-	if err != nil {
-		return err
-	}
-	state.pub = pub
 
 	configClient, err := provider.ConfigClient([]string{configapi.RefreshDelayKey, configapi.ForbiddenHostnamesKey})
 	if err != nil {
@@ -95,15 +82,10 @@ func (state *State) Subscribers() []process.SubscriberDef {
 }
 
 // HTTPHandler returns the HTTP API the process expose
-func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+func (state *State) HTTPHandler(_ process.Provider) http.Handler {
 	r := mux.NewRouter()
 
-	signingKey := []byte(provider.GetValue("signing-key"))
-	authMiddleware := auth.NewMiddleware(signingKey)
-	r.Use(authMiddleware.Middleware())
-
-	r.HandleFunc("/v1/resources", state.searchResources).Methods(http.MethodGet)
-	r.HandleFunc("/v1/urls", state.scheduleURL).Methods(http.MethodPost)
+	r.HandleFunc("/resources", state.searchResources).Methods(http.MethodGet)
 
 	return r
 }
@@ -147,23 +129,6 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resources)
 }
 
-func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
-	var url string
-	if err := json.NewDecoder(r.Body).Decode(&url); err != nil {
-		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
-	}
-
-	if err := state.pub.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
-		log.Err(err).Msg("unable to schedule URL")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	log.Info().Str("url", url).Msg("successfully scheduled URL")
-}
-
 func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
 	var evt event.NewResourceEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
@@ -183,7 +148,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	}
 
 	// Save resource
-	if _, err := state.addResource(resDto); err != nil {
+	if _, err := state.addResource(resDto, subscriber); err != nil {
 		return err
 	}
 
@@ -222,7 +187,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	return nil
 }
 
-func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, error) {
+func (state *State) addResource(res client.ResourceDto, pub event.Publisher) (client.ResourceDto, error) {
 	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 	if err != nil {
 		return client.ResourceDto{}, err
@@ -263,7 +228,7 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 	}
 
 	// Publish linked event
-	if err := state.pub.PublishEvent(&event.NewIndexEvent{
+	if err := pub.PublishEvent(&event.NewIndexEvent{
 		URL:         res.URL,
 		Body:        res.Body,
 		Time:        res.Time,

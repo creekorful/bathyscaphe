@@ -6,7 +6,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -19,10 +18,6 @@ import (
 
 const (
 	version = "0.8.0"
-	// APIURIFlag is the api-uri flag
-	APIURIFlag = "api-uri"
-	// APITokenFlag is the api-token flag
-	APITokenFlag = "api-token"
 	// HubURIFlag is the hub-uri flag
 	HubURIFlag = "hub-uri"
 	// ConfigAPIURIFlag is the config-api-uri flag
@@ -35,8 +30,6 @@ type Provider interface {
 	Clock() (clock.Clock, error)
 	// ConfigClient return a new configured configapi.Client
 	ConfigClient(keys []string) (configapi.Client, error)
-	// IndexerClient return a new configured indexer client
-	IndexerClient() (client.Client, error)
 	// Subscriber return a new configured subscriber
 	Subscriber() (event.Subscriber, error)
 	// Publisher return a new configured publisher
@@ -67,10 +60,6 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 	}
 
 	return configapi.NewConfigClient(p.ctx.String(ConfigAPIURIFlag), sub, keys)
-}
-
-func (p *defaultProvider) IndexerClient() (client.Client, error) {
-	return client.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
 }
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
@@ -207,16 +196,6 @@ func getCustomFlags() map[string]cli.Flag {
 	flags[HubURIFlag] = &cli.StringFlag{
 		Name:     HubURIFlag,
 		Usage:    "URI to the hub (event) server",
-		Required: true,
-	}
-	flags[APIURIFlag] = &cli.StringFlag{
-		Name:     APIURIFlag,
-		Usage:    "URI to the API server",
-		Required: true,
-	}
-	flags[APITokenFlag] = &cli.StringFlag{
-		Name:     APITokenFlag,
-		Usage:    "Token to use to authenticate against the API",
 		Required: true,
 	}
 	flags[ConfigAPIURIFlag] = &cli.StringFlag{

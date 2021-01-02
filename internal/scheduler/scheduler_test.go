@@ -8,6 +8,9 @@ import (
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -167,5 +170,27 @@ func TestHandleMessage(t *testing.T) {
 
 	if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
+	}
+}
+
+func TestScheduleURL(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// The requests
+	req := httptest.NewRequest(http.MethodPost, "/urls", strings.NewReader("\"https://google.onion\""))
+	rec := httptest.NewRecorder()
+
+	// Mocking status
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
+
+	s := State{pub: pubMock}
+
+	pubMock.EXPECT().PublishEvent(&event.FoundURLEvent{URL: "https://google.onion"}).Return(nil)
+
+	s.scheduleURL(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fail()
 	}
 }

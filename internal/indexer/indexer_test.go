@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -114,28 +113,6 @@ func TestGetSearchParams(t *testing.T) {
 	}
 }
 
-func TestScheduleURL(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	// The requests
-	req := httptest.NewRequest(http.MethodPost, "/v1/urls", strings.NewReader("\"https://google.onion\""))
-	rec := httptest.NewRecorder()
-
-	// Mocking status
-	pubMock := event_mock.NewMockPublisher(mockCtrl)
-
-	s := State{pub: pubMock}
-
-	pubMock.EXPECT().PublishEvent(&event.FoundURLEvent{URL: "https://google.onion"}).Return(nil)
-
-	s.scheduleURL(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fail()
-	}
-}
-
 func TestAddResource(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -152,7 +129,7 @@ func TestAddResource(t *testing.T) {
 
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
-	pubMock := event_mock.NewMockPublisher(mockCtrl)
+	subMock := event_mock.NewMockSubscriber(mockCtrl)
 
 	dbMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
 		URL:        "https://example.onion",
@@ -170,7 +147,7 @@ func TestAddResource(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
-	pubMock.EXPECT().PublishEvent(&event.NewIndexEvent{
+	subMock.EXPECT().PublishEvent(&event.NewIndexEvent{
 		URL:         "https://example.onion",
 		Body:        "TheBody",
 		Title:       "Example",
@@ -183,8 +160,8 @@ func TestAddResource(t *testing.T) {
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 5 * time.Hour}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}
-	res, err := s.addResource(body)
+	s := State{db: dbMock, configClient: configClientMock}
+	res, err := s.addResource(body, subMock)
 	if err != nil {
 		t.FailNow()
 	}
@@ -243,7 +220,7 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
+	if _, err := s.addResource(body, nil); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -277,7 +254,7 @@ func TestAddResourceTooYoung(t *testing.T) {
 
 	s := State{db: dbMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
+	if _, err := s.addResource(body, nil); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -302,7 +279,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 
 	s := State{configClient: configClientMock}
 
-	if _, err := s.addResource(body); err != errHostnameNotAllowed {
+	if _, err := s.addResource(body, nil); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
 }
@@ -438,7 +415,6 @@ This is sparta (hosted on https://example.org)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	dbMock := database_mock.NewMockDatabase(mockCtrl)
-	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	tn := time.Now()
 
@@ -472,7 +448,7 @@ This is sparta (hosted on https://example.org)
 		Time:        tn,
 	}).Return(nil)
 
-	pubMock.EXPECT().PublishEvent(&event.NewIndexEvent{
+	subscriberMock.EXPECT().PublishEvent(&event.NewIndexEvent{
 		URL:         "https://example.onion",
 		Body:        body,
 		Title:       "Creekorful Inc",
@@ -499,7 +475,7 @@ This is sparta (hosted on https://example.org)
 		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 
-	s := State{db: dbMock, configClient: configClientMock, pub: pubMock}
+	s := State{db: dbMock, configClient: configClientMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}

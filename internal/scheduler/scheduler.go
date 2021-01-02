@@ -1,12 +1,14 @@
 package scheduler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/constraint"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
@@ -24,6 +26,7 @@ var (
 // State represent the application state
 type State struct {
 	configClient configapi.Client
+	pub          event.Publisher
 }
 
 // Name return the process name
@@ -50,6 +53,12 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.configClient = configClient
 
+	pub, err := provider.Publisher()
+	if err != nil {
+		return err
+	}
+	state.pub = pub
+
 	return nil
 }
 
@@ -61,8 +70,12 @@ func (state *State) Subscribers() []process.SubscriberDef {
 }
 
 // HTTPHandler returns the HTTP API the process expose
-func (state *State) HTTPHandler(provider process.Provider) http.Handler {
-	return nil
+func (state *State) HTTPHandler(_ process.Provider) http.Handler {
+	r := mux.NewRouter()
+
+	r.HandleFunc("/urls", state.scheduleURL).Methods(http.MethodPost)
+
+	return r
 }
 
 func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.RawMessage) error {
@@ -114,4 +127,21 @@ func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 	}
 
 	return nil
+}
+
+func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
+	var u string
+	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err := state.pub.PublishEvent(&event.FoundURLEvent{URL: u}); err != nil {
+		log.Err(err).Msg("unable to schedule URL")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Info().Str("url", u).Msg("successfully scheduled URL")
 }

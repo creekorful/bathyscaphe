@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-//go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
-
 const (
 	// PaginationPageHeader is the header to determinate current page in paginated endpoint
 	PaginationPageHeader = "X-Pagination-Page"
@@ -34,12 +32,6 @@ type ResourceDto struct {
 	Headers     map[string]string `json:"headers"`
 }
 
-// CredentialsDto represent the credential when logging in the API
-type CredentialsDto struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 // ResSearchParams is the search params used
 type ResSearchParams struct {
 	URL        string
@@ -56,7 +48,6 @@ type ResSearchParams struct {
 // Client is the interface to interact with the indexer API
 type Client interface {
 	SearchResources(params *ResSearchParams) ([]ResourceDto, int64, error)
-	ScheduleURL(url string) error
 }
 
 type client struct {
@@ -109,22 +100,9 @@ func (c *client) SearchResources(params *ResSearchParams) ([]ResourceDto, int64,
 	return resources, count, nil
 }
 
-func (c *client) ScheduleURL(url string) error {
-	targetEndpoint := fmt.Sprintf("%s/v1/urls", c.baseURL)
-
-	req := c.httpClient.R()
-	req.SetHeader("Content-Type", "application/json")
-	req.SetBody(fmt.Sprintf("\"%s\"", url))
-
-	_, err := req.Post(targetEndpoint)
-	return err
-}
-
 // NewClient create a new API client using given details
-func NewClient(baseURL, token string) Client {
+func NewClient(baseURL string) Client {
 	httpClient := resty.New()
-	httpClient.SetAuthScheme("Bearer")
-	httpClient.SetAuthToken(token)
 	httpClient.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
 		if r.StatusCode() > 302 {
 			return fmt.Errorf("error when making HTTP request: %s", r.Status())
