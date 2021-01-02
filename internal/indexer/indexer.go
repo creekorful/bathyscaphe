@@ -3,6 +3,9 @@ package indexer
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/PuerkitoBio/purell"
 	"github.com/creekorful/trandoshan/api"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -12,6 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"mvdan.cc/xurls/v2"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,6 +26,9 @@ import (
 var (
 	defaultPaginationSize = 50
 	maxPaginationSize     = 100
+
+	errHostnameNotAllowed = fmt.Errorf("hostname is not allowed")
+	errAlreadyIndexed     = fmt.Errorf("resource is already indexed")
 )
 
 // State represent the application state
@@ -54,11 +61,6 @@ func (state *State) CustomFlags() []cli.Flag {
 			Usage:    "Signing key for the JWT token",
 			Required: true,
 		},
-		&cli.StringSliceFlag{
-			Name:     "users",
-			Usage:    "List of API users. (Format user:password)",
-			Required: false,
-		},
 	}
 }
 
@@ -87,7 +89,9 @@ func (state *State) Initialize(provider process.Provider) error {
 
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
-	return []process.SubscriberDef{}
+	return []process.SubscriberDef{
+		{Exchange: event.NewResourceExchange, Queue: "indexingQueue", Handler: state.handleNewResourceEvent},
+	}
 }
 
 // HTTPHandler returns the HTTP API the process expose
@@ -99,7 +103,6 @@ func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	r.Use(authMiddleware.Middleware())
 
 	r.HandleFunc("/v1/resources", state.searchResources).Methods(http.MethodGet)
-	r.HandleFunc("/v1/resources", state.addResource).Methods(http.MethodPost)
 	r.HandleFunc("/v1/urls", state.scheduleURL).Methods(http.MethodPost)
 
 	return r
@@ -144,33 +147,84 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resources)
 }
 
-func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
-	var res api.ResourceDto
-	if err := json.NewDecoder(r.Body).Decode(&res); err != nil {
+func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
+	var url string
+	if err := json.NewDecoder(r.Body).Decode(&url); err != nil {
 		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
 
-	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
-	if err != nil {
-		log.Err(err).Msg("error while getting forbidden hostnames")
+	if err := state.pub.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
+		log.Err(err).Msg("unable to schedule URL")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	log.Info().Str("url", url).Msg("successfully scheduled URL")
+}
+
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+	var evt event.NewResourceEvent
+	if err := subscriber.Read(&msg, &evt); err != nil {
+		return err
+	}
+
+	// Extract & process resource
+	resDto, urls, err := extractResource(evt)
+	if err != nil {
+		return fmt.Errorf("error while extracting resource: %s", err)
+	}
+
+	// Lowercase headers
+	resDto.Headers = map[string]string{}
+	for key, value := range evt.Headers {
+		resDto.Headers[strings.ToLower(key)] = value
+	}
+
+	// Save resource
+	if _, err := state.addResource(resDto); err != nil {
+		return err
+	}
+
+	// Finally push found URLs
+	publishedURLS := map[string]string{}
+	for _, u := range urls {
+		if _, exist := publishedURLS[u]; exist {
+			continue
+		}
+
+		log.Trace().
+			Str("url", u).
+			Msg("Publishing found URL")
+
+		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: u}); err != nil {
+			log.Warn().
+				Str("url", u).
+				Str("err", err.Error()).
+				Msg("Error while publishing URL")
+		}
+
+		publishedURLS[u] = u
+	}
+
+	return nil
+}
+
+func (state *State) addResource(res api.ResourceDto) (api.ResourceDto, error) {
+	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
+	if err != nil {
+		return api.ResourceDto{}, err
 	}
 
 	u, err := url.Parse(res.URL)
 	if err != nil {
-		log.Err(err).Msg("error while parsing resource URL")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return api.ResourceDto{}, err
 	}
 
 	for _, hostname := range forbiddenHostnames {
 		if strings.Contains(u.Hostname(), hostname.Hostname) {
-			log.Debug().Str("url", res.URL).Msg("Skipping forbidden hostname")
-			w.WriteHeader(http.StatusOK)
-			return
+			return api.ResourceDto{}, errHostnameNotAllowed
 		}
 	}
 
@@ -194,16 +248,11 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 		PageNumber: 1,
 	})
 	if err != nil {
-		log.Err(err).Msg("error while searching for resource")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return api.ResourceDto{}, err
 	}
 
 	if count > 0 {
-		// Not an error
-		log.Debug().Str("url", res.URL).Msg("Skipping duplicate resource")
-		w.WriteHeader(http.StatusOK)
-		return
+		return api.ResourceDto{}, errAlreadyIndexed
 	}
 
 	// Create Elasticsearch document
@@ -218,9 +267,7 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := state.db.AddResource(doc); err != nil {
-		log.Err(err).Msg("Error while adding resource")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return api.ResourceDto{}, err
 	}
 
 	// Publish linked event
@@ -233,31 +280,12 @@ func (state *State) addResource(w http.ResponseWriter, r *http.Request) {
 		Description: res.Description,
 		Headers:     res.Headers,
 	}); err != nil {
-		log.Err(err).Msg("Error while publishing new index event")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return api.ResourceDto{}, err
 	}
 
 	log.Info().Str("url", res.URL).Msg("Successfully saved resource")
 
-	writeJSON(w, res)
-}
-
-func (state *State) scheduleURL(w http.ResponseWriter, r *http.Request) {
-	var url string
-	if err := json.NewDecoder(r.Body).Decode(&url); err != nil {
-		log.Warn().Str("err", err.Error()).Msg("error while decoding request body")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
-	}
-
-	if err := state.pub.PublishEvent(&event.FoundURLEvent{URL: url}); err != nil {
-		log.Err(err).Msg("unable to schedule URL")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	log.Info().Str("url", url).Msg("successfully scheduled URL")
+	return res, nil
 }
 
 func getSearchParams(r *http.Request) (*api.ResSearchParams, error) {
@@ -367,4 +395,65 @@ func writeJSON(w http.ResponseWriter, body interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(b)
+}
+
+func extractResource(msg event.NewResourceEvent) (api.ResourceDto, []string, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(msg.Body))
+	if err != nil {
+		return api.ResourceDto{}, nil, err
+	}
+
+	// Get resource title
+	title := doc.Find("title").First().Text()
+
+	// Get meta values
+	meta := map[string]string{}
+	doc.Find("meta").Each(func(i int, s *goquery.Selection) {
+		name, _ := s.Attr("name")
+		value, _ := s.Attr("content")
+
+		// if name is empty then try to lookup using property
+		if name == "" {
+			name, _ = s.Attr("property")
+			if name == "" {
+				return
+			}
+		}
+
+		meta[strings.ToLower(name)] = value
+	})
+
+	// Extract & normalize URLs
+	xu := xurls.Strict()
+	urls := xu.FindAllString(msg.Body, -1)
+
+	var normalizedURLS []string
+
+	for _, u := range urls {
+		normalizedURL, err := normalizeURL(u)
+		if err != nil {
+			continue
+		}
+
+		normalizedURLS = append(normalizedURLS, normalizedURL)
+	}
+
+	return api.ResourceDto{
+		URL:         msg.URL,
+		Body:        msg.Body,
+		Time:        msg.Time,
+		Title:       title,
+		Meta:        meta,
+		Description: meta["description"],
+	}, normalizedURLS, nil
+}
+
+func normalizeURL(u string) (string, error) {
+	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
+		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+	if err != nil {
+		return "", fmt.Errorf("error while normalizing URL %s: %s", u, err)
+	}
+
+	return normalizedURL, nil
 }

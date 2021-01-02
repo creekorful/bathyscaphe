@@ -3,8 +3,6 @@ package scheduler
 import (
 	"errors"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
-	"github.com/creekorful/trandoshan/api_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -17,7 +15,6 @@ func TestHandleMessageNotOnion(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
@@ -31,7 +28,6 @@ func TestHandleMessageNotOnion(t *testing.T) {
 			Return(nil)
 
 		s := State{
-			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
 
@@ -45,14 +41,12 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	msg := event.RawMessage{}
 
 	s := State{
-		apiClient:    apiClientMock,
 		configClient: configClientMock,
 	}
 
@@ -68,48 +62,10 @@ func TestHandleMessageWrongProtocol(t *testing.T) {
 	}
 }
 
-func TestHandleMessageAlreadyCrawled(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
-	configClientMock := client_mock.NewMockClient(mockCtrl)
-
-	msg := event.RawMessage{}
-	subscriberMock.EXPECT().
-		Read(&msg, &event.FoundURLEvent{}).
-		SetArg(1, event.FoundURLEvent{URL: "https://example.onion"}).
-		Return(nil)
-
-	params := api.ResSearchParams{
-		URL:        "https://example.onion",
-		PageSize:   1,
-		PageNumber: 1,
-	}
-	apiClientMock.EXPECT().
-		SearchResources(&params).
-		Return([]api.ResourceDto{}, int64(1), nil)
-
-	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{{Extensions: []string{"png"}}}, nil)
-	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
-
-	s := State{
-		apiClient:    apiClientMock,
-		configClient: configClientMock,
-	}
-
-	if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errShouldNotSchedule) {
-		t.FailNow()
-	}
-}
-
 func TestHandleMessageForbiddenExtensions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
@@ -125,7 +81,6 @@ func TestHandleMessageForbiddenExtensions(t *testing.T) {
 		configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{{Extensions: []string{"png"}}}, nil)
 
 		s := State{
-			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
 
@@ -139,7 +94,6 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
@@ -178,7 +132,6 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 		configClientMock.EXPECT().GetForbiddenHostnames().Return(test.forbiddenHostnames, nil)
 
 		s := State{
-			apiClient:    apiClientMock,
 			configClient: configClientMock,
 		}
 
@@ -192,7 +145,6 @@ func TestHandleMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	apiClientMock := api_mock.NewMockAPI(mockCtrl)
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
@@ -202,25 +154,14 @@ func TestHandleMessage(t *testing.T) {
 		SetArg(1, event.FoundURLEvent{URL: "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}).
 		Return(nil)
 
-	params := api.ResSearchParams{
-		URL:        "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login",
-		PageSize:   1,
-		PageNumber: 1,
-	}
-	apiClientMock.EXPECT().
-		SearchResources(&params).
-		Return([]api.ResourceDto{}, int64(0), nil)
-
 	subscriberMock.EXPECT().
 		PublishEvent(&event.NewURLEvent{URL: "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}).
 		Return(nil)
 
 	configClientMock.EXPECT().GetForbiddenMimeTypes().Return([]client.MimeType{}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
 	s := State{
-		apiClient:    apiClientMock,
 		configClient: configClientMock,
 	}
 

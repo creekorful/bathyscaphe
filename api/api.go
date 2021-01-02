@@ -56,7 +56,6 @@ type ResSearchParams struct {
 // API is the interface to interact with the API component
 type API interface {
 	SearchResources(params *ResSearchParams) ([]ResourceDto, int64, error)
-	AddResource(res ResourceDto) (ResourceDto, error)
 	ScheduleURL(url string) error
 }
 
@@ -108,19 +107,6 @@ func (c *client) SearchResources(params *ResSearchParams) ([]ResourceDto, int64,
 	}
 
 	return resources, count, nil
-}
-
-func (c *client) AddResource(res ResourceDto) (ResourceDto, error) {
-	targetEndpoint := fmt.Sprintf("%s/v1/resources", c.baseURL)
-
-	req := c.httpClient.R()
-	req.SetBody(res)
-
-	var resourceDto ResourceDto
-	req.SetResult(&resourceDto)
-
-	_, err := req.Post(targetEndpoint)
-	return resourceDto, err
 }
 
 func (c *client) ScheduleURL(url string) error {
