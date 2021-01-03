@@ -1,4 +1,4 @@
-package database
+package index
 
 import (
 	"context"
@@ -60,8 +60,8 @@ type elasticSearchDB struct {
 	client *elastic.Client
 }
 
-// NewElasticDB create a new Database based on ES instance
-func NewElasticDB(uri string) (Database, error) {
+// NewElasticIndex create a new index based on ES instance
+func NewElasticIndex(uri string) (Index, error) {
 	// Create Elasticsearch client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
