@@ -19,8 +19,8 @@ type client struct {
 // NewClient return a new Client instance
 func NewClient(baseURL string) Client {
 	return &client{
-		indexerClient:   idxclient.NewClient(baseURL),
-		schedulerClient: schclient.NewClient(baseURL),
+		indexerClient:   idxclient.NewClient(baseURL + "/indexer"),
+		schedulerClient: schclient.NewClient(baseURL + "/scheduler"),
 	}
 }
 

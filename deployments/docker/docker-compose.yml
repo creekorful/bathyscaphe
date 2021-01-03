@@ -30,8 +30,12 @@ services:
       - redisdata:/data
   traefik:
     image: traefik:v2.3.6
+    command: --api.insecure=true --providers.docker --providers.docker.exposedByDefault=false
     ports:
-      - 15015:80
+      - "15005:80"
+      - "15006:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   crawler:
     image: creekorful/tdsh-crawler:latest
     command: >
@@ -43,6 +47,7 @@ services:
     depends_on:
       - rabbitmq
       - torproxy
+      - configapi
   scheduler:
     image: creekorful/tdsh-scheduler:latest
     command: >
@@ -52,6 +57,11 @@ services:
     restart: always
     depends_on:
       - rabbitmq
+      - configapi
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scheduler.rule=PathPrefix(`/scheduler/`)"
+      - "traefik.http.services.scheduler.loadbalancer.server.port=8080"
   archiver:
     image: creekorful/tdsh-archiver:latest
     command: >
@@ -76,8 +86,10 @@ services:
       - rabbitmq
       - elasticsearch
       - configapi
-    ports:
-      - 15005:8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.indexer.rule=PathPrefix(`/indexer/`)"
+      - "traefik.http.services.indexer.loadbalancer.server.port=8080"
   configapi:
     image: creekorful/tdsh-configapi:latest
     command: >
@@ -90,8 +102,11 @@ services:
     restart: always
     depends_on:
       - rabbitmq
-    ports:
-      - 15006:8080
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.configapi.rule=PathPrefix(`/configapi/`)"
+      - "traefik.http.services.configapi.loadbalancer.server.port=8080"
   blacklister:
     image: creekorful/tdsh-blacklister:latest
     command: >
