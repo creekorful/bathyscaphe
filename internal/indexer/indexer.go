@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/PuerkitoBio/purell"
+	"github.com/creekorful/trandoshan/internal/cache"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/indexer/auth"
@@ -36,6 +37,7 @@ type State struct {
 	index        index.Index
 	pub          event.Publisher
 	configClient configapi.Client
+	urlCache     cache.Cache
 }
 
 // Name return the process name
@@ -182,8 +184,14 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		resDto.Headers[strings.ToLower(key)] = value
 	}
 
+	// Get current refresh delay
+	refreshDelay := time.Duration(-1)
+	if val, err := state.configClient.GetRefreshDelay(); err == nil {
+		refreshDelay = val.Delay
+	}
+
 	// Save resource
-	if _, err := state.addResource(resDto); err != nil {
+	if _, err := state.tryAddResource(resDto, refreshDelay); err != nil {
 		return err
 	}
 
@@ -196,13 +204,39 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 			continue
 		}
 
-		// make sure url should be published
-		count, err := state.countResource(u)
+		// make sure url has not been published (yet)
+		count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", u))
 		if err != nil {
+			log.Err(err).
+				Str("url", u).
+				Msg("error while checking URL cache")
 			continue
 		}
 		if count > 0 {
+			log.Trace().
+				Str("url", u).
+				Msg("skipping already published URL")
 			continue
+		}
+
+		// make sure url should be published (not already crawled)
+		count, err = state.countResource(u, refreshDelay)
+		if err != nil {
+			log.Err(err).
+				Str("url", evt.URL).
+				Msg("error while checking ES")
+			continue
+		}
+		if count > 0 {
+			log.Trace().
+				Str("url", evt.URL).
+				Msg("skipping already crawled URL")
+			continue
+		}
+
+		// Update cache
+		if err := state.urlCache.SetInt64(fmt.Sprintf("urls:%s", u), count+1, refreshDelay); err != nil {
+			log.Err(err).Msg("error while updating URL cache")
 		}
 
 		log.Trace().
@@ -222,7 +256,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	return nil
 }
 
-func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, error) {
+func (state *State) tryAddResource(res client.ResourceDto, refreshDelay time.Duration) (client.ResourceDto, error) {
 	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 	if err != nil {
 		return client.ResourceDto{}, err
@@ -239,7 +273,13 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		}
 	}
 
-	count, err := state.countResource(res.URL)
+	// Hacky stuff to prevent from adding 'duplicate resource'
+	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
+	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
+	// before the resource is saved. And this happen a LOT of time.
+	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
+	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
+	count, err := state.countResource(res.URL, refreshDelay)
 	if err != nil {
 		return client.ResourceDto{}, err
 	}
@@ -278,18 +318,10 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 	return res, nil
 }
 
-// Hacky stuff to prevent from adding 'duplicate resource'
-// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
-// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
-// before the resource is saved. And this happen a LOT of time.
-// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
-// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
-func (state *State) countResource(URL string) (int64, error) {
+func (state *State) countResource(URL string, refreshDelay time.Duration) (int64, error) {
 	endDate := time.Time{}
-	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
-		if refreshDelay.Delay != -1 {
-			endDate = time.Now().Add(-refreshDelay.Delay)
-		}
+	if refreshDelay != -1 {
+		endDate = time.Now().Add(-refreshDelay)
 	}
 
 	count, err := state.index.CountResources(&client.ResSearchParams{

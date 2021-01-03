@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/cache_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -180,11 +181,10 @@ func TestAddResource(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	})
 
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 5 * time.Hour}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
 	s := State{index: indexMock, configClient: configClientMock, pub: pubMock}
-	res, err := s.addResource(body)
+	res, err := s.tryAddResource(body, 5*time.Hour)
 	if err != nil {
 		t.FailNow()
 	}
@@ -238,12 +238,11 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 		PageNumber: 1,
 	}, endDateZero: true}).Return(int64(1), nil)
 
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
 	s := State{index: indexMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
+	if _, err := s.tryAddResource(body, -1); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -272,12 +271,11 @@ func TestAddResourceTooYoung(t *testing.T) {
 		PageNumber: 1,
 	}}).Return(int64(1), nil)
 
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 10 * time.Minute}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
 	s := State{index: indexMock, configClient: configClientMock}
 
-	if _, err := s.addResource(body); !errors.Is(err, errAlreadyIndexed) {
+	if _, err := s.tryAddResource(body, 10*time.Minute); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -302,7 +300,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 
 	s := State{configClient: configClientMock}
 
-	if _, err := s.addResource(body); err != errHostnameNotAllowed {
+	if _, err := s.tryAddResource(body, -1); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
 }
@@ -429,6 +427,8 @@ This is sparta (hosted on https://example.org)
 
 <a href="https://google.com/test?test=test#12">
 
+Thanks to https://help.facebook.onion/ for the hosting :D
+
 <meta name="DescriptIon" content="Zhello world">
 <meta property="og:url" content="https://example.org">`
 
@@ -439,6 +439,7 @@ This is sparta (hosted on https://example.org)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	indexMock := index_mock.NewMockIndex(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
+	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 
 	tn := time.Now()
 
@@ -453,7 +454,7 @@ This is sparta (hosted on https://example.org)
 		}).Return(nil)
 
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
-	configClientMock.EXPECT().GetRefreshDelay().Times(3).Return(client.RefreshDelay{Delay: -1}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Times(1).Return(client.RefreshDelay{Delay: -1}, nil)
 
 	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://example.onion",
@@ -483,23 +484,28 @@ This is sparta (hosted on https://example.org)
 	}).Return(nil)
 
 	// make sure we are pushing found URLs (but only if refresh delay elapsed)
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(0), nil)
 	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://example.org",
 		PageSize:   1,
 		PageNumber: 1,
 	}).Return(int64(0), nil)
+
+	urlCacheMock.EXPECT().GetInt64("urls:https://help.facebook.onion").Return(int64(1), nil)
+
+	urlCacheMock.EXPECT().GetInt64("urls:https://google.com/test?test=test").Return(int64(0), nil)
 	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://google.com/test?test=test",
 		PageSize:   1,
 		PageNumber: 1,
 	}).Return(int64(1), nil)
 
-	// should be called only one time
 	subscriberMock.EXPECT().
 		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
+	urlCacheMock.EXPECT().SetInt64("urls:https://example.org", int64(1), time.Duration(-1)).Return(nil)
 
-	s := State{index: indexMock, configClient: configClientMock, pub: pubMock}
+	s := State{index: indexMock, configClient: configClientMock, pub: pubMock, urlCache: urlCacheMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
 		t.FailNow()
 	}
@@ -534,6 +540,7 @@ This is sparta (hosted on https://example.org)
 			Time:    tn,
 		}).Return(nil)
 
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example.onion"}}, nil)
 
 	s := State{configClient: configClientMock}
