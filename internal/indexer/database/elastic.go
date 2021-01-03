@@ -11,6 +11,51 @@ import (
 
 var resourcesIndex = "resources"
 
+const mapping = `
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": false,
+    "properties": {
+      "body": {
+        "type": "text"
+      },
+      "description": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "time": {
+        "type": "date"
+      },
+      "title": {
+        "type": "text"
+      },
+      "headers": {
+        "properties": {
+          "server": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+
 type elasticSearchDB struct {
 	client *elastic.Client
 }
@@ -139,7 +184,9 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	}
 	if !exist {
 		log.Debug().Str("index", resourcesIndex).Msg("Creating missing index")
-		if _, err := es.CreateIndex(resourcesIndex).Do(ctx); err != nil {
+
+		q := es.CreateIndex(resourcesIndex).BodyString(mapping)
+		if _, err := q.Do(ctx); err != nil {
 			return err
 		}
 	}
