@@ -241,7 +241,12 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		}
 
 		// Update cache
-		if err := state.urlCache.SetInt64(fmt.Sprintf("urls:%s", u), count+1, refreshDelay); err != nil {
+		ttl := refreshDelay
+		if refreshDelay == -1 {
+			ttl = cache.NoTTL
+		}
+
+		if err := state.urlCache.SetInt64(fmt.Sprintf("urls:%s", u), count+1, ttl); err != nil {
 			log.Err(err).Msg("error while updating URL cache")
 		}
 

@@ -504,7 +504,7 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 	subscriberMock.EXPECT().
 		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
-	urlCacheMock.EXPECT().SetInt64("urls:https://example.org", int64(1), time.Duration(-1)).Return(nil)
+	urlCacheMock.EXPECT().SetInt64("urls:https://example.org", int64(1), cache.NoTTL).Return(nil)
 
 	s := State{index: indexMock, configClient: configClientMock, pub: pubMock, urlCache: urlCacheMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
