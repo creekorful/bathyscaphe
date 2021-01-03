@@ -7,7 +7,7 @@ import (
 
 var (
 	// NoTTL define an entry that lives forever
-	NoTTL = time.Duration(-1)
+	NoTTL = time.Duration(0)
 	// ErrNIL is returned when there's no value for given key
 	ErrNIL = errors.New("value is nil")
 )
