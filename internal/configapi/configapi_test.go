@@ -19,7 +19,7 @@ func TestGetConfiguration(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	configCacheMock := cache_mock.NewMockCache(mockCtrl)
-	configCacheMock.EXPECT().GetBytes("hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
+	configCacheMock.EXPECT().GetBytes("conf:hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/config/hello", nil)
 	req = mux.SetURLVars(req, map[string]string{"key": "hello"})
@@ -53,7 +53,7 @@ func TestSetConfiguration(t *testing.T) {
 	configCacheMock := cache_mock.NewMockCache(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	configCacheMock.EXPECT().SetBytes("hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
+	configCacheMock.EXPECT().SetBytes("conf:hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
 	pubMock.EXPECT().PublishJSON("config", event.RawMessage{
 		Body:    []byte("{\"ttl\": \"10s\"}"),
 		Headers: map[string]interface{}{"Config-Key": "hello"},

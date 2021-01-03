@@ -90,7 +90,7 @@ func (state *State) getConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Msg("Getting key")
 
-	b, err := state.configCache.GetBytes(key)
+	b, err := state.configCache.GetBytes("conf:" + key)
 	if err != nil {
 		log.Err(err).Msg("error while retrieving configuration")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -114,7 +114,7 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Bytes("value", b).Msg("Setting key")
 
-	if err := state.configCache.SetBytes(key, b, cache.NoTTL); err != nil {
+	if err := state.configCache.SetBytes("conf:"+key, b, cache.NoTTL); err != nil {
 		log.Err(err).Msg("error while setting configuration")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -135,8 +135,8 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 func setDefaultValues(configCache cache.Cache, values map[string]string) error {
 	for key, value := range values {
-		if _, err := configCache.GetBytes(key); err == cache.ErrNIL {
-			if err := configCache.SetBytes(key, []byte(value), cache.NoTTL); err != nil {
+		if _, err := configCache.GetBytes("conf:" + key); err == cache.ErrNIL {
+			if err := configCache.SetBytes("conf:"+key, []byte(value), cache.NoTTL); err != nil {
 				return fmt.Errorf("error while setting default value of %s: %s", key, err)
 			}
 		}
