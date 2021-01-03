@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -21,6 +22,8 @@ var (
 	errProtocolNotAllowed  = errors.New("protocol is not allowed")
 	errExtensionNotAllowed = errors.New("extension is not allowed")
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
+
+	extensionRegex = regexp.MustCompile("\\.[\\w]+")
 )
 
 // State represent the application state
@@ -46,7 +49,7 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	keys := []string{configapi.ForbiddenMimeTypesKey, configapi.ForbiddenHostnamesKey}
+	keys := []string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey}
 	configClient, err := provider.ConfigClient(keys)
 	if err != nil {
 		return err
@@ -101,15 +104,35 @@ func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
 	}
 
-	// Make sure extension is not forbidden
-	if mimeTypes, err := state.configClient.GetForbiddenMimeTypes(); err == nil {
+	// Make sure extension is allowed
+	allowed := false
+	if mimeTypes, err := state.configClient.GetAllowedMimeTypes(); err == nil {
 		for _, mimeType := range mimeTypes {
 			for _, ext := range mimeType.Extensions {
 				if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
-					return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+					allowed = true
 				}
 			}
 		}
+	}
+
+	// Handle case no extension present
+	if !allowed {
+		components := strings.Split(u.Path, "/")
+
+		lastIdx := 0
+		if size := len(components); size > 0 {
+			lastIdx = size - 1
+		}
+
+		// generally no extension means text/* content-type
+		if !extensionRegex.MatchString(components[lastIdx]) {
+			allowed = true
+		}
+	}
+
+	if !allowed {
+		return fmt.Errorf("%s %w", u, errExtensionNotAllowed)
 	}
 
 	// Make sure hostname is not forbidden
