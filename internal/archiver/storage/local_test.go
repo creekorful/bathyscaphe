@@ -26,12 +26,12 @@ func TestFormatPath(t *testing.T) {
 		{
 			url:  "http://facebook.com/admin/login.php?username=admin",
 			time: ti,
-			path: "http/facebook.com/admin/login.php?username=admin/1603973049",
+			path: "http/facebook.com/16609974401560122507/1603973049",
 		},
 		{
 			url:  "http://thisisalonghostname.onion/admin/tools/list-accounts.php?token=123223453&username=test",
 			time: ti,
-			path: "http/thisisalonghostname.onion/admin/tools/list-accounts.php?token=123223453&username=test/1603973049",
+			path: "http/thisisalonghostname.onion/7883137132857825203/1603973049",
 		},
 	}
 
