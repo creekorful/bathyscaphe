@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/cache_mock"
@@ -153,11 +152,8 @@ func TestAddResource(t *testing.T) {
 	}
 
 	indexMock := index_mock.NewMockIndex(mockCtrl)
-	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
-
-	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(0), cache.ErrNIL)
 
 	indexMock.EXPECT().AddResource(index.ResourceIdx{
 		URL:         "https://example.onion",
@@ -181,36 +177,8 @@ func TestAddResource(t *testing.T) {
 
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	s := State{index: indexMock, configClient: configClientMock, pub: pubMock, urlCache: urlCacheMock}
+	s := State{index: indexMock, configClient: configClientMock, pub: pubMock}
 	if err := s.tryAddResource(&body); err != nil {
-		t.FailNow()
-	}
-}
-
-func TestAddResourceDuplicate(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	body := client2.ResourceDto{
-		URL:         "https://example.onion",
-		Body:        "TheBody",
-		Title:       "Example",
-		Time:        time.Time{},
-		Meta:        map[string]string{"content": "content-meta"},
-		Description: "the description",
-		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
-	}
-
-	configClientMock := client_mock.NewMockClient(mockCtrl)
-	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
-
-	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(1), nil)
-
-	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
-
-	s := State{configClient: configClientMock, urlCache: urlCacheMock}
-
-	if err := s.tryAddResource(&body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -391,8 +359,6 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Times(1).Return(client.RefreshDelay{Delay: -1}, nil)
 
-	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(0), nil)
-
 	// make sure we are creating the resource
 	indexMock.EXPECT().AddResource(index.ResourceIdx{
 		URL:         "https://example.onion",
@@ -475,21 +441,4 @@ This is sparta (hosted on https://example.org)
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
-}
-
-// custom matcher to ignore time field when doing comparison ;(
-// todo: do less crappy?
-type searchParamsMatcher struct {
-	target      client2.ResSearchParams
-	endDateZero bool
-}
-
-func (sm *searchParamsMatcher) Matches(x interface{}) bool {
-	arg := x.(*client2.ResSearchParams)
-	return arg.URL == sm.target.URL && arg.PageSize == sm.target.PageSize && arg.PageNumber == sm.target.PageNumber &&
-		sm.endDateZero == arg.EndDate.IsZero()
-}
-
-func (sm *searchParamsMatcher) String() string {
-	return "is valid search params"
 }

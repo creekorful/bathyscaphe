@@ -83,7 +83,7 @@ services:
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --redis-uri redis:6379
       --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}]"
-      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\"]}]"
+      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
     restart: always
     depends_on:

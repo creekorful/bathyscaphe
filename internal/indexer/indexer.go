@@ -256,25 +256,11 @@ func (state *State) tryAddResource(res *client.ResourceDto) error {
 		return err
 	}
 
+	// make sure hostname hasn't been flagged as forbidden
 	for _, hostname := range forbiddenHostnames {
 		if strings.Contains(u.Hostname(), hostname.Hostname) {
 			return errHostnameNotAllowed
 		}
-	}
-
-	// Hacky stuff to prevent from adding 'duplicate resource'
-	// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
-	// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
-	// before the resource is saved. And this happen a LOT of time.
-	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
-	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
-	count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", res.URL))
-	if err != nil && err != cache.ErrNIL {
-		return err
-	}
-
-	if count > 0 {
-		return fmt.Errorf("%s %w", res.URL, errAlreadyIndexed)
 	}
 
 	// Create Elasticsearch document
