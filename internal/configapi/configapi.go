@@ -62,7 +62,7 @@ func (state *State) Initialize(provider process.Provider) error {
 		}
 	}
 	if len(defaultValues) > 0 {
-		if err := setDefaultValues(nil, defaultValues); err != nil {
+		if err := setDefaultValues(configCache, defaultValues); err != nil {
 			return err
 		}
 	}

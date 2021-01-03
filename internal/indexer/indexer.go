@@ -204,12 +204,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	log.Info().Str("url", evt.URL).Msg("Successfully indexed resource")
 
 	// Finally push found URLs
-	publishedURLS := map[string]string{}
 	for _, u := range urls {
-		if _, exist := publishedURLS[u]; exist {
-			continue
-		}
-
 		// make sure url has not been published (yet)
 		count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", u))
 		if err != nil && err != cache.ErrNIL {
@@ -250,10 +245,6 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 			log.Err(err).Msg("error while updating URL cache")
 		}
 
-		log.Trace().
-			Str("url", u).
-			Msg("Publishing found URL")
-
 		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: u}); err != nil {
 			log.Warn().
 				Str("url", u).
@@ -261,7 +252,9 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 				Msg("Error while publishing URL")
 		}
 
-		publishedURLS[u] = u
+		log.Trace().
+			Str("url", u).
+			Msg("Published found URL")
 	}
 
 	return nil

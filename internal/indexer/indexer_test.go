@@ -492,6 +492,8 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 		PageNumber: 1,
 	}).Return(int64(0), nil)
 
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(1), nil)
+
 	urlCacheMock.EXPECT().GetInt64("urls:https://help.facebook.onion").Return(int64(1), nil)
 
 	urlCacheMock.EXPECT().GetInt64("urls:https://google.com/test?test=test").Return(int64(0), cache.ErrNIL)

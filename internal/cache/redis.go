@@ -34,7 +34,12 @@ func (rc *redisCache) SetBytes(key string, value []byte, TTL time.Duration) erro
 }
 
 func (rc *redisCache) GetInt64(key string) (int64, error) {
-	return rc.client.Get(context.Background(), key).Int64()
+	val, err := rc.client.Get(context.Background(), key).Int64()
+	if err == redis.Nil {
+		err = ErrNIL
+	}
+
+	return val, err
 }
 
 func (rc *redisCache) SetInt64(key string, value int64, TTL time.Duration) error {
