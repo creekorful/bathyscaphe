@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/PuerkitoBio/purell"
+	"github.com/creekorful/trandoshan/internal/cache"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/indexer/auth"
 	"github.com/creekorful/trandoshan/internal/indexer/client"
-	"github.com/creekorful/trandoshan/internal/indexer/database"
+	"github.com/creekorful/trandoshan/internal/indexer/index"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -33,9 +34,10 @@ var (
 
 // State represent the application state
 type State struct {
-	db           database.Database
+	index        index.Index
 	pub          event.Publisher
 	configClient configapi.Client
+	urlCache     cache.Cache
 }
 
 // Name return the process name
@@ -45,7 +47,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -66,11 +68,11 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	db, err := database.NewElasticDB(provider.GetValue("elasticsearch-uri"))
+	db, err := index.NewElasticIndex(provider.GetValue("elasticsearch-uri"))
 	if err != nil {
 		return err
 	}
-	state.db = db
+	state.index = db
 
 	pub, err := provider.Subscriber()
 	if err != nil {
@@ -83,6 +85,12 @@ func (state *State) Initialize(provider process.Provider) error {
 		return err
 	}
 	state.configClient = configClient
+
+	urlCache, err := provider.Cache()
+	if err != nil {
+		return err
+	}
+	state.urlCache = urlCache
 
 	return nil
 }
@@ -116,14 +124,14 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalCount, err := state.db.CountResources(searchParams)
+	totalCount, err := state.index.CountResources(searchParams)
 	if err != nil {
 		log.Err(err).Msg("error while counting on ES")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	res, err := state.db.SearchResources(searchParams)
+	res, err := state.index.SearchResources(searchParams)
 	if err != nil {
 		log.Err(err).Msg("error while searching on ES")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -182,32 +190,45 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		resDto.Headers[strings.ToLower(key)] = value
 	}
 
+	// Get current refresh delay
+	refreshDelay := time.Duration(-1)
+	if val, err := state.configClient.GetRefreshDelay(); err == nil {
+		refreshDelay = val.Delay
+	}
+
 	// Save resource
-	if _, err := state.addResource(resDto); err != nil {
+	if err := state.tryAddResource(resDto); err != nil {
 		return err
 	}
 
 	log.Info().Str("url", evt.URL).Msg("Successfully indexed resource")
 
 	// Finally push found URLs
-	publishedURLS := map[string]string{}
 	for _, u := range urls {
-		if _, exist := publishedURLS[u]; exist {
-			continue
-		}
-
-		// make sure url should be published
-		count, err := state.countResource(u)
-		if err != nil {
+		// make sure url has not been published (yet)
+		count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", u))
+		if err != nil && err != cache.ErrNIL {
+			log.Err(err).
+				Str("url", u).
+				Msg("error while checking URL cache")
 			continue
 		}
 		if count > 0 {
+			log.Trace().
+				Str("url", u).
+				Msg("skipping already published URL")
 			continue
 		}
 
-		log.Trace().
-			Str("url", u).
-			Msg("Publishing found URL")
+		// Update cache
+		ttl := refreshDelay
+		if refreshDelay == -1 {
+			ttl = cache.NoTTL
+		}
+
+		if err := state.urlCache.SetInt64(fmt.Sprintf("urls:%s", u), count+1, ttl); err != nil {
+			log.Err(err).Msg("error while updating URL cache")
+		}
 
 		if err := subscriber.PublishEvent(&event.FoundURLEvent{URL: u}); err != nil {
 			log.Warn().
@@ -216,39 +237,34 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 				Msg("Error while publishing URL")
 		}
 
-		publishedURLS[u] = u
+		log.Trace().
+			Str("url", u).
+			Msg("Published found URL")
 	}
 
 	return nil
 }
 
-func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, error) {
+func (state *State) tryAddResource(res *client.ResourceDto) error {
 	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 	if err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
 	u, err := url.Parse(res.URL)
 	if err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
+	// make sure hostname hasn't been flagged as forbidden
 	for _, hostname := range forbiddenHostnames {
 		if strings.Contains(u.Hostname(), hostname.Hostname) {
-			return client.ResourceDto{}, errHostnameNotAllowed
+			return errHostnameNotAllowed
 		}
 	}
 
-	count, err := state.countResource(res.URL)
-	if err != nil {
-		return client.ResourceDto{}, err
-	}
-	if count > 0 {
-		return client.ResourceDto{}, fmt.Errorf("%s %w", res.URL, errAlreadyIndexed)
-	}
-
 	// Create Elasticsearch document
-	doc := database.ResourceIdx{
+	doc := index.ResourceIdx{
 		URL:         res.URL,
 		Body:        res.Body,
 		Time:        res.Time,
@@ -258,8 +274,8 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		Headers:     res.Headers,
 	}
 
-	if err := state.db.AddResource(doc); err != nil {
-		return client.ResourceDto{}, err
+	if err := state.index.AddResource(doc); err != nil {
+		return err
 	}
 
 	// Publish linked event
@@ -272,37 +288,10 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		Description: res.Description,
 		Headers:     res.Headers,
 	}); err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
-	return res, nil
-}
-
-// Hacky stuff to prevent from adding 'duplicate resource'
-// the thing is: even with the scheduler preventing from crawling 'duplicates' URL by adding a refresh period
-// and checking if the resource is not already indexed,  this implementation may not work if the URLs was published
-// before the resource is saved. And this happen a LOT of time.
-// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
-// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
-func (state *State) countResource(URL string) (int64, error) {
-	endDate := time.Time{}
-	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
-		if refreshDelay.Delay != -1 {
-			endDate = time.Now().Add(-refreshDelay.Delay)
-		}
-	}
-
-	count, err := state.db.CountResources(&client.ResSearchParams{
-		URL:        URL,
-		EndDate:    endDate,
-		PageSize:   1,
-		PageNumber: 1,
-	})
-	if err != nil {
-		return -1, err
-	}
-
-	return count, nil
+	return nil
 }
 
 func getSearchParams(r *http.Request) (*client.ResSearchParams, error) {
@@ -414,10 +403,10 @@ func writeJSON(w http.ResponseWriter, body interface{}) {
 	_, _ = w.Write(b)
 }
 
-func extractResource(msg event.NewResourceEvent) (client.ResourceDto, []string, error) {
+func extractResource(msg event.NewResourceEvent) (*client.ResourceDto, []string, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(msg.Body))
 	if err != nil {
-		return client.ResourceDto{}, nil, err
+		return nil, nil, err
 	}
 
 	// Get resource title
@@ -455,7 +444,7 @@ func extractResource(msg event.NewResourceEvent) (client.ResourceDto, []string, 
 		normalizedURLS = append(normalizedURLS, normalizedURL)
 	}
 
-	return client.ResourceDto{
+	return &client.ResourceDto{
 		URL:         msg.URL,
 		Body:        msg.Body,
 		Time:        msg.Time,

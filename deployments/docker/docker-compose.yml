@@ -67,11 +67,13 @@ services:
       --elasticsearch-uri http://elasticsearch:9200
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
       --config-api-uri http://configapi:8080
+      --redis-uri redis:6379
     restart: always
     depends_on:
       - rabbitmq
       - elasticsearch
       - configapi
+      - redis
     ports:
       - 15005:8080
   configapi:
@@ -79,13 +81,14 @@ services:
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
-      --db-uri redis:6379
+      --redis-uri redis:6379
       --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}, {\"hostname\": \"nytimes3xbfgragh.onion\"}]"
-      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\"]}]"
+      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
     restart: always
     depends_on:
       - rabbitmq
+      - redis
     ports:
       - 15006:8080
   blacklister:
