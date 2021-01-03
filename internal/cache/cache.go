@@ -1,6 +1,16 @@
 package cache
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	// NoTTL define an entry that lives forever
+	NoTTL = time.Duration(-1)
+	// ErrNIL is returned when there's no value for given key
+	ErrNIL = errors.New("value is nil")
+)
 
 //go:generate mockgen -destination=../cache_mock/cache_mock.go -package=cache_mock . Cache
 

@@ -1,7 +1,8 @@
 package configapi
 
 import (
-	"github.com/creekorful/trandoshan/internal/configapi/database_mock"
+	"github.com/creekorful/trandoshan/internal/cache"
+	"github.com/creekorful/trandoshan/internal/cache_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
 	"github.com/golang/mock/gomock"
@@ -17,15 +18,15 @@ func TestGetConfiguration(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dbMock := database_mock.NewMockDatabase(mockCtrl)
-	dbMock.EXPECT().Get("hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
+	configCacheMock := cache_mock.NewMockCache(mockCtrl)
+	configCacheMock.EXPECT().GetBytes("hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/config/hello", nil)
 	req = mux.SetURLVars(req, map[string]string{"key": "hello"})
 
 	rec := httptest.NewRecorder()
 
-	s := State{db: dbMock}
+	s := State{configCache: configCacheMock}
 	s.getConfiguration(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -49,10 +50,10 @@ func TestSetConfiguration(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dbMock := database_mock.NewMockDatabase(mockCtrl)
+	configCacheMock := cache_mock.NewMockCache(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	dbMock.EXPECT().Set("hello", []byte("{\"ttl\": \"10s\"}")).Return(nil)
+	configCacheMock.EXPECT().SetBytes("hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
 	pubMock.EXPECT().PublishJSON("config", event.RawMessage{
 		Body:    []byte("{\"ttl\": \"10s\"}"),
 		Headers: map[string]interface{}{"Config-Key": "hello"},
@@ -63,7 +64,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 
-	s := State{db: dbMock, pub: pubMock}
+	s := State{configCache: configCacheMock, pub: pubMock}
 	s.setConfiguration(rec, req)
 
 	if rec.Code != http.StatusOK {

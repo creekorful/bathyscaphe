@@ -2,10 +2,9 @@ package configapi
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/configapi/database"
+	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
-	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -16,8 +15,8 @@ import (
 
 // State represent the application state
 type State struct {
-	db  database.Database
-	pub event.Publisher
+	configCache cache.Cache
+	pub         event.Publisher
 }
 
 // Name return the process name
@@ -47,11 +46,7 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	db, err := database.NewRedisDatabase(provider.GetValue("db-uri"))
-	if err != nil {
-		return err
-	}
-	state.db = db
+	// TODO init cache
 
 	pub, err := provider.Publisher()
 	if err != nil {
@@ -68,7 +63,7 @@ func (state *State) Initialize(provider process.Provider) error {
 		}
 	}
 	if len(defaultValues) > 0 {
-		if err := setDefaultValues(db, defaultValues); err != nil {
+		if err := setDefaultValues(nil, defaultValues); err != nil {
 			return err
 		}
 	}
@@ -96,7 +91,7 @@ func (state *State) getConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Msg("Getting key")
 
-	b, err := state.db.Get(key)
+	b, err := state.configCache.GetBytes(key)
 	if err != nil {
 		log.Err(err).Msg("error while retrieving configuration")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -120,7 +115,7 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Bytes("value", b).Msg("Setting key")
 
-	if err := state.db.Set(key, b); err != nil {
+	if err := state.configCache.SetBytes(key, b, cache.NoTTL); err != nil {
 		log.Err(err).Msg("error while setting configuration")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -139,10 +134,10 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-func setDefaultValues(service database.Database, values map[string]string) error {
+func setDefaultValues(configCache cache.Cache, values map[string]string) error {
 	for key, value := range values {
-		if _, err := service.Get(key); err == redis.Nil {
-			if err := service.Set(key, []byte(value)); err != nil {
+		if _, err := configCache.GetBytes(key); err == cache.ErrNIL {
+			if err := configCache.SetBytes(key, []byte(value), cache.NoTTL); err != nil {
 				return fmt.Errorf("error while setting default value of %s: %s", key, err)
 			}
 		}
