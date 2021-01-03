@@ -80,7 +80,7 @@ services:
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --db-uri redis:6379
-      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}]"
+      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}, {\"hostname\": \"nytimes3xbfgragh.onion\"}]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
     restart: always
