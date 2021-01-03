@@ -83,13 +83,14 @@ func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.R
 func formatResource(evt *event.NewIndexEvent) ([]byte, error) {
 	builder := strings.Builder{}
 
-	// First headers
-	for key, value := range evt.Headers {
-		builder.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
-	}
+	// First URL
+	builder.WriteString(fmt.Sprintf("%s\n\n", evt.URL))
 
-	// Then separator for body
-	builder.WriteString("\r\n")
+	// Then headers
+	for key, value := range evt.Headers {
+		builder.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+	}
+	builder.WriteString("\n")
 
 	// Then body
 	builder.WriteString(evt.Body)
