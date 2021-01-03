@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/cache_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
@@ -484,7 +485,7 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 	}).Return(nil)
 
 	// make sure we are pushing found URLs (but only if refresh delay elapsed)
-	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(0), nil)
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(0), cache.ErrNIL)
 	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://example.org",
 		PageSize:   1,
@@ -493,7 +494,7 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 
 	urlCacheMock.EXPECT().GetInt64("urls:https://help.facebook.onion").Return(int64(1), nil)
 
-	urlCacheMock.EXPECT().GetInt64("urls:https://google.com/test?test=test").Return(int64(0), nil)
+	urlCacheMock.EXPECT().GetInt64("urls:https://google.com/test?test=test").Return(int64(0), cache.ErrNIL)
 	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
 		URL:        "https://google.com/test?test=test",
 		PageSize:   1,

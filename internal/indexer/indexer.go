@@ -212,7 +212,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 
 		// make sure url has not been published (yet)
 		count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", u))
-		if err != nil {
+		if err != nil && err != cache.ErrNIL {
 			log.Err(err).
 				Str("url", u).
 				Msg("error while checking URL cache")
