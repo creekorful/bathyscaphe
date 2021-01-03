@@ -10,7 +10,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/indexer/auth"
 	"github.com/creekorful/trandoshan/internal/indexer/client"
-	"github.com/creekorful/trandoshan/internal/indexer/database"
+	"github.com/creekorful/trandoshan/internal/indexer/index"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -33,7 +33,7 @@ var (
 
 // State represent the application state
 type State struct {
-	db           database.Database
+	index        index.Index
 	pub          event.Publisher
 	configClient configapi.Client
 }
@@ -66,11 +66,11 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	db, err := database.NewElasticDB(provider.GetValue("elasticsearch-uri"))
+	db, err := index.NewElasticIndex(provider.GetValue("elasticsearch-uri"))
 	if err != nil {
 		return err
 	}
-	state.db = db
+	state.index = db
 
 	pub, err := provider.Subscriber()
 	if err != nil {
@@ -116,14 +116,14 @@ func (state *State) searchResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalCount, err := state.db.CountResources(searchParams)
+	totalCount, err := state.index.CountResources(searchParams)
 	if err != nil {
 		log.Err(err).Msg("error while counting on ES")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	res, err := state.db.SearchResources(searchParams)
+	res, err := state.index.SearchResources(searchParams)
 	if err != nil {
 		log.Err(err).Msg("error while searching on ES")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -248,7 +248,7 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 	}
 
 	// Create Elasticsearch document
-	doc := database.ResourceIdx{
+	doc := index.ResourceIdx{
 		URL:         res.URL,
 		Body:        res.Body,
 		Time:        res.Time,
@@ -258,7 +258,7 @@ func (state *State) addResource(res client.ResourceDto) (client.ResourceDto, err
 		Headers:     res.Headers,
 	}
 
-	if err := state.db.AddResource(doc); err != nil {
+	if err := state.index.AddResource(doc); err != nil {
 		return client.ResourceDto{}, err
 	}
 
@@ -292,7 +292,7 @@ func (state *State) countResource(URL string) (int64, error) {
 		}
 	}
 
-	count, err := state.db.CountResources(&client.ResSearchParams{
+	count, err := state.index.CountResources(&client.ResSearchParams{
 		URL:        URL,
 		EndDate:    endDate,
 		PageSize:   1,
