@@ -153,14 +153,11 @@ func TestAddResource(t *testing.T) {
 	}
 
 	indexMock := index_mock.NewMockIndex(mockCtrl)
+	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	indexMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
-		URL:        "https://example.onion",
-		PageSize:   1,
-		PageNumber: 1,
-	}}).Return(int64(0), nil)
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(0), cache.ErrNIL)
 
 	indexMock.EXPECT().AddResource(index.ResourceIdx{
 		URL:         "https://example.onion",
@@ -184,39 +181,13 @@ func TestAddResource(t *testing.T) {
 
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	s := State{index: indexMock, configClient: configClientMock, pub: pubMock}
-	res, err := s.tryAddResource(body, 5*time.Hour)
-	if err != nil {
-		t.FailNow()
-	}
-
-	if res.URL != "https://example.onion" {
-		t.FailNow()
-	}
-	if res.Body != "TheBody" {
-		t.FailNow()
-	}
-	if res.Title != "Example" {
-		t.FailNow()
-	}
-	if !res.Time.IsZero() {
-		t.FailNow()
-	}
-	if res.Meta["content"] != "content-meta" {
-		t.FailNow()
-	}
-	if res.Description != "the description" {
-		t.FailNow()
-	}
-	if res.Headers["Content-Type"] != "application/html" {
-		t.FailNow()
-	}
-	if res.Headers["Server"] != "Traefik" {
+	s := State{index: indexMock, configClient: configClientMock, pub: pubMock, urlCache: urlCacheMock}
+	if err := s.tryAddResource(&body); err != nil {
 		t.FailNow()
 	}
 }
 
-func TestAddResourceDuplicateNotAllowed(t *testing.T) {
+func TestAddResourceDuplicate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -230,53 +201,16 @@ func TestAddResourceDuplicateNotAllowed(t *testing.T) {
 		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
 	}
 
-	indexMock := index_mock.NewMockIndex(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
+	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 
-	indexMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
-		URL:        "https://example.onion",
-		PageSize:   1,
-		PageNumber: 1,
-	}, endDateZero: true}).Return(int64(1), nil)
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(1), nil)
 
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	s := State{index: indexMock, configClient: configClientMock}
+	s := State{configClient: configClientMock, urlCache: urlCacheMock}
 
-	if _, err := s.tryAddResource(body, -1); !errors.Is(err, errAlreadyIndexed) {
-		t.FailNow()
-	}
-}
-
-func TestAddResourceTooYoung(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	body := client2.ResourceDto{
-		URL:         "https://example.onion",
-		Body:        "TheBody",
-		Title:       "Example",
-		Time:        time.Time{},
-		Meta:        map[string]string{"content": "content-meta"},
-		Description: "the description",
-		Headers:     map[string]string{"Content-Type": "application/html", "Server": "Traefik"},
-	}
-
-	indexMock := index_mock.NewMockIndex(mockCtrl)
-	configClientMock := client_mock.NewMockClient(mockCtrl)
-
-	indexMock.EXPECT().CountResources(&searchParamsMatcher{target: client2.ResSearchParams{
-		URL:        "https://example.onion",
-		EndDate:    time.Now().Add(-10 * time.Minute),
-		PageSize:   1,
-		PageNumber: 1,
-	}}).Return(int64(1), nil)
-
-	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
-
-	s := State{index: indexMock, configClient: configClientMock}
-
-	if _, err := s.tryAddResource(body, 10*time.Minute); !errors.Is(err, errAlreadyIndexed) {
+	if err := s.tryAddResource(&body); !errors.Is(err, errAlreadyIndexed) {
 		t.FailNow()
 	}
 }
@@ -301,7 +235,7 @@ func TestAddResourceForbiddenHostname(t *testing.T) {
 
 	s := State{configClient: configClientMock}
 
-	if _, err := s.tryAddResource(body, -1); err != errHostnameNotAllowed {
+	if err := s.tryAddResource(&body); err != errHostnameNotAllowed {
 		t.FailNow()
 	}
 }
@@ -457,11 +391,7 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{{Hostname: "example2.onion"}}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Times(1).Return(client.RefreshDelay{Delay: -1}, nil)
 
-	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
-		URL:        "https://example.onion",
-		PageSize:   1,
-		PageNumber: 1,
-	}).Return(int64(0), nil)
+	urlCacheMock.EXPECT().GetInt64("urls:https://example.onion").Return(int64(0), nil)
 
 	// make sure we are creating the resource
 	indexMock.EXPECT().AddResource(index.ResourceIdx{
@@ -486,27 +416,22 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 
 	// make sure we are pushing found URLs (but only if refresh delay elapsed)
 	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(0), cache.ErrNIL)
-	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
-		URL:        "https://example.org",
-		PageSize:   1,
-		PageNumber: 1,
-	}).Return(int64(0), nil)
 
 	urlCacheMock.EXPECT().GetInt64("urls:https://example.org").Return(int64(1), nil)
 
 	urlCacheMock.EXPECT().GetInt64("urls:https://help.facebook.onion").Return(int64(1), nil)
 
 	urlCacheMock.EXPECT().GetInt64("urls:https://google.com/test?test=test").Return(int64(0), cache.ErrNIL)
-	indexMock.EXPECT().CountResources(&client2.ResSearchParams{
-		URL:        "https://google.com/test?test=test",
-		PageSize:   1,
-		PageNumber: 1,
-	}).Return(int64(1), nil)
 
 	subscriberMock.EXPECT().
 		PublishEvent(&event.FoundURLEvent{URL: "https://example.org"}).
 		Return(nil)
 	urlCacheMock.EXPECT().SetInt64("urls:https://example.org", int64(1), cache.NoTTL).Return(nil)
+
+	subscriberMock.EXPECT().
+		PublishEvent(&event.FoundURLEvent{URL: "https://google.com/test?test=test"}).
+		Return(nil)
+	urlCacheMock.EXPECT().SetInt64("urls:https://google.com/test?test=test", int64(1), cache.NoTTL).Return(nil)
 
 	s := State{index: indexMock, configClient: configClientMock, pub: pubMock, urlCache: urlCacheMock}
 	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {

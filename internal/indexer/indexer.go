@@ -197,7 +197,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	}
 
 	// Save resource
-	if _, err := state.tryAddResource(resDto, refreshDelay); err != nil {
+	if err := state.tryAddResource(resDto); err != nil {
 		return err
 	}
 
@@ -217,21 +217,6 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 			log.Trace().
 				Str("url", u).
 				Msg("skipping already published URL")
-			continue
-		}
-
-		// make sure url should be published (not already crawled)
-		count, err = state.countResource(u, refreshDelay)
-		if err != nil {
-			log.Err(err).
-				Str("url", evt.URL).
-				Msg("error while checking ES")
-			continue
-		}
-		if count > 0 {
-			log.Trace().
-				Str("url", evt.URL).
-				Msg("skipping already crawled URL")
 			continue
 		}
 
@@ -260,20 +245,20 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	return nil
 }
 
-func (state *State) tryAddResource(res client.ResourceDto, refreshDelay time.Duration) (client.ResourceDto, error) {
+func (state *State) tryAddResource(res *client.ResourceDto) error {
 	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 	if err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
 	u, err := url.Parse(res.URL)
 	if err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
 	for _, hostname := range forbiddenHostnames {
 		if strings.Contains(u.Hostname(), hostname.Hostname) {
-			return client.ResourceDto{}, errHostnameNotAllowed
+			return errHostnameNotAllowed
 		}
 	}
 
@@ -283,12 +268,13 @@ func (state *State) tryAddResource(res client.ResourceDto, refreshDelay time.Dur
 	// before the resource is saved. And this happen a LOT of time.
 	// therefore the best thing to do is to make the API check if the resource should **really** be added by checking if
 	// it isn't present on the database. This may sounds hacky, but it's the best solution i've come up at this time.
-	count, err := state.countResource(res.URL, refreshDelay)
-	if err != nil {
-		return client.ResourceDto{}, err
+	count, err := state.urlCache.GetInt64(fmt.Sprintf("urls:%s", res.URL))
+	if err != nil && err != cache.ErrNIL {
+		return err
 	}
+
 	if count > 0 {
-		return client.ResourceDto{}, fmt.Errorf("%s %w", res.URL, errAlreadyIndexed)
+		return fmt.Errorf("%s %w", res.URL, errAlreadyIndexed)
 	}
 
 	// Create Elasticsearch document
@@ -303,7 +289,7 @@ func (state *State) tryAddResource(res client.ResourceDto, refreshDelay time.Dur
 	}
 
 	if err := state.index.AddResource(doc); err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
 	// Publish linked event
@@ -316,29 +302,10 @@ func (state *State) tryAddResource(res client.ResourceDto, refreshDelay time.Dur
 		Description: res.Description,
 		Headers:     res.Headers,
 	}); err != nil {
-		return client.ResourceDto{}, err
+		return err
 	}
 
-	return res, nil
-}
-
-func (state *State) countResource(URL string, refreshDelay time.Duration) (int64, error) {
-	endDate := time.Time{}
-	if refreshDelay != -1 {
-		endDate = time.Now().Add(-refreshDelay)
-	}
-
-	count, err := state.index.CountResources(&client.ResSearchParams{
-		URL:        URL,
-		EndDate:    endDate,
-		PageSize:   1,
-		PageNumber: 1,
-	})
-	if err != nil {
-		return -1, err
-	}
-
-	return count, nil
+	return nil
 }
 
 func getSearchParams(r *http.Request) (*client.ResSearchParams, error) {
@@ -450,10 +417,10 @@ func writeJSON(w http.ResponseWriter, body interface{}) {
 	_, _ = w.Write(b)
 }
 
-func extractResource(msg event.NewResourceEvent) (client.ResourceDto, []string, error) {
+func extractResource(msg event.NewResourceEvent) (*client.ResourceDto, []string, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(msg.Body))
 	if err != nil {
-		return client.ResourceDto{}, nil, err
+		return nil, nil, err
 	}
 
 	// Get resource title
@@ -491,7 +458,7 @@ func extractResource(msg event.NewResourceEvent) (client.ResourceDto, []string, 
 		normalizedURLS = append(normalizedURLS, normalizedURL)
 	}
 
-	return client.ResourceDto{
+	return &client.ResourceDto{
 		URL:         msg.URL,
 		Body:        msg.Body,
 		Time:        msg.Time,
