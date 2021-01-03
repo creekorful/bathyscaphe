@@ -148,8 +148,8 @@ func TestHandleMessage(t *testing.T) {
 	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	urls := []string{"https://example.onion/index.php", "http://google.onion/admin/login.html",
-		"https://example.onion", "https://www.facebookcorewwwi.onion/recover/initiate?ars=facebook_login"}
+	urls := []string{"https://example.onion/index.php", "http://google.onion/admin.secret/login.html",
+		"https://example.onion", "https://www.facebookcorewwwi.onion/recover.now/initiate?ars=facebook_login"}
 
 	for _, u := range urls {
 		msg := event.RawMessage{}
