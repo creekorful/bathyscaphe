@@ -28,6 +28,10 @@ services:
     image: redis:alpine3.12
     volumes:
       - redisdata:/data
+  traefik:
+    image: traefik:v2.3.6
+    ports:
+      - 15015:80
   crawler:
     image: creekorful/tdsh-crawler:latest
     command: >

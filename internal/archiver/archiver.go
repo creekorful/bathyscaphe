@@ -75,7 +75,7 @@ func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.R
 		return fmt.Errorf("error while storing resource: %s", err)
 	}
 
-	log.Debug().Str("url", evt.URL).Msg("Successfully archived resource")
+	log.Info().Str("url", evt.URL).Msg("Successfully archived resource")
 
 	return nil
 }
