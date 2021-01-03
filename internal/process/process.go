@@ -143,6 +143,7 @@ func execute(process Process) cli.ActionFunc {
 
 		// Custom setup
 		if err := process.Initialize(provider); err != nil {
+			log.Err(err).Msg("error while initializing app")
 			return err
 		}
 
@@ -156,6 +157,10 @@ func execute(process Process) cli.ActionFunc {
 
 			for _, subscriberDef := range process.Subscribers() {
 				if err := sub.Subscribe(subscriberDef.Exchange, subscriberDef.Queue, subscriberDef.Handler); err != nil {
+					log.Err(err).
+						Str("exchange", subscriberDef.Exchange).
+						Str("queue", subscriberDef.Queue).
+						Msg("error while subscribing")
 					return err
 				}
 			}
