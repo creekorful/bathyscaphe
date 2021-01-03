@@ -19,14 +19,14 @@ func TestClient(t *testing.T) {
 	client := &client{
 		configAPIURL:       "",
 		sub:                subMock,
-		mutexes:            map[string]*sync.RWMutex{ForbiddenMimeTypesKey: {}},
-		keys:               []string{ForbiddenMimeTypesKey},
+		mutexes:            map[string]*sync.RWMutex{AllowedMimeTypesKey: {}},
+		keys:               []string{AllowedMimeTypesKey},
 		forbiddenMimeTypes: []MimeType{},
 		forbiddenHostnames: nil,
 		refreshDelay:       RefreshDelay{},
 	}
 
-	val, err := client.GetForbiddenMimeTypes()
+	val, err := client.GetAllowedMimeTypes()
 	if err != nil {
 		t.FailNow()
 	}
@@ -36,14 +36,14 @@ func TestClient(t *testing.T) {
 
 	msg := event.RawMessage{
 		Body:    []byte("[{\"content-type\": \"application/json\", \"extensions\": [\"json\"]}]"),
-		Headers: map[string]interface{}{"Config-Key": ForbiddenMimeTypesKey},
+		Headers: map[string]interface{}{"Config-Key": AllowedMimeTypesKey},
 	}
 
 	if err := client.handleConfigEvent(subMock, msg); err != nil {
 		t.FailNow()
 	}
 
-	val, err = client.GetForbiddenMimeTypes()
+	val, err = client.GetAllowedMimeTypes()
 	if err != nil {
 		t.FailNow()
 	}
