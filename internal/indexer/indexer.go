@@ -47,7 +47,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -85,6 +85,12 @@ func (state *State) Initialize(provider process.Provider) error {
 		return err
 	}
 	state.configClient = configClient
+
+	urlCache, err := provider.Cache()
+	if err != nil {
+		return err
+	}
+	state.urlCache = urlCache
 
 	return nil
 }

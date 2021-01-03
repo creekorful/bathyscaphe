@@ -72,6 +72,7 @@ services:
       - rabbitmq
       - elasticsearch
       - configapi
+      - redis
     ports:
       - 15005:8080
   configapi:
@@ -86,6 +87,7 @@ services:
     restart: always
     depends_on:
       - rabbitmq
+      - redis
     ports:
       - 15006:8080
   blacklister:

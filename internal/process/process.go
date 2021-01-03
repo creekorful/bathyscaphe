@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"fmt"
+	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
@@ -27,6 +28,8 @@ const (
 	HubURIFlag = "hub-uri"
 	// ConfigAPIURIFlag is the config-api-uri flag
 	ConfigAPIURIFlag = "config-api-uri"
+	// RedisURIFlag is the redis-uri flag
+	RedisURIFlag = "redis-uri"
 )
 
 // Provider is the implementation provider
@@ -41,6 +44,8 @@ type Provider interface {
 	Subscriber() (event.Subscriber, error)
 	// Publisher return a new configured publisher
 	Publisher() (event.Publisher, error)
+	// Cache return a new configured cache
+	Cache() (cache.Cache, error)
 	// GetValue return value for given key
 	GetValue(key string) string
 	// GetValue return values for given key
@@ -79,6 +84,10 @@ func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 
 func (p *defaultProvider) Publisher() (event.Publisher, error) {
 	return event.NewPublisher(p.ctx.String(HubURIFlag))
+}
+
+func (p *defaultProvider) Cache() (cache.Cache, error) {
+	return cache.NewRedisCache(p.ctx.String(RedisURIFlag))
 }
 
 func (p *defaultProvider) GetValue(key string) string {
@@ -227,6 +236,11 @@ func getCustomFlags() map[string]cli.Flag {
 	flags[ConfigAPIURIFlag] = &cli.StringFlag{
 		Name:     ConfigAPIURIFlag,
 		Usage:    "URI to the ConfigAPI server",
+		Required: true,
+	}
+	flags[RedisURIFlag] = &cli.StringFlag{
+		Name:     RedisURIFlag,
+		Usage:    "URI to the Redis server",
 		Required: true,
 	}
 

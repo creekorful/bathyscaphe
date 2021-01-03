@@ -26,17 +26,12 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag}
+	return []string{process.HubURIFlag, process.RedisURIFlag}
 }
 
 // CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{
-			Name:     "db-uri",
-			Usage:    "URI to the database server",
-			Required: true,
-		},
 		&cli.StringSliceFlag{
 			Name:  "default-value",
 			Usage: "Set default value of key. (format key=value)",
@@ -46,7 +41,11 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	// TODO init cache
+	configCache, err := provider.Cache()
+	if err != nil {
+		return err
+	}
+	state.configCache = configCache
 
 	pub, err := provider.Publisher()
 	if err != nil {
