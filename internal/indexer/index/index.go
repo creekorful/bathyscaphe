@@ -1,11 +1,11 @@
-package database
+package index
 
 import (
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"time"
 )
 
-//go:generate mockgen -destination=../database_mock/database_mock.go -package=database_mock . Database
+//go:generate mockgen -destination=../index_mock/index_mock.go -package=index_mock . Index
 
 // ResourceIdx represent a resource as stored in elasticsearch
 type ResourceIdx struct {
@@ -18,10 +18,10 @@ type ResourceIdx struct {
 	Headers     map[string]string `json:"headers"`
 }
 
-// Database is the interface used to abstract communication
+// Index is the interface used to abstract communication
 // with the persistence unit
-type Database interface {
-	SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error)
-	CountResources(params *api.ResSearchParams) (int64, error)
+type Index interface {
+	SearchResources(params *client.ResSearchParams) ([]ResourceIdx, error)
+	CountResources(params *client.ResSearchParams) (int64, error)
 	AddResource(res ResourceIdx) error
 }

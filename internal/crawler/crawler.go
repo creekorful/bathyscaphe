@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/constraint"
 	chttp "github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
@@ -18,7 +19,10 @@ import (
 	"time"
 )
 
-var errContentTypeNotAllowed = fmt.Errorf("content type is not allowed")
+var (
+	errContentTypeNotAllowed = fmt.Errorf("content type is not allowed")
+	errHostnameNotAllowed    = fmt.Errorf("hostname is not allowed")
+)
 
 // State represent the application state
 type State struct {
@@ -71,7 +75,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.clock = cl
 
-	configClient, err := provider.ConfigClient([]string{configapi.AllowedMimeTypesKey})
+	configClient, err := provider.ConfigClient([]string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey})
 	if err != nil {
 		return err
 	}
@@ -99,6 +103,13 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 	}
 
 	log.Debug().Str("url", evt.URL).Msg("Processing URL")
+
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
+		return err
+	} else if !allowed {
+		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		return errHostnameNotAllowed
+	}
 
 	r, err := state.httpClient.Get(evt.URL)
 	if err != nil {

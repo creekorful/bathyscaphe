@@ -1,9 +1,9 @@
-package database
+package index
 
 import (
 	"context"
 	"encoding/json"
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -11,12 +11,57 @@ import (
 
 var resourcesIndex = "resources"
 
+const mapping = `
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": false,
+    "properties": {
+      "body": {
+        "type": "text"
+      },
+      "description": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "time": {
+        "type": "date"
+      },
+      "title": {
+        "type": "text"
+      },
+      "headers": {
+        "properties": {
+          "server": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+
 type elasticSearchDB struct {
 	client *elastic.Client
 }
 
-// NewElasticDB create a new Database based on ES instance
-func NewElasticDB(uri string) (Database, error) {
+// NewElasticIndex create a new index based on ES instance
+func NewElasticIndex(uri string) (Index, error) {
 	// Create Elasticsearch client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -39,7 +84,7 @@ func NewElasticDB(uri string) (Database, error) {
 	}, nil
 }
 
-func (e *elasticSearchDB) SearchResources(params *api.ResSearchParams) ([]ResourceIdx, error) {
+func (e *elasticSearchDB) SearchResources(params *client.ResSearchParams) ([]ResourceIdx, error) {
 	q := buildSearchQuery(params)
 	from := (params.PageNumber - 1) * params.PageSize
 
@@ -72,7 +117,7 @@ func (e *elasticSearchDB) SearchResources(params *api.ResSearchParams) ([]Resour
 	return resources, nil
 }
 
-func (e *elasticSearchDB) CountResources(params *api.ResSearchParams) (int64, error) {
+func (e *elasticSearchDB) CountResources(params *client.ResSearchParams) (int64, error) {
 	q := buildSearchQuery(params)
 
 	count, err := e.client.Count(resourcesIndex).Query(q).Do(context.Background())
@@ -91,7 +136,7 @@ func (e *elasticSearchDB) AddResource(res ResourceIdx) error {
 	return err
 }
 
-func buildSearchQuery(params *api.ResSearchParams) elastic.Query {
+func buildSearchQuery(params *client.ResSearchParams) elastic.Query {
 	var queries []elastic.Query
 	if params.URL != "" {
 		log.Trace().Str("url", params.URL).Msg("SearchQuery: Setting url")
@@ -139,7 +184,9 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	}
 	if !exist {
 		log.Debug().Str("index", resourcesIndex).Msg("Creating missing index")
-		if _, err := es.CreateIndex(resourcesIndex).Do(ctx); err != nil {
+
+		q := es.CreateIndex(resourcesIndex).BodyString(mapping)
+		if _, err := q.Do(ctx); err != nil {
 			return err
 		}
 	}

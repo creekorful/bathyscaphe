@@ -2,7 +2,7 @@ package trandoshanctl
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog/log"
@@ -15,7 +15,7 @@ import (
 func GetApp() *cli.App {
 	return &cli.App{
 		Name:    "trandoshanctl",
-		Version: "0.8.0",
+		Version: "0.9.0",
 		Usage:   "Trandoshan CLI",
 		Flags: []cli.Flag{
 			logging.GetLogFlag(),
@@ -62,7 +62,7 @@ func schedule(c *cli.Context) error {
 	url := c.Args().First()
 
 	// Create the API client
-	apiClient := api.NewClient(c.String("api-uri"), c.String("api-token"))
+	apiClient := client.NewClient(c.String("api-uri"), c.String("api-token"))
 
 	if err := apiClient.ScheduleURL(url); err != nil {
 		log.Err(err).Str("url", url).Msg("Unable to schedule crawling for URL")
@@ -78,9 +78,9 @@ func search(c *cli.Context) error {
 	keyword := c.Args().First()
 
 	// Create the API client
-	apiClient := api.NewClient(c.String("api-uri"), c.String("api-token"))
+	apiClient := client.NewClient(c.String("api-uri"), c.String("api-token"))
 
-	params := api.ResSearchParams{
+	params := client.ResSearchParams{
 		Keyword:    keyword,
 		WithBody:   false,
 		PageSize:   1,

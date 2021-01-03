@@ -3,29 +3,29 @@ package scheduler
 import (
 	"errors"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
+	"github.com/creekorful/trandoshan/internal/constraint"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
-	"time"
 )
 
 var (
 	errNotOnionHostname    = errors.New("hostname is not .onion")
 	errProtocolNotAllowed  = errors.New("protocol is not allowed")
 	errExtensionNotAllowed = errors.New("extension is not allowed")
-	errShouldNotSchedule   = errors.New("should not be scheduled")
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
+
+	extensionRegex = regexp.MustCompile("\\.[\\w]+")
 )
 
 // State represent the application state
 type State struct {
-	apiClient    api.API
 	configClient configapi.Client
 }
 
@@ -36,7 +36,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.APIURIFlag, process.APITokenFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -46,13 +46,7 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	apiClient, err := provider.APIClient()
-	if err != nil {
-		return err
-	}
-	state.apiClient = apiClient
-
-	keys := []string{configapi.ForbiddenMimeTypesKey, configapi.ForbiddenHostnamesKey, configapi.RefreshDelayKey}
+	keys := []string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey}
 	configClient, err := provider.ConfigClient(keys)
 	if err != nil {
 		return err
@@ -97,52 +91,45 @@ func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
 	}
 
-	// Make sure extension is not forbidden
-	if mimeTypes, err := state.configClient.GetForbiddenMimeTypes(); err == nil {
+	// Make sure extension is allowed
+	allowed := false
+	if mimeTypes, err := state.configClient.GetAllowedMimeTypes(); err == nil {
 		for _, mimeType := range mimeTypes {
 			for _, ext := range mimeType.Extensions {
 				if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
-					return fmt.Errorf("%s (.%s) %w", u, ext, errExtensionNotAllowed)
+					allowed = true
 				}
 			}
 		}
 	}
 
+	// Handle case no extension present
+	if !allowed {
+		components := strings.Split(u.Path, "/")
+
+		lastIdx := 0
+		if size := len(components); size > 0 {
+			lastIdx = size - 1
+		}
+
+		// generally no extension means text/* content-type
+		if !extensionRegex.MatchString(components[lastIdx]) {
+			allowed = true
+		}
+	}
+
+	if !allowed {
+		return fmt.Errorf("%s %w", u, errExtensionNotAllowed)
+	}
+
 	// Make sure hostname is not forbidden
-	if hostnames, err := state.configClient.GetForbiddenHostnames(); err == nil {
-		for _, hostname := range hostnames {
-			if strings.Contains(u.Hostname(), hostname.Hostname) {
-				return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
-			}
-		}
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
+		return err
+	} else if !allowed {
+		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
 
-	// If we want to allow re-schedule of existing crawled resources we need to retrieve only resources
-	// that are newer than `now - refreshDelay`.
-	endDate := time.Time{}
-	if refreshDelay, err := state.configClient.GetRefreshDelay(); err == nil {
-		if refreshDelay.Delay != -1 {
-			endDate = time.Now().Add(-refreshDelay.Delay)
-		}
-	}
-
-	params := api.ResSearchParams{
-		URL:        u.String(),
-		EndDate:    endDate,
-		WithBody:   false,
-		PageSize:   1,
-		PageNumber: 1,
-	}
-	_, count, err := state.apiClient.SearchResources(&params)
-	if err != nil {
-		return fmt.Errorf("error while searching resource (%s): %s", u, err)
-	}
-
-	if count > 0 {
-		return fmt.Errorf("%s %w", u, errShouldNotSchedule)
-	}
-
-	// No matches: schedule!
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
 	if err := subscriber.PublishEvent(&event.NewURLEvent{URL: evt.URL}); err != nil {

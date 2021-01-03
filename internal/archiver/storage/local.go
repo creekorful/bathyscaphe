@@ -2,10 +2,12 @@ package storage
 
 import (
 	"fmt"
+	"hash/fnv"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -55,9 +57,14 @@ func formatPath(rawURL string, time time.Time) (string, error) {
 	b.WriteString(u.Host)
 	b.WriteRune(os.PathSeparator)
 
-	// Write path
 	if uri := u.RequestURI(); uri != "/" {
-		b.WriteString(strings.TrimPrefix(u.RequestURI(), "/"))
+		// Write path (hash it to prevent too long filename)
+		c := fnv.New64()
+		if _, err := c.Write([]byte(strings.TrimPrefix(u.RequestURI(), "/"))); err != nil {
+			return "", err
+		}
+
+		b.WriteString(strconv.FormatUint(c.Sum64(), 10))
 		b.WriteRune(os.PathSeparator)
 	}
 

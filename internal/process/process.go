@@ -3,10 +3,11 @@ package process
 import (
 	"context"
 	"fmt"
-	"github.com/creekorful/trandoshan/api"
+	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/trandoshan/internal/indexer/client"
 	"github.com/creekorful/trandoshan/internal/logging"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	version = "0.8.0"
+	version = "0.9.0"
 	// APIURIFlag is the api-uri flag
 	APIURIFlag = "api-uri"
 	// APITokenFlag is the api-token flag
@@ -27,6 +28,8 @@ const (
 	HubURIFlag = "hub-uri"
 	// ConfigAPIURIFlag is the config-api-uri flag
 	ConfigAPIURIFlag = "config-api-uri"
+	// RedisURIFlag is the redis-uri flag
+	RedisURIFlag = "redis-uri"
 )
 
 // Provider is the implementation provider
@@ -35,12 +38,14 @@ type Provider interface {
 	Clock() (clock.Clock, error)
 	// ConfigClient return a new configured configapi.Client
 	ConfigClient(keys []string) (configapi.Client, error)
-	// APIClient return a new configured api.API (client)
-	APIClient() (api.API, error)
+	// IndexerClient return a new configured indexer client
+	IndexerClient() (client.Client, error)
 	// Subscriber return a new configured subscriber
 	Subscriber() (event.Subscriber, error)
 	// Publisher return a new configured publisher
 	Publisher() (event.Publisher, error)
+	// Cache return a new configured cache
+	Cache() (cache.Cache, error)
 	// GetValue return value for given key
 	GetValue(key string) string
 	// GetValue return values for given key
@@ -69,8 +74,8 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 	return configapi.NewConfigClient(p.ctx.String(ConfigAPIURIFlag), sub, keys)
 }
 
-func (p *defaultProvider) APIClient() (api.API, error) {
-	return api.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
+func (p *defaultProvider) IndexerClient() (client.Client, error) {
+	return client.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
 }
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
@@ -79,6 +84,10 @@ func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 
 func (p *defaultProvider) Publisher() (event.Publisher, error) {
 	return event.NewPublisher(p.ctx.String(HubURIFlag))
+}
+
+func (p *defaultProvider) Cache() (cache.Cache, error) {
+	return cache.NewRedisCache(p.ctx.String(RedisURIFlag))
 }
 
 func (p *defaultProvider) GetValue(key string) string {
@@ -143,6 +152,7 @@ func execute(process Process) cli.ActionFunc {
 
 		// Custom setup
 		if err := process.Initialize(provider); err != nil {
+			log.Err(err).Msg("error while initializing app")
 			return err
 		}
 
@@ -156,6 +166,10 @@ func execute(process Process) cli.ActionFunc {
 
 			for _, subscriberDef := range process.Subscribers() {
 				if err := sub.Subscribe(subscriberDef.Exchange, subscriberDef.Queue, subscriberDef.Handler); err != nil {
+					log.Err(err).
+						Str("exchange", subscriberDef.Exchange).
+						Str("queue", subscriberDef.Queue).
+						Msg("error while subscribing")
 					return err
 				}
 			}
@@ -222,6 +236,11 @@ func getCustomFlags() map[string]cli.Flag {
 	flags[ConfigAPIURIFlag] = &cli.StringFlag{
 		Name:     ConfigAPIURIFlag,
 		Usage:    "URI to the ConfigAPI server",
+		Required: true,
+	}
+	flags[RedisURIFlag] = &cli.StringFlag{
+		Name:     RedisURIFlag,
+		Usage:    "URI to the Redis server",
 		Required: true,
 	}
 

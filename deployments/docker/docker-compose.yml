@@ -44,24 +44,10 @@ services:
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
-      --api-uri http://api:8080
-      --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNjaGVkdWxlciIsInJpZ2h0cyI6eyJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.dBR6KLQp2h2srY-By3zikEznhQplLCtDrvOkcXP6USY
       --config-api-uri http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
-      - api
-  extractor:
-    image: creekorful/tdsh-extractor:latest
-    command: >
-      --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --api-uri http://api:8080
-      --api-token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImV4dHJhY3RvciIsInJpZ2h0cyI6eyJQT1NUIjpbIi92MS9yZXNvdXJjZXMiXX19.mytGd_9zyK8y_T3fsWAmH8FnaBNr6qWefwCPDOx4in0
-    restart: always
-    depends_on:
-      - rabbitmq
-      - api
   archiver:
     image: creekorful/tdsh-archiver:latest
     command: >
@@ -73,19 +59,21 @@ services:
       - archiverdata:/archive
     depends_on:
       - rabbitmq
-  api:
-    image: creekorful/tdsh-api:latest
+  indexer:
+    image: creekorful/tdsh-indexer:latest
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --elasticsearch-uri http://elasticsearch:9200
       --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
       --config-api-uri http://configapi:8080
+      --redis-uri redis:6379
     restart: always
     depends_on:
       - rabbitmq
       - elasticsearch
       - configapi
+      - redis
     ports:
       - 15005:8080
   configapi:
@@ -93,14 +81,14 @@ services:
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
-      --db-uri redis:6379
-      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}]"
-      --default-value forbidden-mime-types="[{\"content-type\":\"image/png\",\"extensions\":[\"png\"]},{\"content-type\":\"image/gif\",\"extensions\":[\"gif\"]},{\"content-type\":\"image/jpeg\",\"extensions\":[\"jpg\",\"jpeg\"]},{\"content-type\":\"image/bmp\",\"extensions\":[\"bmp\"]},{\"content-type\":\"image/svg+xml\",\"extensions\":[\"svg\"]},{\"content-type\":\"text/css\",\"extensions\":[\"css\"]},{\"content-type\":\"application/javascript\",\"extensions\":[\"js\"]}]"
-      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[]}]"
+      --redis-uri redis:6379
+      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}, {\"hostname\": \"nytimes3xbfgragh.onion\"}]"
+      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
     restart: always
     depends_on:
       - rabbitmq
+      - redis
     ports:
       - 15006:8080
   blacklister:

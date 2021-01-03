@@ -119,6 +119,8 @@ func TestHandleNewURLEvent(t *testing.T) {
 			break
 		}
 
+		configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+
 		if test.err == nil {
 			httpResponseMock.EXPECT().Headers().Return(test.responseHeaders)
 			httpResponseMock.EXPECT().Body().Return(strings.NewReader(test.responseBody))
@@ -142,5 +144,30 @@ func TestHandleNewURLEvent(t *testing.T) {
 		if !errors.Is(err, test.err) {
 			t.Errorf("test shouldn't have passed but hasn't returned expected error: %s", err)
 		}
+	}
+}
+
+func TestHandleNewURLEventHostnameForbidden(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	s := State{
+		configClient: configClientMock,
+	}
+
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.NewURLEvent{}).
+		SetArg(1, event.NewURLEvent{URL: "https://l.facebookcorewwwi.onion/test.php"}).
+		Return(nil)
+
+	configClientMock.EXPECT().GetForbiddenHostnames().
+		Return([]client.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}}, nil)
+
+	if err := s.handleNewURLEvent(subscriberMock, msg); err != errHostnameNotAllowed {
+		t.Fail()
 	}
 }

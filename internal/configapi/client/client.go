@@ -15,8 +15,6 @@ import (
 //go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
 
 const (
-	// ForbiddenMimeTypesKey is the key to access the forbidden mime types config
-	ForbiddenMimeTypesKey = "forbidden-mime-types"
 	// AllowedMimeTypesKey is the key to access the allowed mime types config
 	AllowedMimeTypesKey = "allowed-mime-types"
 	// ForbiddenHostnamesKey is the key to access the forbidden hostnames config
@@ -45,7 +43,6 @@ type RefreshDelay struct {
 
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
-	GetForbiddenMimeTypes() ([]MimeType, error)
 	GetAllowedMimeTypes() ([]MimeType, error)
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
 	GetRefreshDelay() (RefreshDelay, error)
@@ -94,22 +91,6 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 	}
 
 	return client, nil
-}
-
-func (c *client) GetForbiddenMimeTypes() ([]MimeType, error) {
-	c.mutexes[ForbiddenMimeTypesKey].RLock()
-	defer c.mutexes[ForbiddenMimeTypesKey].RUnlock()
-
-	return c.forbiddenMimeTypes, nil
-}
-
-func (c *client) setForbiddenMimeTypes(values []MimeType) error {
-	c.mutexes[ForbiddenMimeTypesKey].Lock()
-	defer c.mutexes[ForbiddenMimeTypesKey].Unlock()
-
-	c.forbiddenMimeTypes = values
-
-	return nil
 }
 
 func (c *client) GetAllowedMimeTypes() ([]MimeType, error) {
@@ -199,15 +180,6 @@ func (c *client) get(key string) ([]byte, error) {
 
 func (c *client) setValue(key string, value []byte) error {
 	switch key {
-	case ForbiddenMimeTypesKey:
-		var val []MimeType
-		if err := json.Unmarshal(value, &val); err != nil {
-			return err
-		}
-		if err := c.setForbiddenMimeTypes(val); err != nil {
-			return err
-		}
-		break
 	case AllowedMimeTypesKey:
 		var val []MimeType
 		if err := json.Unmarshal(value, &val); err != nil {

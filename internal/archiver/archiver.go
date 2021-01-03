@@ -51,7 +51,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.NewResourceExchange, Queue: "archivingQueue", Handler: state.handleNewResourceEvent},
+		{Exchange: event.NewIndexExchange, Queue: "archivingQueue", Handler: state.handleNewIndexEvent},
 	}
 }
 
@@ -60,13 +60,11 @@ func (state *State) HTTPHandler(provider process.Provider) http.Handler {
 	return nil
 }
 
-func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.NewResourceEvent
+func (state *State) handleNewIndexEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+	var evt event.NewIndexEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
-
-	log.Debug().Str("url", evt.URL).Msg("Processing new resource")
 
 	res, err := formatResource(&evt)
 	if err != nil {
@@ -77,19 +75,22 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return fmt.Errorf("error while storing resource: %s", err)
 	}
 
+	log.Debug().Str("url", evt.URL).Msg("Successfully archived resource")
+
 	return nil
 }
 
-func formatResource(evt *event.NewResourceEvent) ([]byte, error) {
+func formatResource(evt *event.NewIndexEvent) ([]byte, error) {
 	builder := strings.Builder{}
 
-	// First headers
-	for key, value := range evt.Headers {
-		builder.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
-	}
+	// First URL
+	builder.WriteString(fmt.Sprintf("%s\n\n", evt.URL))
 
-	// Then separator for body
-	builder.WriteString("\r\n")
+	// Then headers
+	for key, value := range evt.Headers {
+		builder.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+	}
+	builder.WriteString("\n")
 
 	// Then body
 	builder.WriteString(evt.Body)
