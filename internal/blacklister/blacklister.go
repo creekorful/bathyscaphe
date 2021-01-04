@@ -1,6 +1,8 @@
 package blacklister
 
 import (
+	"fmt"
+	"github.com/creekorful/trandoshan/internal/cache"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
@@ -12,7 +14,8 @@ import (
 
 // State represent the application state
 type State struct {
-	configClient configapi.Client
+	configClient  configapi.Client
+	hostnameCache cache.Cache
 }
 
 // Name return the process name
@@ -22,7 +25,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -32,7 +35,13 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	client, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey})
+	hostnameCache, err := provider.Cache()
+	if err != nil {
+		return err
+	}
+	state.hostnameCache = hostnameCache
+
+	client, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListThresholdKey})
 	if err != nil {
 		return err
 	}
@@ -64,29 +73,52 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 		return err
 	}
 
-	forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
+	threshold, err := state.configClient.GetBlackListThreshold()
 	if err != nil {
 		return err
 	}
 
-	// prevent duplicates
-	for _, hostname := range forbiddenHostnames {
-		if hostname.Hostname == u.Hostname() {
+	cacheKey := fmt.Sprintf("hostnames:%s", u.Hostname())
+	count, err := state.hostnameCache.GetInt64(cacheKey)
+	if err != nil && err != cache.ErrNIL {
+		return err
+	}
+	count++
+
+	if count >= threshold.Threshold {
+		log.Info().
+			Str("hostname", u.Hostname()).
+			Int64("count", count).
+			Msg("Blacklisting hostname")
+
+		forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
+		if err != nil {
+			return err
+		}
+
+		// prevent duplicates
+		found := false
+		for _, hostname := range forbiddenHostnames {
+			if hostname.Hostname == u.Hostname() {
+				found = true
+				break
+			}
+		}
+
+		if found {
 			log.Trace().Str("hostname", u.Hostname()).Msg("skipping duplicate hostname")
-			return nil
+		} else {
+			forbiddenHostnames = append(forbiddenHostnames, configapi.ForbiddenHostname{Hostname: u.Hostname()})
+			if err := state.configClient.Set(configapi.ForbiddenHostnamesKey, forbiddenHostnames); err != nil {
+				return err
+			}
 		}
 	}
 
-	forbiddenHostnames = append(forbiddenHostnames, configapi.ForbiddenHostname{Hostname: u.Hostname()})
-
-	if err := state.configClient.Set(configapi.ForbiddenHostnamesKey, forbiddenHostnames); err != nil {
+	// Update count
+	if err := state.hostnameCache.SetInt64(cacheKey, count, cache.NoTTL); err != nil {
 		return err
 	}
-
-	log.Debug().
-		Str("url", evt.URL).
-		Str("hostname", u.Hostname()).
-		Msg("Blacklisted new hostname")
 
 	return nil
 }
