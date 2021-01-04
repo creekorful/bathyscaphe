@@ -22,7 +22,7 @@ const (
 	// RefreshDelayKey is the key to access the refresh delay config
 	RefreshDelayKey = "refresh-delay"
 	// BlackListThresholdKey is the key to access the blacklist threshold config
-	BlackListThresholdKey = "blacklist-delay"
+	BlackListThresholdKey = "blacklist-threshold"
 )
 
 // MimeType is the mime type as represented in the config
@@ -157,7 +157,7 @@ func (c *client) GetBlackListThreshold() (BlackListThreshold, error) {
 	return c.blackListThreshold, nil
 }
 
-func (c *client) setBlackListDelay(value BlackListThreshold) error {
+func (c *client) setBlackListThreshold(value BlackListThreshold) error {
 	c.mutexes[BlackListThresholdKey].Lock()
 	defer c.mutexes[BlackListThresholdKey].Unlock()
 
@@ -237,7 +237,7 @@ func (c *client) setValue(key string, value []byte) error {
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.setBlackListDelay(val); err != nil {
+		if err := c.setBlackListThreshold(val); err != nil {
 			return err
 		}
 		break

@@ -28,8 +28,8 @@ func TestHandleTimeoutURLEventNoDispatch(t *testing.T) {
 
 	configClientMock.EXPECT().GetBlackListThreshold().Return(configapi.BlackListThreshold{Threshold: 10}, nil)
 
-	hostnameCacheMock.EXPECT().GetInt64("hostnames:down-example.onion").Return(int64(4), nil)
-	hostnameCacheMock.EXPECT().SetInt64("hostnames:down-example.onion", int64(5), cache.NoTTL).Return(nil)
+	hostnameCacheMock.EXPECT().GetInt64("hostnames:down-example.onion").Return(int64(0), cache.ErrNIL)
+	hostnameCacheMock.EXPECT().SetInt64("hostnames:down-example.onion", int64(1), cache.NoTTL).Return(nil)
 
 	s := State{configClient: configClientMock, hostnameCache: hostnameCacheMock}
 	if err := s.handleTimeoutURLEvent(subscriberMock, msg); err != nil {

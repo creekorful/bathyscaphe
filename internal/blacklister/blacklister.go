@@ -41,7 +41,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.hostnameCache = hostnameCache
 
-	client, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey})
+	client, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListThresholdKey})
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 
 	cacheKey := fmt.Sprintf("hostnames:%s", u.Hostname())
 	count, err := state.hostnameCache.GetInt64(cacheKey)
-	if err != nil {
+	if err != nil && err != cache.ErrNIL {
 		return err
 	}
 	count++
