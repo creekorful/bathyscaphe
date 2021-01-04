@@ -21,6 +21,8 @@ const (
 	ForbiddenHostnamesKey = "forbidden-hostnames"
 	// RefreshDelayKey is the key to access the refresh delay config
 	RefreshDelayKey = "refresh-delay"
+	// BlackListThresholdKey is the key to access the blacklist threshold config
+	BlackListThresholdKey = "blacklist-delay"
 )
 
 // MimeType is the mime type as represented in the config
@@ -41,11 +43,17 @@ type RefreshDelay struct {
 	Delay time.Duration `json:"delay"`
 }
 
+// BlackListThreshold is the threshold to reach before blacklisting domain
+type BlackListThreshold struct {
+	Threshold int64 `json:"threshold"`
+}
+
 // Client is a nice client interface for the ConfigAPI
 type Client interface {
 	GetAllowedMimeTypes() ([]MimeType, error)
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
 	GetRefreshDelay() (RefreshDelay, error)
+	GetBlackListThreshold() (BlackListThreshold, error)
 
 	Set(key string, value interface{}) error
 }
@@ -60,6 +68,7 @@ type client struct {
 	allowedMimeTypes   []MimeType
 	forbiddenHostnames []ForbiddenHostname
 	refreshDelay       RefreshDelay
+	blackListThreshold BlackListThreshold
 }
 
 // NewConfigClient create a new client for the ConfigAPI.
@@ -141,6 +150,22 @@ func (c *client) setRefreshDelay(value RefreshDelay) error {
 	return nil
 }
 
+func (c *client) GetBlackListThreshold() (BlackListThreshold, error) {
+	c.mutexes[BlackListThresholdKey].RLock()
+	defer c.mutexes[BlackListThresholdKey].RUnlock()
+
+	return c.blackListThreshold, nil
+}
+
+func (c *client) setBlackListDelay(value BlackListThreshold) error {
+	c.mutexes[BlackListThresholdKey].Lock()
+	defer c.mutexes[BlackListThresholdKey].Unlock()
+
+	c.blackListThreshold = value
+
+	return nil
+}
+
 func (c *client) Set(key string, value interface{}) error {
 	b, err := json.Marshal(value)
 	if err != nil {
@@ -204,6 +229,15 @@ func (c *client) setValue(key string, value []byte) error {
 			return err
 		}
 		if err := c.setRefreshDelay(val); err != nil {
+			return err
+		}
+		break
+	case BlackListThresholdKey:
+		var val BlackListThreshold
+		if err := json.Unmarshal(value, &val); err != nil {
+			return err
+		}
+		if err := c.setBlackListDelay(val); err != nil {
 			return err
 		}
 		break
