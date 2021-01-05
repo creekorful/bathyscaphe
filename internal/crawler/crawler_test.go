@@ -5,15 +5,50 @@ import (
 	"github.com/creekorful/trandoshan/internal/clock_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
-	"github.com/creekorful/trandoshan/internal/crawler/http"
-	"github.com/creekorful/trandoshan/internal/crawler/http_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	"github.com/creekorful/trandoshan/internal/http"
+	"github.com/creekorful/trandoshan/internal/http_mock"
+	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/trandoshan/internal/process_mock"
+	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestState_Name(t *testing.T) {
+	s := State{}
+	if s.Name() != "crawler" {
+		t.Fail()
+	}
+}
+
+func TestState_CommonFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.UserAgentFlag, process.TorURIFlag})
+}
+
+func TestState_CustomFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCustomFlags(t, &s, nil)
+}
+
+func TestState_Initialize(t *testing.T) {
+	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
+		p.HTTPClient()
+		p.Clock()
+		p.ConfigClient([]string{client.AllowedMimeTypesKey, client.ForbiddenHostnamesKey})
+	})
+}
+
+func TestState_Subscribers(t *testing.T) {
+	s := State{}
+	test.CheckProcessSubscribers(t, &s, []test.SubscriberDef{
+		{Queue: "crawlingQueue", Exchange: "url.new"},
+	})
+}
 
 func TestHandleNewURLEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -167,7 +202,7 @@ func TestHandleNewURLEventHostnameForbidden(t *testing.T) {
 	configClientMock.EXPECT().GetForbiddenHostnames().
 		Return([]client.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}}, nil)
 
-	if err := s.handleNewURLEvent(subscriberMock, msg); err != errHostnameNotAllowed {
+	if err := s.handleNewURLEvent(subscriberMock, msg); !errors.Is(err, errHostnameNotAllowed) {
 		t.Fail()
 	}
 }

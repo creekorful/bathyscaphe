@@ -41,7 +41,7 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	configCache, err := provider.Cache()
+	configCache, err := provider.Cache("configuration")
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (state *State) Subscribers() []process.SubscriberDef {
 }
 
 // HTTPHandler returns the HTTP API the process expose
-func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+func (state *State) HTTPHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/config/{key}", state.getConfiguration).Methods(http.MethodGet)
 	r.HandleFunc("/config/{key}", state.setConfiguration).Methods(http.MethodPut)
@@ -90,7 +90,7 @@ func (state *State) getConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Msg("Getting key")
 
-	b, err := state.configCache.GetBytes("conf:" + key)
+	b, err := state.configCache.GetBytes(key)
 	if err != nil {
 		log.Err(err).Msg("error while retrieving configuration")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -114,7 +114,7 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Str("key", key).Bytes("value", b).Msg("Setting key")
 
-	if err := state.configCache.SetBytes("conf:"+key, b, cache.NoTTL); err != nil {
+	if err := state.configCache.SetBytes(key, b, cache.NoTTL); err != nil {
 		log.Err(err).Msg("error while setting configuration")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -135,8 +135,8 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 func setDefaultValues(configCache cache.Cache, values map[string]string) error {
 	for key, value := range values {
-		if _, err := configCache.GetBytes("conf:" + key); err == cache.ErrNIL {
-			if err := configCache.SetBytes("conf:"+key, []byte(value), cache.NoTTL); err != nil {
+		if _, err := configCache.GetBytes(key); err == cache.ErrNIL {
+			if err := configCache.SetBytes(key, []byte(value), cache.NoTTL); err != nil {
 				return fmt.Errorf("error while setting default value of %s: %s", key, err)
 			}
 		}

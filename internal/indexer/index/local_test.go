@@ -1,4 +1,4 @@
-package storage
+package index
 
 import (
 	"io/ioutil"
@@ -47,18 +47,18 @@ func TestFormatPath(t *testing.T) {
 	}
 }
 
-func TestLocalStorage_Store(t *testing.T) {
+func TestLocalIndex_IndexResource(t *testing.T) {
 	d, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.FailNow()
 	}
 	defer os.RemoveAll(d)
 
-	s := localStorage{baseDir: d}
+	s := localIndex{baseDir: d}
 
 	ti := time.Date(2020, time.October, 29, 12, 4, 9, 0, time.UTC)
 
-	if err := s.Store("https://google.com", ti, []byte("Hello, world")); err != nil {
+	if err := s.IndexResource("https://google.com", ti, "Hello, world", map[string]string{"Server": "Traefik"}); err != nil {
 		t.Fail()
 	}
 
@@ -76,7 +76,18 @@ func TestLocalStorage_Store(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	if string(b) != "Hello, world" {
+	if string(b) != "https://google.com\n\nServer: Traefik\n\nHello, world" {
 		t.Fail()
+	}
+}
+
+func TestFormatResource(t *testing.T) {
+	res, err := formatResource("https://google.com", "Hello, world", map[string]string{"Server": "Traefik", "Content-Type": "text/html"})
+	if err != nil {
+		t.FailNow()
+	}
+
+	if string(res) != "https://google.com\n\nServer: Traefik\nContent-Type: text/html\n\nHello, world" {
+		t.Errorf("got %s want %s", string(res), "https://google.com\n\nServer: Traefik\nContent-Type: text/html\n\nHello, world")
 	}
 }

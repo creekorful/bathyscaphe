@@ -30,49 +30,15 @@ and wait for all containers to start.
 
 # How to initiate crawling
 
-Since the API is exposed on localhost:15005, one can use it to start crawling:
+One can use the RabbitMQ dashhboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**.
 
-using trandoshanctl executable:
+The object should look like this:
 
-```sh
-$ trandoshanctl --api-token <token> schedule https://www.facebookcorewwwi.onion
-```
-
-or using the docker image:
-
-```sh
-$ docker run creekorful/trandoshanctl --api-token <token> --api-uri <uri> schedule https://www.facebookcorewwwi.onion
-```
-
-(you'll need to specify the api uri if you use the docker container)
-
-this will schedule given URL for crawling.
-
-## Example token
-
-Here's a working API token that you can use with trandoshanctl if you haven't changed the API signing key:
-
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InRyYW5kb3NoYW5jdGwiLCJyaWdodHMiOnsiUE9TVCI6WyIvdjEvdXJscyJdLCJHRVQiOlsiL3YxL3Jlc291cmNlcyJdfX0.jGA8WODYKtKy7ZijngoV8C3iWi1eTvMitA8Z1Is2GUg 
-```
-
-This token is the representation of the following payload:
-
-```
+```json
 {
-  "username": "trandoshanctl",
-  "rights": {
-    "POST": [
-      "/v1/urls"
-    ],
-    "GET": [
-      "/v1/resources"
-    ]
-  }
+  "url": "https://facebookcorewwwi.onion"
 }
 ```
-
-you may create your own tokens with the rights needed. In the future a CLI tool will allow token generation easily.
 
 ## How to speed up crawling
 
@@ -86,14 +52,6 @@ $ ./scripts/scale.sh crawler=5
 this will set the number of crawler instance to 5.
 
 # How to view results
-
-## Using trandoshanctl
-
-```sh
-$ trandoshanctl search <term>
-```
-
-## Using kibana
 
 You can use the Kibana dashboard available at http://localhost:15004. You will need to create an index pattern named '
 resources', and when it asks for the time field, choose 'time'.

@@ -1,5 +1,7 @@
 package client
 
+//go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
+
 import (
 	"bytes"
 	"encoding/json"
@@ -11,8 +13,6 @@ import (
 	"sync"
 	"time"
 )
-
-//go:generate mockgen -destination=../client_mock/client_mock.go -package=client_mock . Client
 
 const (
 	// AllowedMimeTypesKey is the key to access the allowed mime types config

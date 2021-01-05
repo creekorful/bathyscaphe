@@ -1,4 +1,4 @@
-package storage
+package index
 
 import (
 	"fmt"
@@ -12,17 +12,21 @@ import (
 	"time"
 )
 
-type localStorage struct {
+type localIndex struct {
 	baseDir string
 }
 
-// NewLocalStorage returns a new Storage that use local file system
-func NewLocalStorage(root string) (Storage, error) {
-	return &localStorage{baseDir: root}, nil
+func newLocalIndex(root string) (Index, error) {
+	return &localIndex{baseDir: root}, nil
 }
 
-func (s *localStorage) Store(url string, time time.Time, body []byte) error {
+func (s *localIndex) IndexResource(url string, time time.Time, body string, headers map[string]string) error {
 	path, err := formatPath(url, time)
+	if err != nil {
+		return err
+	}
+
+	content, err := formatResource(url, body, headers)
 	if err != nil {
 		return err
 	}
@@ -34,11 +38,29 @@ func (s *localStorage) Store(url string, time time.Time, body []byte) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(fullPath, body, 0640); err != nil {
+	if err := ioutil.WriteFile(fullPath, content, 0640); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func formatResource(url string, body string, headers map[string]string) ([]byte, error) {
+	builder := strings.Builder{}
+
+	// First URL
+	builder.WriteString(fmt.Sprintf("%s\n\n", url))
+
+	// Then headers
+	for key, value := range headers {
+		builder.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+	}
+	builder.WriteString("\n")
+
+	// Then body
+	builder.WriteString(body)
+
+	return []byte(builder.String()), nil
 }
 
 func formatPath(rawURL string, time time.Time) (string, error) {

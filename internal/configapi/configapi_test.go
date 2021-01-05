@@ -5,6 +5,9 @@ import (
 	"github.com/creekorful/trandoshan/internal/cache_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/trandoshan/internal/process_mock"
+	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"io/ioutil"
@@ -14,12 +17,42 @@ import (
 	"testing"
 )
 
+func TestState_Name(t *testing.T) {
+	s := State{}
+	if s.Name() != "configapi" {
+		t.Fail()
+	}
+}
+
+func TestState_CommonFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.RedisURIFlag})
+}
+
+func TestState_CustomFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCustomFlags(t, &s, []string{"default-value"})
+}
+
+func TestState_Initialize(t *testing.T) {
+	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
+		p.Cache("configuration")
+		p.Publisher()
+		p.GetValues("default-value")
+	})
+}
+
+func TestState_Subscribers(t *testing.T) {
+	s := State{}
+	test.CheckProcessSubscribers(t, &s, nil)
+}
+
 func TestGetConfiguration(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	configCacheMock := cache_mock.NewMockCache(mockCtrl)
-	configCacheMock.EXPECT().GetBytes("conf:hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
+	configCacheMock.EXPECT().GetBytes("hello").Return([]byte("{\"ttl\": \"10s\"}"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/config/hello", nil)
 	req = mux.SetURLVars(req, map[string]string{"key": "hello"})
@@ -53,7 +86,7 @@ func TestSetConfiguration(t *testing.T) {
 	configCacheMock := cache_mock.NewMockCache(mockCtrl)
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	configCacheMock.EXPECT().SetBytes("conf:hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
+	configCacheMock.EXPECT().SetBytes("hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
 	pubMock.EXPECT().PublishJSON("config", event.RawMessage{
 		Body:    []byte("{\"ttl\": \"10s\"}"),
 		Headers: map[string]interface{}{"Config-Key": "hello"},

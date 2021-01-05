@@ -1,16 +1,21 @@
 package process
 
+//go:generate mockgen -destination=../process_mock/process_mock.go -package=process_mock . Provider
+
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/indexer/client"
-	"github.com/creekorful/trandoshan/internal/logging"
+	chttp "github.com/creekorful/trandoshan/internal/http"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpproxy"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,6 +35,10 @@ const (
 	ConfigAPIURIFlag = "config-api-uri"
 	// RedisURIFlag is the redis-uri flag
 	RedisURIFlag = "redis-uri"
+	// TorURIFlag is the tor-uri flag
+	TorURIFlag = "tor-uri"
+	// UserAgentFlag is the user-agent flag
+	UserAgentFlag = "user-agent"
 )
 
 // Provider is the implementation provider
@@ -38,14 +47,14 @@ type Provider interface {
 	Clock() (clock.Clock, error)
 	// ConfigClient return a new configured configapi.Client
 	ConfigClient(keys []string) (configapi.Client, error)
-	// IndexerClient return a new configured indexer client
-	IndexerClient() (client.Client, error)
 	// Subscriber return a new configured subscriber
 	Subscriber() (event.Subscriber, error)
 	// Publisher return a new configured publisher
 	Publisher() (event.Publisher, error)
 	// Cache return a new configured cache
-	Cache() (cache.Cache, error)
+	Cache(keyPrefix string) (cache.Cache, error)
+	// HTTPClient return a new configured http client
+	HTTPClient() (chttp.Client, error)
 	// GetValue return value for given key
 	GetValue(key string) string
 	// GetValue return values for given key
@@ -74,10 +83,6 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 	return configapi.NewConfigClient(p.ctx.String(ConfigAPIURIFlag), sub, keys)
 }
 
-func (p *defaultProvider) IndexerClient() (client.Client, error) {
-	return client.NewClient(p.ctx.String(APIURIFlag), p.ctx.String(APITokenFlag)), nil
-}
-
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
 	return event.NewSubscriber(p.ctx.String(HubURIFlag))
 }
@@ -86,8 +91,20 @@ func (p *defaultProvider) Publisher() (event.Publisher, error) {
 	return event.NewPublisher(p.ctx.String(HubURIFlag))
 }
 
-func (p *defaultProvider) Cache() (cache.Cache, error) {
-	return cache.NewRedisCache(p.ctx.String(RedisURIFlag))
+func (p *defaultProvider) Cache(keyPrefix string) (cache.Cache, error) {
+	return cache.NewRedisCache(p.ctx.String(RedisURIFlag), keyPrefix)
+}
+
+func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
+	return chttp.NewFastHTTPClient(&fasthttp.Client{
+		// Use given TOR proxy to reach the hidden services
+		Dial: fasthttpproxy.FasthttpSocksDialer(p.ctx.String(TorURIFlag)),
+		// Disable SSL verification since we do not really care about this
+		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
+		ReadTimeout:  time.Second * 5,
+		WriteTimeout: time.Second * 5,
+		Name:         p.ctx.String(UserAgentFlag),
+	}), nil
 }
 
 func (p *defaultProvider) GetValue(key string) string {
@@ -112,7 +129,7 @@ type Process interface {
 	CustomFlags() []cli.Flag
 	Initialize(provider Provider) error
 	Subscribers() []SubscriberDef
-	HTTPHandler(provider Provider) http.Handler
+	HTTPHandler() http.Handler
 }
 
 // MakeApp return cli.App corresponding for given Process
@@ -122,7 +139,11 @@ func MakeApp(process Process) *cli.App {
 		Version: version,
 		Usage:   fmt.Sprintf("Trandoshan %s component", process.Name()),
 		Flags: []cli.Flag{
-			logging.GetLogFlag(),
+			&cli.StringFlag{
+				Name:  "log-level",
+				Usage: "Set the application log level",
+				Value: "info",
+			},
 		},
 		Action: execute(process),
 	}
@@ -148,7 +169,7 @@ func execute(process Process) cli.ActionFunc {
 		provider := NewDefaultProvider(c)
 
 		// Common setup
-		logging.ConfigureLogger(c)
+		configureLogger(c)
 
 		// Custom setup
 		if err := process.Initialize(provider); err != nil {
@@ -178,7 +199,7 @@ func execute(process Process) cli.ActionFunc {
 		var srv *http.Server
 
 		// Expose HTTP API if any
-		if h := process.HTTPHandler(provider); h != nil {
+		if h := process.HTTPHandler(); h != nil {
 			srv = &http.Server{
 				Addr: "0.0.0.0:8080",
 				// Good practice to set timeouts to avoid Slowloris attacks.
@@ -243,6 +264,29 @@ func getCustomFlags() map[string]cli.Flag {
 		Usage:    "URI to the Redis server",
 		Required: true,
 	}
+	flags[TorURIFlag] = &cli.StringFlag{
+		Name:     TorURIFlag,
+		Usage:    "URI to the TOR SOCKS proxy",
+		Required: true,
+	}
+	flags[UserAgentFlag] = &cli.StringFlag{
+		Name:  UserAgentFlag,
+		Usage: "User agent to use",
+		Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
+	}
 
 	return flags
+}
+
+func configureLogger(ctx *cli.Context) {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	// Set application log level
+	if lvl, err := zerolog.ParseLevel(ctx.String("log-level")); err == nil {
+		zerolog.SetGlobalLevel(lvl)
+	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
+	log.Debug().Stringer("lvl", zerolog.GlobalLevel()).Msg("Setting log level")
 }
