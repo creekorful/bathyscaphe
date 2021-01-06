@@ -3,12 +3,15 @@ package scheduler
 import (
 	"errors"
 	"fmt"
+	"github.com/PuerkitoBio/purell"
+	"github.com/creekorful/trandoshan/internal/cache"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/constraint"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"mvdan.cc/xurls/v2"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -20,6 +23,7 @@ var (
 	errProtocolNotAllowed  = errors.New("protocol is not allowed")
 	errExtensionNotAllowed = errors.New("extension is not allowed")
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
+	errAlreadyScheduled    = errors.New("URL is already scheduled")
 
 	extensionRegex = regexp.MustCompile("\\.[\\w]+")
 )
@@ -27,6 +31,7 @@ var (
 // State represent the application state
 type State struct {
 	configClient configapi.Client
+	urlCache     cache.Cache
 }
 
 // Name return the process name
@@ -36,7 +41,7 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag}
 }
 
 // CustomFlags return process custom flags
@@ -46,12 +51,18 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	keys := []string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey}
+	keys := []string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey, configapi.RefreshDelayKey}
 	configClient, err := provider.ConfigClient(keys)
 	if err != nil {
 		return err
 	}
 	state.configClient = configClient
+
+	urlCache, err := provider.Cache("url")
+	if err != nil {
+		return err
+	}
+	state.urlCache = urlCache
 
 	return nil
 }
@@ -59,24 +70,39 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.FoundURLExchange, Queue: "schedulingQueue", Handler: state.handleURLFoundEvent},
+		{Exchange: event.NewResourceExchange, Queue: "schedulingQueue", Handler: state.handleNewResourceEvent},
 	}
 }
 
 // HTTPHandler returns the HTTP API the process expose
-func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
-func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.FoundURLEvent
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+	var evt event.NewResourceEvent
 	if err := subscriber.Read(&msg, &evt); err != nil {
 		return err
 	}
 
-	log.Trace().Str("url", evt.URL).Msg("Processing URL")
+	log.Trace().Str("url", evt.URL).Msg("Processing new resource")
 
-	u, err := url.Parse(evt.URL)
+	urls, err := extractURLS(&evt)
+	if err != nil {
+		return fmt.Errorf("error while extracting URLs")
+	}
+
+	for _, u := range urls {
+		if err := state.processURL(u, subscriber); err != nil {
+			log.Err(err).Msg("error while processing URL")
+		}
+	}
+
+	return nil
+}
+
+func (state *State) processURL(rawURL string, pub event.Publisher) error {
+	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("error while parsing URL: %s", err)
 	}
@@ -123,18 +149,71 @@ func (state *State) handleURLFoundEvent(subscriber event.Subscriber, msg event.R
 	}
 
 	// Make sure hostname is not forbidden
-	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
 		return err
 	} else if !allowed {
-		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+	}
+
+	// Check if URL should be scheduled
+	count, err := state.urlCache.GetInt64(rawURL)
+	if err != nil && err != cache.ErrNIL {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("%s %w", u, errAlreadyScheduled)
 	}
 
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	if err := subscriber.PublishEvent(&event.NewURLEvent{URL: evt.URL}); err != nil {
+	// Update URL cache
+	delay, err := state.configClient.GetRefreshDelay()
+	if err != nil {
+		return err
+	}
+
+	ttl := delay.Delay
+	if ttl == -1 {
+		ttl = cache.NoTTL
+	}
+
+	if err := state.urlCache.SetInt64(rawURL, count+1, ttl); err != nil {
+		return err
+	}
+
+	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 
 	return nil
+}
+
+func extractURLS(msg *event.NewResourceEvent) ([]string, error) {
+	// Extract & normalize URLs
+	xu := xurls.Strict()
+	urls := xu.FindAllString(msg.Body, -1)
+
+	var normalizedURLS []string
+
+	for _, u := range urls {
+		normalizedURL, err := normalizeURL(u)
+		if err != nil {
+			continue
+		}
+
+		normalizedURLS = append(normalizedURLS, normalizedURL)
+	}
+
+	return normalizedURLS, nil
+}
+
+func normalizeURL(u string) (string, error) {
+	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
+		purell.FlagRemoveDirectoryIndex|purell.FlagRemoveFragment|purell.FlagRemoveDuplicateSlashes)
+	if err != nil {
+		return "", fmt.Errorf("error while normalizing URL %s: %s", u, err)
+	}
+
+	return normalizedURL, nil
 }

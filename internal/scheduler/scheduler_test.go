@@ -2,109 +2,122 @@ package scheduler
 
 import (
 	"errors"
-	"fmt"
+	"github.com/creekorful/trandoshan/internal/cache"
+	"github.com/creekorful/trandoshan/internal/cache_mock"
 	"github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
 	"github.com/creekorful/trandoshan/internal/event"
 	"github.com/creekorful/trandoshan/internal/event_mock"
+	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/trandoshan/internal/process_mock"
+	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
 	"testing"
+	"time"
 )
 
-func TestHandleMessageNotOnion(t *testing.T) {
+func TestState_Name(t *testing.T) {
+	s := State{}
+	if s.Name() != "scheduler" {
+		t.Fail()
+	}
+}
+
+func TestState_CommonFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag})
+}
+
+func TestState_CustomFlags(t *testing.T) {
+	s := State{}
+	test.CheckProcessCustomFlags(t, &s, nil)
+}
+
+func TestState_Initialize(t *testing.T) {
+	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
+		p.Cache("url")
+		p.ConfigClient([]string{client.AllowedMimeTypesKey, client.ForbiddenHostnamesKey, client.RefreshDelayKey})
+	})
+}
+
+func TestState_Subscribers(t *testing.T) {
+	s := State{}
+	test.CheckProcessSubscribers(t, &s, []test.SubscriberDef{
+		{Queue: "schedulingQueue", Exchange: "resource.new"},
+	})
+}
+
+func TestNormalizeURL(t *testing.T) {
+	url, err := normalizeURL("https://this-is-sparta.de?url=url-query-param#fragment-23")
+	if err != nil {
+		t.FailNow()
+	}
+
+	if url != "https://this-is-sparta.de?url=url-query-param" {
+		t.Fail()
+	}
+}
+
+func TestProcessURL_NotDotOnion(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
-	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	urls := []string{"https://example.org", "https://pastebin.onionsearchengine.com"}
 
 	for _, url := range urls {
-		msg := event.RawMessage{}
-		subscriberMock.EXPECT().
-			Read(&msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: url}).
-			Return(nil)
-
-		s := State{
-			configClient: configClientMock,
-		}
-
-		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errNotOnionHostname) {
-			t.FailNow()
+		state := State{}
+		if err := state.processURL(url, nil); !errors.Is(err, errNotOnionHostname) {
+			t.Fail()
 		}
 	}
 }
 
-func TestHandleMessageWrongProtocol(t *testing.T) {
+func TestProcessURL_ProtocolForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
-	configClientMock := client_mock.NewMockClient(mockCtrl)
+	urls := []string{"ftp://example.onion", "irc://example.onion"}
 
-	msg := event.RawMessage{}
-
-	s := State{
-		configClient: configClientMock,
-	}
-
-	for _, protocol := range []string{"irc", "ftp"} {
-		subscriberMock.EXPECT().
-			Read(&msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: fmt.Sprintf("%s://example.onion", protocol)}).
-			Return(nil)
-
-		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errProtocolNotAllowed) {
-			t.FailNow()
+	for _, url := range urls {
+		state := State{}
+		if err := state.processURL(url, nil); !errors.Is(err, errProtocolNotAllowed) {
+			t.Fail()
 		}
 	}
 }
 
-func TestHandleMessageForbiddenExtensions(t *testing.T) {
+func TestProcessURL_ExtensionForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
 	urls := []string{"https://example.onion/image.PNG?id=12&test=2", "https://example.onion/favicon.ico"}
 
 	for _, url := range urls {
-		msg := event.RawMessage{}
-		subscriberMock.EXPECT().
-			Read(&msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: url}).
-			Return(nil)
+		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 
-		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"php", "html"}}}, nil)
-
-		s := State{
-			configClient: configClientMock,
-		}
-
-		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errExtensionNotAllowed) {
-			t.FailNow()
+		state := State{configClient: configClientMock}
+		if err := state.processURL(url, nil); !errors.Is(err, errExtensionNotAllowed) {
+			t.Fail()
 		}
 	}
 }
 
-func TestHandleMessageHostnameForbidden(t *testing.T) {
+func TestProcessURL_HostnameForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	type test struct {
+	type testDef struct {
 		url                string
 		forbiddenHostnames []client.ForbiddenHostname
 	}
 
-	tests := []test{
+	tests := []testDef{
 		{
-			url:                "https://facebookcorewwwi.onion/image.png?id=12&test=2",
+			url:                "https://facebookcorewwwi.onion/login.html?id=12&test=2",
 			forbiddenHostnames: []client.ForbiddenHostname{{Hostname: "facebookcorewwwi.onion"}},
 		},
 		{
@@ -121,56 +134,57 @@ func TestHandleMessageHostnameForbidden(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		msg := event.RawMessage{}
-		subscriberMock.EXPECT().
-			Read(&msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: test.url}).
-			Return(nil)
+	for _, tst := range tests {
+		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
+		configClientMock.EXPECT().GetForbiddenHostnames().Return(tst.forbiddenHostnames, nil)
 
-		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"png", "php"}}}, nil)
-		configClientMock.EXPECT().GetForbiddenHostnames().Return(test.forbiddenHostnames, nil)
-
-		s := State{
-			configClient: configClientMock,
-		}
-
-		if err := s.handleURLFoundEvent(subscriberMock, msg); !errors.Is(err, errHostnameNotAllowed) {
-			t.Errorf("%s has not returned errHostnameNotAllowed", test.url)
+		state := State{configClient: configClientMock}
+		if err := state.processURL(tst.url, nil); !errors.Is(err, errHostnameNotAllowed) {
+			t.Fail()
 		}
 	}
 }
 
-func TestHandleMessage(t *testing.T) {
+func TestProcessURL_AlreadyScheduled(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
+	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
+
+	urlCacheMock.EXPECT().GetInt64("https://facebookcorewwi.onion/test.php?id=12").Return(int64(1), nil)
+	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
+	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+
+	state := State{urlCache: urlCacheMock, configClient: configClientMock}
+	if err := state.processURL("https://facebookcorewwi.onion/test.php?id=12", nil); !errors.Is(err, errAlreadyScheduled) {
+		t.Fail()
+	}
+}
+
+func TestHandleNewResourceEvent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	urls := []string{"https://example.onion/index.php", "http://google.onion/admin.secret/login.html",
 		"https://example.onion", "https://www.facebookcorewwwi.onion/recover.now/initiate?ars=facebook_login"}
 
-	for _, u := range urls {
-		msg := event.RawMessage{}
-		subscriberMock.EXPECT().
-			Read(&msg, &event.FoundURLEvent{}).
-			SetArg(1, event.FoundURLEvent{URL: u}).
-			Return(nil)
-
-		subscriberMock.EXPECT().
-			PublishEvent(&event.NewURLEvent{URL: u}).
-			Return(nil)
-
+	for _, url := range urls {
+		urlCacheMock.EXPECT().GetInt64(url).Return(int64(0), cache.ErrNIL)
 		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 		configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+		configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 10 * time.Hour}, nil)
 
-		s := State{
-			configClient: configClientMock,
-		}
+		urlCacheMock.EXPECT().SetInt64(url, int64(1), time.Duration(10*time.Hour)).Return(nil)
+		pubMock.EXPECT().PublishEvent(&event.NewURLEvent{URL: url}).Return(nil)
 
-		if err := s.handleURLFoundEvent(subscriberMock, msg); err != nil {
-			t.FailNow()
+		state := State{urlCache: urlCacheMock, configClient: configClientMock}
+		if err := state.processURL(url, pubMock); err != nil {
+			t.Fail()
 		}
 	}
 }

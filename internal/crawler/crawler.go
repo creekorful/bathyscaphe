@@ -1,22 +1,18 @@
 package crawler
 
 import (
-	"crypto/tls"
 	"fmt"
 	"github.com/creekorful/trandoshan/internal/clock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/constraint"
-	chttp "github.com/creekorful/trandoshan/internal/crawler/http"
 	"github.com/creekorful/trandoshan/internal/event"
+	chttp "github.com/creekorful/trandoshan/internal/http"
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpproxy"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 )
 
 var (
@@ -38,36 +34,21 @@ func (state *State) Name() string {
 
 // CommonFlags return process common flags
 func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.UserAgentFlag, process.TorURIFlag}
 }
 
 // CustomFlags return process custom flags
 func (state *State) CustomFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:     "tor-uri",
-			Usage:    "URI to the TOR SOCKS proxy",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:  "user-agent",
-			Usage: "User agent to use",
-			Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
-		},
-	}
+	return []cli.Flag{}
 }
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	state.httpClient = chttp.NewFastHTTPClient(&fasthttp.Client{
-		// Use given TOR proxy to reach the hidden services
-		Dial: fasthttpproxy.FasthttpSocksDialer(provider.GetValue("tor-uri")),
-		// Disable SSL verification since we do not really care about this
-		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
-		Name:         provider.GetValue("user-agent"),
-	})
+	httpClient, err := provider.HTTPClient()
+	if err != nil {
+		return err
+	}
+	state.httpClient = httpClient
 
 	cl, err := provider.Clock()
 	if err != nil {
@@ -92,7 +73,7 @@ func (state *State) Subscribers() []process.SubscriberDef {
 }
 
 // HTTPHandler returns the HTTP API the process expose
-func (state *State) HTTPHandler(provider process.Provider) http.Handler {
+func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
@@ -108,7 +89,7 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 		return err
 	} else if !allowed {
 		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
-		return errHostnameNotAllowed
+		return fmt.Errorf("%s %w", evt.URL, errHostnameNotAllowed)
 	}
 
 	r, err := state.httpClient.Get(evt.URL)

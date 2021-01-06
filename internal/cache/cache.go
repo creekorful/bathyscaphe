@@ -1,5 +1,7 @@
 package cache
 
+//go:generate mockgen -destination=../cache_mock/cache_mock.go -package=cache_mock . Cache
+
 import (
 	"errors"
 	"time"
@@ -11,8 +13,6 @@ var (
 	// ErrNIL is returned when there's no value for given key
 	ErrNIL = errors.New("value is nil")
 )
-
-//go:generate mockgen -destination=../cache_mock/cache_mock.go -package=cache_mock . Cache
 
 // Cache represent a KV database
 type Cache interface {

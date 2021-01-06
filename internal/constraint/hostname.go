@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// CheckHostnameAllowed check if given URL hostname is allowed for crawling
+// CheckHostnameAllowed check if given URL hostname is allowed
 func CheckHostnameAllowed(configClient configapi.Client, rawurl string) (bool, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {

@@ -45,46 +45,47 @@ services:
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --config-api-uri http://configapi:8080
+      --redis-uri redis:6379
     restart: always
     depends_on:
       - rabbitmq
-  archiver:
-    image: creekorful/tdsh-archiver:latest
+  indexer-local:
+    image: creekorful/tdsh-indexer:latest
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
-      --storage-dir /archive
+      --config-api-uri http://configapi:8080
+      --index-driver local
+      --index-dest /archive
     restart: always
     volumes:
       - archiverdata:/archive
     depends_on:
       - rabbitmq
-  indexer:
+      - configapi
+  indexer-es:
     image: creekorful/tdsh-indexer:latest
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
-      --elasticsearch-uri http://elasticsearch:9200
-      --signing-key K==M5RsU_DQa4_XSbkX?L27s^xWmde25
       --config-api-uri http://configapi:8080
-      --redis-uri redis:6379
+      --index-driver elastic
+      --index-dest http://elasticsearch:9200
     restart: always
     depends_on:
       - rabbitmq
       - elasticsearch
       - configapi
-      - redis
-    ports:
-      - 15005:8080
   configapi:
     image: creekorful/tdsh-configapi:latest
     command: >
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --redis-uri redis:6379
-      --default-value forbidden-hostnames="[{\"hostname\": \"facebookcorewwwi.onion\"}, {\"hostname\": \"nytimes3xbfgragh.onion\"}]"
+      --default-value forbidden-hostnames="[]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
+      --default-value blacklist-threshold="{\"threshold\": 5}"
     restart: always
     depends_on:
       - rabbitmq
@@ -97,10 +98,14 @@ services:
       --log-level debug
       --hub-uri amqp://guest:guest@rabbitmq:5672
       --config-api-uri http://configapi:8080
+      --redis-uri redis:6379
+      --tor-uri torproxy:9050
     restart: always
     depends_on:
       - rabbitmq
       - configapi
+      - redis
+      - torproxy
 
 volumes:
   esdata:
