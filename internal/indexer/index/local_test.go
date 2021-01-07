@@ -134,7 +134,7 @@ func TestFormatResource(t *testing.T) {
 		t.FailNow()
 	}
 
-	if string(res) != "https://google.com\n\nServer: Traefik\nContent-Type: text/html\n\nHello, world" {
+	if string(res) != "https://google.com\n\nContent-Type: text/html\nServer: Traefik\n\nHello, world" {
 		t.Errorf("got %s want %s", string(res), "https://google.com\n\nServer: Traefik\nContent-Type: text/html\n\nHello, world")
 	}
 }

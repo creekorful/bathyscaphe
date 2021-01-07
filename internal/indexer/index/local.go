@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -63,9 +64,16 @@ func formatResource(url string, body string, headers map[string]string) ([]byte,
 	// First URL
 	builder.WriteString(fmt.Sprintf("%s\n\n", url))
 
+	// Sort headers to have deterministic output
+	var headerNames []string
+	for headerName := range headers {
+		headerNames = append(headerNames, headerName)
+	}
+	sort.Strings(headerNames)
+
 	// Then headers
-	for key, value := range headers {
-		builder.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+	for _, name := range headerNames {
+		builder.WriteString(fmt.Sprintf("%s: %s\n", name, headers[name]))
 	}
 	builder.WriteString("\n")
 
