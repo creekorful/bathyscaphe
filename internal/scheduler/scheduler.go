@@ -14,7 +14,6 @@ import (
 	"mvdan.cc/xurls/v2"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 )
 
@@ -24,8 +23,6 @@ var (
 	errExtensionNotAllowed = errors.New("extension is not allowed")
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
 	errAlreadyScheduled    = errors.New("URL is already scheduled")
-
-	extensionRegex = regexp.MustCompile("\\.[\\w]+")
 )
 
 // State represent the application state
@@ -161,7 +158,7 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 		}
 
 		// generally no extension means text/* content-type
-		if !extensionRegex.MatchString(components[lastIdx]) {
+		if !strings.Contains(components[lastIdx], ".") {
 			allowed = true
 		}
 	}
