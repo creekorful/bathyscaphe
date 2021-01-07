@@ -32,29 +32,32 @@ services:
     image: creekorful/tdsh-crawler:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --tor-uri torproxy:9050
-      --config-api-uri http://configapi:8080
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --tor-proxy torproxy:9050
+      --config-api http://configapi:8080
     restart: always
     depends_on:
       - rabbitmq
       - torproxy
+      - configapi
   scheduler:
     image: creekorful/tdsh-scheduler:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --config-api-uri http://configapi:8080
-      --redis-uri redis:6379
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --config-api http://configapi:8080
+      --redis redis:6379
     restart: always
     depends_on:
       - rabbitmq
+      - configapi
+      - redis
   indexer-local:
     image: creekorful/tdsh-indexer:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --config-api-uri http://configapi:8080
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --config-api http://configapi:8080
       --index-driver local
       --index-dest /archive
     restart: always
@@ -67,8 +70,9 @@ services:
     image: creekorful/tdsh-indexer:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --config-api-uri http://configapi:8080
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --event-prefetch 20
+      --config-api http://configapi:8080
       --index-driver elastic
       --index-dest http://elasticsearch:9200
     restart: always
@@ -80,8 +84,8 @@ services:
     image: creekorful/tdsh-configapi:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --redis-uri redis:6379
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --redis redis:6379
       --default-value forbidden-hostnames="[]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": -1}"
@@ -96,10 +100,10 @@ services:
     image: creekorful/tdsh-blacklister:latest
     command: >
       --log-level debug
-      --hub-uri amqp://guest:guest@rabbitmq:5672
-      --config-api-uri http://configapi:8080
-      --redis-uri redis:6379
-      --tor-uri torproxy:9050
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --config-api http://configapi:8080
+      --redis redis:6379
+      --tor-proxy torproxy:9050
     restart: always
     depends_on:
       - rabbitmq

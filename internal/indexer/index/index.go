@@ -14,10 +14,18 @@ const (
 	Local = "local"
 )
 
-// Index is the interface used to abstract communication
-// with the persistence unit
+// Resource represent a resource that should be indexed
+type Resource struct {
+	URL     string
+	Time    time.Time
+	Body    string
+	Headers map[string]string
+}
+
+// Index is the interface used to abstract communication with the persistence unit
 type Index interface {
-	IndexResource(url string, time time.Time, body string, headers map[string]string) error
+	IndexResource(resource Resource) error
+	IndexResources(resources []Resource) error
 }
 
 // NewIndex create a new index using given driver, destination

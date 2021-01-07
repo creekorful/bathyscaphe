@@ -19,6 +19,9 @@ type State struct {
 	index        index.Index
 	indexDriver  string
 	configClient configapi.Client
+
+	bufferThreshold int
+	resources       []index.Resource
 }
 
 // Name return the process name
@@ -26,9 +29,9 @@ func (state *State) Name() string {
 	return "indexer"
 }
 
-// CommonFlags return process common flags
-func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.ConfigFeature}
 }
 
 // CustomFlags return process custom flags
@@ -49,13 +52,14 @@ func (state *State) CustomFlags() []cli.Flag {
 
 // Initialize the process
 func (state *State) Initialize(provider process.Provider) error {
-	indexDriver := provider.GetValue("index-driver")
-	idx, err := index.NewIndex(indexDriver, provider.GetValue("index-dest"))
+	indexDriver := provider.GetStrValue("index-driver")
+	idx, err := index.NewIndex(indexDriver, provider.GetStrValue("index-dest"))
 	if err != nil {
 		return err
 	}
 	state.index = idx
 	state.indexDriver = indexDriver
+	state.bufferThreshold = provider.GetIntValue(process.EventPrefetchFlag)
 
 	configClient, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey})
 	if err != nil {
@@ -89,11 +93,47 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return fmt.Errorf("%s %w", evt.URL, errHostnameNotAllowed)
 	}
 
-	if err := state.index.IndexResource(evt.URL, evt.Time, evt.Body, evt.Headers); err != nil {
-		return fmt.Errorf("error while indexing resource: %s", err)
+	// Direct saving (no buffering)
+	if state.bufferThreshold == 1 {
+		if err := state.index.IndexResource(index.Resource{
+			URL:     evt.URL,
+			Time:    evt.Time,
+			Body:    evt.Body,
+			Headers: evt.Headers,
+		}); err != nil {
+			return fmt.Errorf("error while indexing resource: %s", err)
+		}
+
+		log.Info().
+			Str("url", evt.URL).
+			Msg("Successfully indexed resource")
+
+		return nil
 	}
 
-	log.Info().Str("url", evt.URL).Msg("Successfully indexed resource")
+	// Otherwise we are in buffered saving mode
+	state.resources = append(state.resources, index.Resource{
+		URL:     evt.URL,
+		Time:    evt.Time,
+		Body:    evt.Body,
+		Headers: evt.Headers,
+	})
+
+	log.Debug().Str("url", evt.URL).Msg("Successfully stored resource in buffer")
+
+	if len(state.resources) >= state.bufferThreshold {
+		// Time to save!
+		if err := state.index.IndexResources(state.resources); err != nil {
+			return fmt.Errorf("error while indexing resources: %s", err)
+		}
+
+		log.Info().
+			Int("count", len(state.resources)).
+			Msg("Successfully indexed buffered resources")
+
+		// Clear cache
+		state.resources = []index.Resource{}
+	}
 
 	return nil
 }
