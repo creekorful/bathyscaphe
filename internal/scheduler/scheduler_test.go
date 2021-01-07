@@ -23,9 +23,9 @@ func TestState_Name(t *testing.T) {
 	}
 }
 
-func TestState_CommonFlags(t *testing.T) {
+func TestState_Features(t *testing.T) {
 	s := State{}
-	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag})
+	test.CheckProcessFeatures(t, &s, []process.Feature{process.EventFeature, process.ConfigFeature, process.CacheFeature})
 }
 
 func TestState_CustomFlags(t *testing.T) {
