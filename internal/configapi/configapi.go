@@ -24,9 +24,9 @@ func (state *State) Name() string {
 	return "configapi"
 }
 
-// CommonFlags return process common flags
-func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.RedisURIFlag}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.CacheFeature}
 }
 
 // CustomFlags return process custom flags

@@ -26,9 +26,9 @@ func (state *State) Name() string {
 	return "indexer"
 }
 
-// CommonFlags return process common flags
-func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.ConfigFeature}
 }
 
 // CustomFlags return process custom flags

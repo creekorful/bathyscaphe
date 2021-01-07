@@ -36,7 +36,7 @@ type subscriber struct {
 }
 
 // NewSubscriber create a new subscriber and connect it to given server
-func NewSubscriber(amqpURI string) (Subscriber, error) {
+func NewSubscriber(amqpURI string, prefetch int) (Subscriber, error) {
 	conn, err := amqp.Dial(amqpURI)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func NewSubscriber(amqpURI string) (Subscriber, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.Qos(1, 0, false); err != nil {
+	if err := c.Qos(prefetch, 0, false); err != nil {
 		return nil, err
 	}
 
