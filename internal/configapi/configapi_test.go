@@ -38,7 +38,7 @@ func TestState_Initialize(t *testing.T) {
 	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
 		p.Cache("configuration")
 		p.Publisher()
-		p.GetValues("default-value")
+		p.GetStrValues("default-value")
 	})
 }
 

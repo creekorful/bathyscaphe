@@ -38,12 +38,14 @@ const (
 	// CrawlingFeature is the feature to plug the process with a tor-compatible HTTP client
 	CrawlingFeature
 
-	eventURIFlag      = "event-srv"
-	eventPrefetchFlag = "event-prefetch"
-	configAPIURIFlag  = "config-api"
-	redisURIFlag      = "redis"
-	torURIFlag        = "tor-proxy"
-	userAgentFlag     = "user-agent"
+	// EventPrefetchFlag is the prefetch count for the event subscriber
+	EventPrefetchFlag = "event-prefetch"
+
+	eventURIFlag     = "event-srv"
+	configAPIURIFlag = "config-api"
+	redisURIFlag     = "redis"
+	torURIFlag       = "tor-proxy"
+	userAgentFlag    = "user-agent"
 )
 
 // Provider is the implementation provider
@@ -60,10 +62,12 @@ type Provider interface {
 	Cache(keyPrefix string) (cache.Cache, error)
 	// HTTPClient return a new configured http client
 	HTTPClient() (chttp.Client, error)
-	// GetValue return value for given key
-	GetValue(key string) string
-	// GetValue return values for given key
-	GetValues(key string) []string
+	// GetStrValue return string value for given key
+	GetStrValue(key string) string
+	// GetStrValues return string slice for given key
+	GetStrValues(key string) []string
+	// GetIntValue return int value for given key
+	GetIntValue(key string) int
 }
 
 type defaultProvider struct {
@@ -89,7 +93,7 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 }
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
-	return event.NewSubscriber(p.ctx.String(eventURIFlag), p.ctx.Int(eventPrefetchFlag))
+	return event.NewSubscriber(p.ctx.String(eventURIFlag), p.ctx.Int(EventPrefetchFlag))
 }
 
 func (p *defaultProvider) Publisher() (event.Publisher, error) {
@@ -112,12 +116,16 @@ func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
 	}), nil
 }
 
-func (p *defaultProvider) GetValue(key string) string {
+func (p *defaultProvider) GetStrValue(key string) string {
 	return p.ctx.String(key)
 }
 
-func (p *defaultProvider) GetValues(key string) []string {
+func (p *defaultProvider) GetStrValues(key string) []string {
 	return p.ctx.StringSlice(key)
+}
+
+func (p *defaultProvider) GetIntValue(key string) int {
+	return p.ctx.Int(key)
 }
 
 // SubscriberDef is the subscriber definition
@@ -251,7 +259,7 @@ func getFeaturesFlags() map[Feature][]cli.Flag {
 			Required: true,
 		},
 		&cli.IntFlag{
-			Name:  eventPrefetchFlag,
+			Name:  EventPrefetchFlag,
 			Usage: "Prefetch for the event subscriber",
 			Value: 1,
 		},

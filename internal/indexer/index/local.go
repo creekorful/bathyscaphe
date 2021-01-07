@@ -20,13 +20,13 @@ func newLocalIndex(root string) (Index, error) {
 	return &localIndex{baseDir: root}, nil
 }
 
-func (s *localIndex) IndexResource(url string, time time.Time, body string, headers map[string]string) error {
-	path, err := formatPath(url, time)
+func (s *localIndex) IndexResource(resource Resource) error {
+	path, err := formatPath(resource.URL, resource.Time)
 	if err != nil {
 		return err
 	}
 
-	content, err := formatResource(url, body, headers)
+	content, err := formatResource(resource.URL, resource.Body, resource.Headers)
 	if err != nil {
 		return err
 	}
@@ -40,6 +40,18 @@ func (s *localIndex) IndexResource(url string, time time.Time, body string, head
 
 	if err := ioutil.WriteFile(fullPath, content, 0640); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *localIndex) IndexResources(resources []Resource) error {
+	// No specific implementation for the local driver.
+	// we simply call IndexResource n-times
+	for _, resource := range resources {
+		if err := s.IndexResource(resource); err != nil {
+			return err
+		}
 	}
 
 	return nil

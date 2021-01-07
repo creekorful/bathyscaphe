@@ -71,6 +71,7 @@ services:
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
+      --event-prefetch 20
       --config-api http://configapi:8080
       --index-driver elastic
       --index-dest http://elasticsearch:9200

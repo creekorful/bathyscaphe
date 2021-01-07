@@ -54,7 +54,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	state.pub = pub
 
 	defaultValues := map[string]string{}
-	for _, value := range provider.GetValues("default-value") {
+	for _, value := range provider.GetStrValues("default-value") {
 		parts := strings.Split(value, "=")
 
 		if len(parts) == 2 {
