@@ -119,7 +119,7 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 
 	cacheKey := u.Hostname()
 	count, err := state.hostnameCache.GetInt64(cacheKey)
-	if err != nil && err != cache.ErrNIL {
+	if err != nil {
 		return err
 	}
 	count++

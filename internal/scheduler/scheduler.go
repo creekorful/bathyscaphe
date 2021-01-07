@@ -92,16 +92,38 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return fmt.Errorf("error while extracting URLs")
 	}
 
+	// Load values in batch
+	urlCache, err := state.urlCache.GetManyInt64(urls)
+	if err != nil {
+		return err
+	}
+
 	for _, u := range urls {
-		if err := state.processURL(u, subscriber); err != nil {
+		if err := state.processURL(u, subscriber, urlCache); err != nil {
 			log.Err(err).Msg("error while processing URL")
 		}
+	}
+
+	// Update URL cache
+	delay, err := state.configClient.GetRefreshDelay()
+	if err != nil {
+		return err
+	}
+
+	ttl := delay.Delay
+	if ttl == -1 {
+		ttl = cache.NoTTL
+	}
+
+	// Update values in batch
+	if err := state.urlCache.SetManyInt64(urlCache, ttl); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (state *State) processURL(rawURL string, pub event.Publisher) error {
+func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[string]int64) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("error while parsing URL: %s", err)
@@ -157,30 +179,13 @@ func (state *State) processURL(rawURL string, pub event.Publisher) error {
 	}
 
 	// Check if URL should be scheduled
-	count, err := state.urlCache.GetInt64(rawURL)
-	if err != nil && err != cache.ErrNIL {
-		return err
-	}
-	if count > 0 {
+	if urlCache[rawURL] > 0 {
 		return fmt.Errorf("%s %w", u, errAlreadyScheduled)
 	}
 
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	// Update URL cache
-	delay, err := state.configClient.GetRefreshDelay()
-	if err != nil {
-		return err
-	}
-
-	ttl := delay.Delay
-	if ttl == -1 {
-		ttl = cache.NoTTL
-	}
-
-	if err := state.urlCache.SetInt64(rawURL, count+1, ttl); err != nil {
-		return err
-	}
+	urlCache[rawURL]++
 
 	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
