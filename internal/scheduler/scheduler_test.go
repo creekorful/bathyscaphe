@@ -13,7 +13,6 @@ import (
 	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
 	"testing"
-	"time"
 )
 
 func TestState_Name(t *testing.T) {
@@ -66,7 +65,7 @@ func TestProcessURL_NotDotOnion(t *testing.T) {
 
 	for _, url := range urls {
 		state := State{}
-		if err := state.processURL(url, nil); !errors.Is(err, errNotOnionHostname) {
+		if err := state.processURL(url, nil, nil); !errors.Is(err, errNotOnionHostname) {
 			t.Fail()
 		}
 	}
@@ -80,7 +79,7 @@ func TestProcessURL_ProtocolForbidden(t *testing.T) {
 
 	for _, url := range urls {
 		state := State{}
-		if err := state.processURL(url, nil); !errors.Is(err, errProtocolNotAllowed) {
+		if err := state.processURL(url, nil, nil); !errors.Is(err, errProtocolNotAllowed) {
 			t.Fail()
 		}
 	}
@@ -98,7 +97,7 @@ func TestProcessURL_ExtensionForbidden(t *testing.T) {
 		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 
 		state := State{configClient: configClientMock}
-		if err := state.processURL(url, nil); !errors.Is(err, errExtensionNotAllowed) {
+		if err := state.processURL(url, nil, nil); !errors.Is(err, errExtensionNotAllowed) {
 			t.Fail()
 		}
 	}
@@ -139,7 +138,7 @@ func TestProcessURL_HostnameForbidden(t *testing.T) {
 		configClientMock.EXPECT().GetForbiddenHostnames().Return(tst.forbiddenHostnames, nil)
 
 		state := State{configClient: configClientMock}
-		if err := state.processURL(tst.url, nil); !errors.Is(err, errHostnameNotAllowed) {
+		if err := state.processURL(tst.url, nil, nil); !errors.Is(err, errHostnameNotAllowed) {
 			t.Fail()
 		}
 	}
@@ -149,16 +148,44 @@ func TestProcessURL_AlreadyScheduled(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	urlCacheMock.EXPECT().GetInt64("https://facebookcorewwi.onion/test.php?id=12").Return(int64(1), nil)
 	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	state := State{urlCache: urlCacheMock, configClient: configClientMock}
-	if err := state.processURL("https://facebookcorewwi.onion/test.php?id=12", nil); !errors.Is(err, errAlreadyScheduled) {
+	urlCache := map[string]int64{"https://facebookcorewwi.onion/test.php?id=12": 1}
+	state := State{configClient: configClientMock}
+	if err := state.processURL("https://facebookcorewwi.onion/test.php?id=12", nil, urlCache); !errors.Is(err, errAlreadyScheduled) {
 		t.Fail()
+	}
+}
+
+func TestProcessURL(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	configClientMock := client_mock.NewMockClient(mockCtrl)
+	pubMock := event_mock.NewMockPublisher(mockCtrl)
+
+	urls := []string{"https://example.onion/index.php", "http://google.onion/admin.secret/login.html",
+		"https://example.onion", "https://www.facebookcorewwwi.onion/recover.now/initiate?ars=facebook_login"}
+
+	// pre fill cache
+	urlCache := map[string]int64{}
+	for _, url := range urls {
+		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
+		configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
+
+		pubMock.EXPECT().PublishEvent(&event.NewURLEvent{URL: url}).Return(nil)
+
+		state := State{configClient: configClientMock}
+		if err := state.processURL(url, pubMock, urlCache); err != nil {
+			t.Fail()
+		}
+
+		if val, exist := urlCache[url]; !exist || val != 1 {
+			t.Fail()
+		}
 	}
 }
 
@@ -166,25 +193,50 @@ func TestHandleNewResourceEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	subscriberMock := event_mock.NewMockSubscriber(mockCtrl)
 	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
-	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
-	urls := []string{"https://example.onion/index.php", "http://google.onion/admin.secret/login.html",
-		"https://example.onion", "https://www.facebookcorewwwi.onion/recover.now/initiate?ars=facebook_login"}
+	msg := event.RawMessage{}
+	subscriberMock.EXPECT().
+		Read(&msg, &event.NewResourceEvent{}).
+		SetArg(1, event.NewResourceEvent{
+			URL: "https://l.facebookcorewwwi.onion/test.php",
+			Body: `
+<a href=\"https://facebook.onion/test.php?id=1\">This is a little test</a>. 
+Check out https://google.onion. This is an image https://example.onion/test.png
+This domain is blacklisted: https://m.fbi.onion/test.php
+`,
+		}).
+		Return(nil)
 
-	for _, url := range urls {
-		urlCacheMock.EXPECT().GetInt64(url).Return(int64(0), cache.ErrNIL)
-		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
-		configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
-		configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 10 * time.Hour}, nil)
+	urlCacheMock.EXPECT().
+		GetManyInt64([]string{"https://facebook.onion/test.php?id=1", "https://google.onion", "https://example.onion/test.png", "https://m.fbi.onion/test.php"}).
+		Return(map[string]int64{
+			"https://google.onion": 1,
+		}, nil)
 
-		urlCacheMock.EXPECT().SetInt64(url, int64(1), time.Duration(10*time.Hour)).Return(nil)
-		pubMock.EXPECT().PublishEvent(&event.NewURLEvent{URL: url}).Return(nil)
+	configClientMock.EXPECT().GetAllowedMimeTypes().
+		Times(4).
+		Return([]client.MimeType{{Extensions: []string{"php"}}}, nil)
+	configClientMock.EXPECT().GetForbiddenHostnames().
+		Times(3).
+		Return([]client.ForbiddenHostname{
+			{Hostname: "fbi.onion"},
+		}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
 
-		state := State{urlCache: urlCacheMock, configClient: configClientMock}
-		if err := state.processURL(url, pubMock); err != nil {
-			t.Fail()
-		}
+	subscriberMock.EXPECT().PublishEvent(&event.NewURLEvent{
+		URL: "https://facebook.onion/test.php?id=1",
+	})
+
+	urlCacheMock.EXPECT().SetManyInt64(map[string]int64{
+		"https://google.onion":                 1,
+		"https://facebook.onion/test.php?id=1": 1,
+	}, cache.NoTTL).Return(nil)
+
+	s := State{urlCache: urlCacheMock, configClient: configClientMock}
+	if err := s.handleNewResourceEvent(subscriberMock, msg); err != nil {
+		t.Fail()
 	}
 }

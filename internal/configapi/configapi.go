@@ -135,7 +135,12 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 func setDefaultValues(configCache cache.Cache, values map[string]string) error {
 	for key, value := range values {
-		if _, err := configCache.GetBytes(key); err == cache.ErrNIL {
+		b, err := configCache.GetBytes(key)
+		if err != nil {
+			return err
+		}
+
+		if b == nil {
 			if err := configCache.SetBytes(key, []byte(value), cache.NoTTL); err != nil {
 				return fmt.Errorf("error while setting default value of %s: %s", key, err)
 			}

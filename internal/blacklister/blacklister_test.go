@@ -96,7 +96,7 @@ func TestHandleTimeoutURLEventNoDispatch(t *testing.T) {
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]configapi.ForbiddenHostname{}, nil)
 	configClientMock.EXPECT().GetBlackListThreshold().Return(configapi.BlackListThreshold{Threshold: 10}, nil)
 
-	hostnameCacheMock.EXPECT().GetInt64("down-example.onion").Return(int64(0), cache.ErrNIL)
+	hostnameCacheMock.EXPECT().GetInt64("down-example.onion").Return(int64(0), nil)
 	hostnameCacheMock.EXPECT().SetInt64("down-example.onion", int64(1), cache.NoTTL).Return(nil)
 
 	s := State{configClient: configClientMock, hostnameCache: hostnameCacheMock, httpClient: httpClientMock}
