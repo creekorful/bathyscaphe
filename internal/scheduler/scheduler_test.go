@@ -233,7 +233,7 @@ This domain is blacklisted: https://m.fbi.onion/test.php
 		Return([]client.ForbiddenHostname{
 			{Hostname: "fbi.onion"},
 		}, nil)
-	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: -1}, nil)
+	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 0}, nil)
 
 	subscriberMock.EXPECT().PublishEvent(&event.NewURLEvent{
 		URL: "https://facebook.onion/test.php?id=1",

@@ -45,7 +45,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	}
 	state.hostnameCache = hostnameCache
 
-	configClient, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListThresholdKey})
+	configClient, err := provider.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListConfigKey})
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,22 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 
 	// Check by ourselves if the hostname doesn't respond
 	_, err = state.httpClient.Get(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
-	if err == nil || err != chttp.ErrTimeout {
+	if err != nil && err != chttp.ErrTimeout {
+		return err
+	}
+
+	cacheKey := u.Hostname()
+
+	if err == nil {
+		log.Debug().
+			Str("hostname", u.Hostname()).
+			Msg("Response received.")
+
+		// Host is not down, remove it from cache
+		if err := state.hostnameCache.Remove(cacheKey); err != nil {
+			return err
+		}
+
 		return nil
 	}
 
@@ -112,19 +127,18 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 		Str("hostname", u.Hostname()).
 		Msg("Timeout confirmed")
 
-	threshold, err := state.configClient.GetBlackListThreshold()
+	blackListConfig, err := state.configClient.GetBlackListConfig()
 	if err != nil {
 		return err
 	}
 
-	cacheKey := u.Hostname()
 	count, err := state.hostnameCache.GetInt64(cacheKey)
 	if err != nil {
 		return err
 	}
 	count++
 
-	if count >= threshold.Threshold {
+	if count >= blackListConfig.Threshold {
 		forbiddenHostnames, err := state.configClient.GetForbiddenHostnames()
 		if err != nil {
 			return err
@@ -155,7 +169,7 @@ func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event
 	}
 
 	// Update count
-	if err := state.hostnameCache.SetInt64(cacheKey, count, cache.NoTTL); err != nil {
+	if err := state.hostnameCache.SetInt64(cacheKey, count, blackListConfig.TTL); err != nil {
 		return err
 	}
 

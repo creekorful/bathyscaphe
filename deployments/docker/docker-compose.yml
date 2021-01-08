@@ -89,8 +89,8 @@ services:
       --redis redis:6379
       --default-value forbidden-hostnames="[]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
-      --default-value refresh-delay="{\"delay\": -1}"
-      --default-value blacklist-threshold="{\"threshold\": 5}"
+      --default-value refresh-delay="{\"delay\": 0}"
+      --default-value blacklist-config="{\"threshold\": 5, \"ttl\": 1200}"
     restart: always
     depends_on:
       - rabbitmq
