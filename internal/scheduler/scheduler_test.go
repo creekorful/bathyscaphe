@@ -12,6 +12,8 @@ import (
 	"github.com/creekorful/trandoshan/internal/process_mock"
 	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
+	"hash/fnv"
+	"strconv"
 	"testing"
 )
 
@@ -153,7 +155,7 @@ func TestProcessURL_AlreadyScheduled(t *testing.T) {
 	configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-	urlCache := map[string]int64{"https://facebookcorewwi.onion/test.php?id=12": 1}
+	urlCache := map[string]int64{"3056224523184958": 1}
 	state := State{configClient: configClientMock}
 	if err := state.processURL("https://facebookcorewwi.onion/test.php?id=12", nil, urlCache); !errors.Is(err, errAlreadyScheduled) {
 		t.Fail()
@@ -183,7 +185,14 @@ func TestProcessURL(t *testing.T) {
 			t.Fail()
 		}
 
-		if val, exist := urlCache[url]; !exist || val != 1 {
+		// Compute url hash
+		c := fnv.New64()
+		if _, err := c.Write([]byte(url)); err != nil {
+			t.Error(err)
+		}
+		urlHash := strconv.FormatUint(c.Sum64(), 10)
+
+		if val, exist := urlCache[urlHash]; !exist || val != 1 {
 			t.Fail()
 		}
 	}
@@ -211,9 +220,9 @@ This domain is blacklisted: https://m.fbi.onion/test.php
 		Return(nil)
 
 	urlCacheMock.EXPECT().
-		GetManyInt64([]string{"https://facebook.onion/test.php?id=1", "https://google.onion", "https://example.onion/test.png", "https://m.fbi.onion/test.php"}).
+		GetManyInt64([]string{"15038381360563270096", "17173291053643777680", "14332094874591870497", "5985629257333875968"}).
 		Return(map[string]int64{
-			"https://google.onion": 1,
+			"17173291053643777680": 1,
 		}, nil)
 
 	configClientMock.EXPECT().GetAllowedMimeTypes().
@@ -231,8 +240,8 @@ This domain is blacklisted: https://m.fbi.onion/test.php
 	})
 
 	urlCacheMock.EXPECT().SetManyInt64(map[string]int64{
-		"https://google.onion":                 1,
-		"https://facebook.onion/test.php?id=1": 1,
+		"17173291053643777680": 1,
+		"15038381360563270096": 1,
 	}, cache.NoTTL).Return(nil)
 
 	s := State{urlCache: urlCacheMock, configClient: configClientMock}
