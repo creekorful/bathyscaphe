@@ -121,13 +121,8 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return err
 	}
 
-	ttl := delay.Delay
-	if ttl == -1 {
-		ttl = cache.NoTTL
-	}
-
 	// Update values in batch
-	if err := state.urlCache.SetManyInt64(urlCache, ttl); err != nil {
+	if err := state.urlCache.SetManyInt64(urlCache, delay.Delay); err != nil {
 		return err
 	}
 

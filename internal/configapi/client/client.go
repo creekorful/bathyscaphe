@@ -21,8 +21,8 @@ const (
 	ForbiddenHostnamesKey = "forbidden-hostnames"
 	// RefreshDelayKey is the key to access the refresh delay config
 	RefreshDelayKey = "refresh-delay"
-	// BlackListThresholdKey is the key to access the blacklist threshold config
-	BlackListThresholdKey = "blacklist-threshold"
+	// BlackListConfigKey is the key to access the blacklist configuration
+	BlackListConfigKey = "blacklist-config"
 )
 
 // MimeType is the mime type as represented in the config
@@ -43,9 +43,10 @@ type RefreshDelay struct {
 	Delay time.Duration `json:"delay"`
 }
 
-// BlackListThreshold is the threshold to reach before blacklisting domain
-type BlackListThreshold struct {
-	Threshold int64 `json:"threshold"`
+// BlackListConfig is the config used for hostname blacklisting
+type BlackListConfig struct {
+	Threshold int64         `json:"threshold"`
+	TTL       time.Duration `json:"ttl"`
 }
 
 // Client is a nice client interface for the ConfigAPI
@@ -53,7 +54,7 @@ type Client interface {
 	GetAllowedMimeTypes() ([]MimeType, error)
 	GetForbiddenHostnames() ([]ForbiddenHostname, error)
 	GetRefreshDelay() (RefreshDelay, error)
-	GetBlackListThreshold() (BlackListThreshold, error)
+	GetBlackListConfig() (BlackListConfig, error)
 
 	Set(key string, value interface{}) error
 }
@@ -68,7 +69,7 @@ type client struct {
 	allowedMimeTypes   []MimeType
 	forbiddenHostnames []ForbiddenHostname
 	refreshDelay       RefreshDelay
-	blackListThreshold BlackListThreshold
+	blackListConfig    BlackListConfig
 }
 
 // NewConfigClient create a new client for the ConfigAPI.
@@ -150,18 +151,21 @@ func (c *client) setRefreshDelay(value RefreshDelay) error {
 	return nil
 }
 
-func (c *client) GetBlackListThreshold() (BlackListThreshold, error) {
-	c.mutexes[BlackListThresholdKey].RLock()
-	defer c.mutexes[BlackListThresholdKey].RUnlock()
+func (c *client) GetBlackListConfig() (BlackListConfig, error) {
+	c.mutexes[BlackListConfigKey].RLock()
+	defer c.mutexes[BlackListConfigKey].RUnlock()
 
-	return c.blackListThreshold, nil
+	return c.blackListConfig, nil
 }
 
-func (c *client) setBlackListThreshold(value BlackListThreshold) error {
-	c.mutexes[BlackListThresholdKey].Lock()
-	defer c.mutexes[BlackListThresholdKey].Unlock()
+func (c *client) setBlackListConfig(value BlackListConfig) error {
+	c.mutexes[BlackListConfigKey].Lock()
+	defer c.mutexes[BlackListConfigKey].Unlock()
 
-	c.blackListThreshold = value
+	c.blackListConfig = BlackListConfig{
+		Threshold: value.Threshold,
+		TTL:       value.TTL * time.Second, // TTL is in seconds
+	}
 
 	return nil
 }
@@ -232,12 +236,12 @@ func (c *client) setValue(key string, value []byte) error {
 			return err
 		}
 		break
-	case BlackListThresholdKey:
-		var val BlackListThreshold
+	case BlackListConfigKey:
+		var val BlackListConfig
 		if err := json.Unmarshal(value, &val); err != nil {
 			return err
 		}
-		if err := c.setBlackListThreshold(val); err != nil {
+		if err := c.setBlackListConfig(val); err != nil {
 			return err
 		}
 		break

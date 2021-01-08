@@ -21,4 +21,6 @@ type Cache interface {
 
 	GetManyInt64(keys []string) (map[string]int64, error)
 	SetManyInt64(values map[string]int64, TTL time.Duration) error
+
+	Remove(key string) error
 }

@@ -92,6 +92,10 @@ func (rc *redisCache) SetManyInt64(values map[string]int64, TTL time.Duration) e
 	return err
 }
 
+func (rc *redisCache) Remove(key string) error {
+	return rc.client.Del(context.Background(), rc.getKey(key)).Err()
+}
+
 func (rc *redisCache) getKey(key string) string {
 	if rc.keyPrefix == "" {
 		return key
