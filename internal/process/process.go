@@ -27,7 +27,7 @@ import (
 type Feature int
 
 const (
-	version = "0.10.0"
+	version = "0.11.0"
 
 	// EventFeature is the feature to plug the process to the event server
 	EventFeature Feature = iota
