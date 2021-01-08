@@ -2,7 +2,6 @@ package blacklister
 
 import (
 	"errors"
-	"github.com/creekorful/trandoshan/internal/cache"
 	"github.com/creekorful/trandoshan/internal/cache_mock"
 	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
 	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
@@ -15,6 +14,7 @@ import (
 	"github.com/creekorful/trandoshan/internal/test"
 	"github.com/golang/mock/gomock"
 	"testing"
+	"time"
 )
 
 func TestState_Name(t *testing.T) {
@@ -24,9 +24,9 @@ func TestState_Name(t *testing.T) {
 	}
 }
 
-func TestState_CommonFlags(t *testing.T) {
+func TestState_Features(t *testing.T) {
 	s := State{}
-	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag, process.UserAgentFlag, process.TorURIFlag})
+	test.CheckProcessFeatures(t, &s, []process.Feature{process.EventFeature, process.ConfigFeature, process.CacheFeature, process.CrawlingFeature})
 }
 
 func TestState_CustomFlags(t *testing.T) {
@@ -37,7 +37,7 @@ func TestState_CustomFlags(t *testing.T) {
 func TestState_Initialize(t *testing.T) {
 	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
 		p.Cache("down-hostname")
-		p.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListThresholdKey})
+		p.ConfigClient([]string{configapi.ForbiddenHostnamesKey, configapi.BlackListConfigKey})
 		p.HTTPClient()
 	})
 }
@@ -69,6 +69,8 @@ func TestHandleTimeoutURLEventNoTimeout(t *testing.T) {
 	httpClientMock.EXPECT().Get("https://down-example.onion:8080").Return(httpResponseMock, nil)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]configapi.ForbiddenHostname{}, nil)
 
+	hostnameCacheMock.EXPECT().Remove("down-example.onion")
+
 	s := State{configClient: configClientMock, hostnameCache: hostnameCacheMock, httpClient: httpClientMock}
 	if err := s.handleTimeoutURLEvent(subscriberMock, msg); err != nil {
 		t.Fail()
@@ -94,10 +96,13 @@ func TestHandleTimeoutURLEventNoDispatch(t *testing.T) {
 
 	httpClientMock.EXPECT().Get("https://down-example.onion").Return(httpResponseMock, http.ErrTimeout)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]configapi.ForbiddenHostname{}, nil)
-	configClientMock.EXPECT().GetBlackListThreshold().Return(configapi.BlackListThreshold{Threshold: 10}, nil)
+	configClientMock.EXPECT().GetBlackListConfig().Return(configapi.BlackListConfig{
+		Threshold: 10,
+		TTL:       5,
+	}, nil)
 
-	hostnameCacheMock.EXPECT().GetInt64("down-example.onion").Return(int64(0), cache.ErrNIL)
-	hostnameCacheMock.EXPECT().SetInt64("down-example.onion", int64(1), cache.NoTTL).Return(nil)
+	hostnameCacheMock.EXPECT().GetInt64("down-example.onion").Return(int64(0), nil)
+	hostnameCacheMock.EXPECT().SetInt64("down-example.onion", int64(1), time.Duration(5)).Return(nil)
 
 	s := State{configClient: configClientMock, hostnameCache: hostnameCacheMock, httpClient: httpClientMock}
 	if err := s.handleTimeoutURLEvent(subscriberMock, msg); err != nil {
@@ -124,7 +129,10 @@ func TestHandleTimeoutURLEvent(t *testing.T) {
 
 	httpClientMock.EXPECT().Get("https://down-example.onion").Return(httpResponseMock, http.ErrTimeout)
 	configClientMock.EXPECT().GetForbiddenHostnames().Return([]configapi.ForbiddenHostname{}, nil)
-	configClientMock.EXPECT().GetBlackListThreshold().Return(configapi.BlackListThreshold{Threshold: 10}, nil)
+	configClientMock.EXPECT().GetBlackListConfig().Return(configapi.BlackListConfig{
+		Threshold: 10,
+		TTL:       5,
+	}, nil)
 
 	hostnameCacheMock.EXPECT().GetInt64("down-example.onion").Return(int64(9), nil)
 
@@ -138,7 +146,9 @@ func TestHandleTimeoutURLEvent(t *testing.T) {
 		}).
 		Return(nil)
 
-	hostnameCacheMock.EXPECT().SetInt64("down-example.onion", int64(10), cache.NoTTL).Return(nil)
+	hostnameCacheMock.EXPECT().
+		SetInt64("down-example.onion", int64(10), time.Duration(5)).
+		Return(nil)
 
 	s := State{configClient: configClientMock, hostnameCache: hostnameCacheMock, httpClient: httpClientMock}
 	if err := s.handleTimeoutURLEvent(subscriberMock, msg); err != nil {

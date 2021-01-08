@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,13 +21,13 @@ func newLocalIndex(root string) (Index, error) {
 	return &localIndex{baseDir: root}, nil
 }
 
-func (s *localIndex) IndexResource(url string, time time.Time, body string, headers map[string]string) error {
-	path, err := formatPath(url, time)
+func (s *localIndex) IndexResource(resource Resource) error {
+	path, err := formatPath(resource.URL, resource.Time)
 	if err != nil {
 		return err
 	}
 
-	content, err := formatResource(url, body, headers)
+	content, err := formatResource(resource.URL, resource.Body, resource.Headers)
 	if err != nil {
 		return err
 	}
@@ -45,15 +46,34 @@ func (s *localIndex) IndexResource(url string, time time.Time, body string, head
 	return nil
 }
 
+func (s *localIndex) IndexResources(resources []Resource) error {
+	// No specific implementation for the local driver.
+	// we simply call IndexResource n-times
+	for _, resource := range resources {
+		if err := s.IndexResource(resource); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func formatResource(url string, body string, headers map[string]string) ([]byte, error) {
 	builder := strings.Builder{}
 
 	// First URL
 	builder.WriteString(fmt.Sprintf("%s\n\n", url))
 
+	// Sort headers to have deterministic output
+	var headerNames []string
+	for headerName := range headers {
+		headerNames = append(headerNames, headerName)
+	}
+	sort.Strings(headerNames)
+
 	// Then headers
-	for key, value := range headers {
-		builder.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+	for _, name := range headerNames {
+		builder.WriteString(fmt.Sprintf("%s: %s\n", name, headers[name]))
 	}
 	builder.WriteString("\n")
 

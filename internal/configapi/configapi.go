@@ -24,9 +24,9 @@ func (state *State) Name() string {
 	return "configapi"
 }
 
-// CommonFlags return process common flags
-func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.RedisURIFlag}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.CacheFeature}
 }
 
 // CustomFlags return process custom flags
@@ -54,7 +54,7 @@ func (state *State) Initialize(provider process.Provider) error {
 	state.pub = pub
 
 	defaultValues := map[string]string{}
-	for _, value := range provider.GetValues("default-value") {
+	for _, value := range provider.GetStrValues("default-value") {
 		parts := strings.Split(value, "=")
 
 		if len(parts) == 2 {
@@ -135,7 +135,12 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 
 func setDefaultValues(configCache cache.Cache, values map[string]string) error {
 	for key, value := range values {
-		if _, err := configCache.GetBytes(key); err == cache.ErrNIL {
+		b, err := configCache.GetBytes(key)
+		if err != nil {
+			return err
+		}
+
+		if b == nil {
 			if err := configCache.SetBytes(key, []byte(value), cache.NoTTL); err != nil {
 				return fmt.Errorf("error while setting default value of %s: %s", key, err)
 			}

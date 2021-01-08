@@ -23,22 +23,29 @@ import (
 	"time"
 )
 
+// Feature represent a process feature
+type Feature int
+
 const (
-	version = "0.10.0"
-	// APIURIFlag is the api-uri flag
-	APIURIFlag = "api-uri"
-	// APITokenFlag is the api-token flag
-	APITokenFlag = "api-token"
-	// HubURIFlag is the hub-uri flag
-	HubURIFlag = "hub-uri"
-	// ConfigAPIURIFlag is the config-api-uri flag
-	ConfigAPIURIFlag = "config-api-uri"
-	// RedisURIFlag is the redis-uri flag
-	RedisURIFlag = "redis-uri"
-	// TorURIFlag is the tor-uri flag
-	TorURIFlag = "tor-uri"
-	// UserAgentFlag is the user-agent flag
-	UserAgentFlag = "user-agent"
+	version = "0.11.0"
+
+	// EventFeature is the feature to plug the process to the event server
+	EventFeature Feature = iota
+	// ConfigFeature is the feature to plug the process to the ConfigAPI framework
+	ConfigFeature
+	// CacheFeature is the feature to plug the process to the cache server
+	CacheFeature
+	// CrawlingFeature is the feature to plug the process with a tor-compatible HTTP client
+	CrawlingFeature
+
+	// EventPrefetchFlag is the prefetch count for the event subscriber
+	EventPrefetchFlag = "event-prefetch"
+
+	eventURIFlag     = "event-srv"
+	configAPIURIFlag = "config-api"
+	redisURIFlag     = "redis"
+	torURIFlag       = "tor-proxy"
+	userAgentFlag    = "user-agent"
 )
 
 // Provider is the implementation provider
@@ -55,10 +62,12 @@ type Provider interface {
 	Cache(keyPrefix string) (cache.Cache, error)
 	// HTTPClient return a new configured http client
 	HTTPClient() (chttp.Client, error)
-	// GetValue return value for given key
-	GetValue(key string) string
-	// GetValue return values for given key
-	GetValues(key string) []string
+	// GetStrValue return string value for given key
+	GetStrValue(key string) string
+	// GetStrValues return string slice for given key
+	GetStrValues(key string) []string
+	// GetIntValue return int value for given key
+	GetIntValue(key string) int
 }
 
 type defaultProvider struct {
@@ -80,39 +89,43 @@ func (p *defaultProvider) ConfigClient(keys []string) (configapi.Client, error) 
 		return nil, err
 	}
 
-	return configapi.NewConfigClient(p.ctx.String(ConfigAPIURIFlag), sub, keys)
+	return configapi.NewConfigClient(p.ctx.String(configAPIURIFlag), sub, keys)
 }
 
 func (p *defaultProvider) Subscriber() (event.Subscriber, error) {
-	return event.NewSubscriber(p.ctx.String(HubURIFlag))
+	return event.NewSubscriber(p.ctx.String(eventURIFlag), p.ctx.Int(EventPrefetchFlag))
 }
 
 func (p *defaultProvider) Publisher() (event.Publisher, error) {
-	return event.NewPublisher(p.ctx.String(HubURIFlag))
+	return event.NewPublisher(p.ctx.String(eventURIFlag))
 }
 
 func (p *defaultProvider) Cache(keyPrefix string) (cache.Cache, error) {
-	return cache.NewRedisCache(p.ctx.String(RedisURIFlag), keyPrefix)
+	return cache.NewRedisCache(p.ctx.String(redisURIFlag), keyPrefix)
 }
 
 func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
 	return chttp.NewFastHTTPClient(&fasthttp.Client{
 		// Use given TOR proxy to reach the hidden services
-		Dial: fasthttpproxy.FasthttpSocksDialer(p.ctx.String(TorURIFlag)),
+		Dial: fasthttpproxy.FasthttpSocksDialer(p.ctx.String(torURIFlag)),
 		// Disable SSL verification since we do not really care about this
 		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
-		Name:         p.ctx.String(UserAgentFlag),
+		Name:         p.ctx.String(userAgentFlag),
 	}), nil
 }
 
-func (p *defaultProvider) GetValue(key string) string {
+func (p *defaultProvider) GetStrValue(key string) string {
 	return p.ctx.String(key)
 }
 
-func (p *defaultProvider) GetValues(key string) []string {
+func (p *defaultProvider) GetStrValues(key string) []string {
 	return p.ctx.StringSlice(key)
+}
+
+func (p *defaultProvider) GetIntValue(key string) int {
+	return p.ctx.Int(key)
 }
 
 // SubscriberDef is the subscriber definition
@@ -125,7 +138,7 @@ type SubscriberDef struct {
 // Process is a component of Trandoshan
 type Process interface {
 	Name() string
-	CommonFlags() []string
+	Features() []Feature
 	CustomFlags() []cli.Flag
 	Initialize(provider Provider) error
 	Subscribers() []SubscriberDef
@@ -148,11 +161,11 @@ func MakeApp(process Process) *cli.App {
 		Action: execute(process),
 	}
 
-	// Add common flags
-	flags := getCustomFlags()
-	for _, flag := range process.CommonFlags() {
-		if customFlag, contains := flags[flag]; contains {
-			app.Flags = append(app.Flags, customFlag)
+	// Add features flags
+	featureFlags := getFeaturesFlags()
+	for _, feature := range process.Features() {
+		if values, exist := featureFlags[feature]; exist {
+			app.Flags = append(app.Flags, values...)
 		}
 	}
 
@@ -236,43 +249,49 @@ func execute(process Process) cli.ActionFunc {
 	}
 }
 
-func getCustomFlags() map[string]cli.Flag {
-	flags := map[string]cli.Flag{}
+func getFeaturesFlags() map[Feature][]cli.Flag {
+	flags := map[Feature][]cli.Flag{}
 
-	flags[HubURIFlag] = &cli.StringFlag{
-		Name:     HubURIFlag,
-		Usage:    "URI to the hub (event) server",
-		Required: true,
+	flags[EventFeature] = []cli.Flag{
+		&cli.StringFlag{
+			Name:     eventURIFlag,
+			Usage:    "URI to the event server",
+			Required: true,
+		},
+		&cli.IntFlag{
+			Name:  EventPrefetchFlag,
+			Usage: "Prefetch for the event subscriber",
+			Value: 1,
+		},
 	}
-	flags[APIURIFlag] = &cli.StringFlag{
-		Name:     APIURIFlag,
-		Usage:    "URI to the API server",
-		Required: true,
+
+	flags[ConfigFeature] = []cli.Flag{
+		&cli.StringFlag{
+			Name:     configAPIURIFlag,
+			Usage:    "URI to the ConfigAPI server",
+			Required: true,
+		},
 	}
-	flags[APITokenFlag] = &cli.StringFlag{
-		Name:     APITokenFlag,
-		Usage:    "Token to use to authenticate against the API",
-		Required: true,
+
+	flags[CacheFeature] = []cli.Flag{
+		&cli.StringFlag{
+			Name:     redisURIFlag,
+			Usage:    "URI to the Redis server",
+			Required: true,
+		},
 	}
-	flags[ConfigAPIURIFlag] = &cli.StringFlag{
-		Name:     ConfigAPIURIFlag,
-		Usage:    "URI to the ConfigAPI server",
-		Required: true,
-	}
-	flags[RedisURIFlag] = &cli.StringFlag{
-		Name:     RedisURIFlag,
-		Usage:    "URI to the Redis server",
-		Required: true,
-	}
-	flags[TorURIFlag] = &cli.StringFlag{
-		Name:     TorURIFlag,
-		Usage:    "URI to the TOR SOCKS proxy",
-		Required: true,
-	}
-	flags[UserAgentFlag] = &cli.StringFlag{
-		Name:  UserAgentFlag,
-		Usage: "User agent to use",
-		Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
+
+	flags[CrawlingFeature] = []cli.Flag{
+		&cli.StringFlag{
+			Name:     torURIFlag,
+			Usage:    "URI to the TOR SOCKS proxy",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:  userAgentFlag,
+			Usage: "User agent to use",
+			Value: "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0",
+		},
 	}
 
 	return flags

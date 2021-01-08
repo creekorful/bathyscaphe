@@ -14,10 +14,10 @@ type SubscriberDef struct {
 	Exchange string
 }
 
-// CheckProcessCommonFlags check process defined common flags
-func CheckProcessCommonFlags(t *testing.T, p process.Process, wantFlags []string) {
-	if !checkListEquals(p.CommonFlags(), wantFlags) {
-		t.Errorf("Differents flags: %v %v", p.CommonFlags(), wantFlags)
+// CheckProcessFeatures check process defined features
+func CheckProcessFeatures(t *testing.T, p process.Process, wantFeatures []process.Feature) {
+	if !reflect.DeepEqual(p.Features(), wantFeatures) {
+		t.Errorf("Differents flags: %v %v", p.Features(), wantFeatures)
 	}
 }
 
@@ -28,7 +28,7 @@ func CheckProcessCustomFlags(t *testing.T, p process.Process, wantFlags []string
 		names = append(names, customFlag.Names()[0])
 	}
 
-	if !checkListEquals(names, wantFlags) {
+	if !reflect.DeepEqual(names, wantFlags) {
 		t.Errorf("Differents flags: %v %v", names, wantFlags)
 	}
 }
@@ -62,7 +62,3 @@ func CheckProcessSubscribers(t *testing.T, p process.Process, subscribers []Subs
 }
 
 // TODO HTTPHandler
-
-func checkListEquals(a []string, b []string) bool {
-	return reflect.DeepEqual(a, b)
-}

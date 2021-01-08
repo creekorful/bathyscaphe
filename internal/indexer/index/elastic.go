@@ -9,8 +9,7 @@ import (
 	"time"
 )
 
-var resourcesIndex = "resources"
-
+const resourcesIndexName = "resources"
 const mapping = `
 {
   "settings": {
@@ -93,29 +92,48 @@ func newElasticIndex(uri string) (Index, error) {
 	}, nil
 }
 
-func (e *elasticSearchIndex) IndexResource(url string, time time.Time, body string, headers map[string]string) error {
-	res, err := extractResource(url, time, body, headers)
+func (e *elasticSearchIndex) IndexResource(resource Resource) error {
+	res, err := indexResource(resource)
 	if err != nil {
 		return err
 	}
 
 	_, err = e.client.Index().
-		Index(resourcesIndex).
+		Index(resourcesIndexName).
 		BodyJson(res).
 		Do(context.Background())
 	return err
 }
 
+func (e *elasticSearchIndex) IndexResources(resources []Resource) error {
+	bulkRequest := e.client.Bulk()
+
+	for _, resource := range resources {
+		resourceIndex, err := indexResource(resource)
+		if err != nil {
+			return err
+		}
+
+		req := elastic.NewBulkIndexRequest().
+			Index(resourcesIndexName).
+			Doc(resourceIndex)
+		bulkRequest.Add(req)
+	}
+
+	_, err := bulkRequest.Do(context.Background())
+	return err
+}
+
 func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	// Setup index if doesn't exist
-	exist, err := es.IndexExists(resourcesIndex).Do(ctx)
+	exist, err := es.IndexExists(resourcesIndexName).Do(ctx)
 	if err != nil {
 		return err
 	}
 	if !exist {
-		log.Debug().Str("index", resourcesIndex).Msg("Creating missing index")
+		log.Debug().Str("index", resourcesIndexName).Msg("Creating missing index")
 
-		q := es.CreateIndex(resourcesIndex).BodyString(mapping)
+		q := es.CreateIndex(resourcesIndexName).BodyString(mapping)
 		if _, err := q.Do(ctx); err != nil {
 			return err
 		}
@@ -124,8 +142,8 @@ func setupElasticSearch(ctx context.Context, es *elastic.Client) error {
 	return nil
 }
 
-func extractResource(url string, time time.Time, body string, headers map[string]string) (*resourceIdx, error) {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+func indexResource(resource Resource) (*resourceIdx, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resource.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -152,14 +170,14 @@ func extractResource(url string, time time.Time, body string, headers map[string
 
 	// Lowercase headers
 	lowerCasedHeaders := map[string]string{}
-	for key, value := range headers {
+	for key, value := range resource.Headers {
 		lowerCasedHeaders[strings.ToLower(key)] = value
 	}
 
 	return &resourceIdx{
-		URL:         url,
-		Body:        body,
-		Time:        time,
+		URL:         resource.URL,
+		Body:        resource.Body,
+		Time:        resource.Time,
 		Title:       title,
 		Meta:        meta,
 		Description: meta["description"],

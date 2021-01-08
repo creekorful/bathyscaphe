@@ -11,10 +11,11 @@ import (
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"hash/fnv"
 	"mvdan.cc/xurls/v2"
 	"net/http"
 	"net/url"
-	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -24,8 +25,6 @@ var (
 	errExtensionNotAllowed = errors.New("extension is not allowed")
 	errHostnameNotAllowed  = errors.New("hostname is not allowed")
 	errAlreadyScheduled    = errors.New("URL is already scheduled")
-
-	extensionRegex = regexp.MustCompile("\\.[\\w]+")
 )
 
 // State represent the application state
@@ -39,9 +38,9 @@ func (state *State) Name() string {
 	return "scheduler"
 }
 
-// CommonFlags return process common flags
-func (state *State) CommonFlags() []string {
-	return []string{process.HubURIFlag, process.ConfigAPIURIFlag, process.RedisURIFlag}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.ConfigFeature, process.CacheFeature}
 }
 
 // CustomFlags return process custom flags
@@ -92,16 +91,45 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return fmt.Errorf("error while extracting URLs")
 	}
 
+	// We are working using URL hash to reduce memory consumption.
+	// See: https://github.com/creekorful/trandoshan/issues/130
+	var urlHashes []string
 	for _, u := range urls {
-		if err := state.processURL(u, subscriber); err != nil {
+		c := fnv.New64()
+		if _, err := c.Write([]byte(u)); err != nil {
+			return fmt.Errorf("error while computing url hash: %s", err)
+		}
+
+		urlHashes = append(urlHashes, strconv.FormatUint(c.Sum64(), 10))
+	}
+
+	// Load values in batch
+	urlCache, err := state.urlCache.GetManyInt64(urlHashes)
+	if err != nil {
+		return err
+	}
+
+	for _, u := range urls {
+		if err := state.processURL(u, subscriber, urlCache); err != nil {
 			log.Err(err).Msg("error while processing URL")
 		}
+	}
+
+	// Update URL cache
+	delay, err := state.configClient.GetRefreshDelay()
+	if err != nil {
+		return err
+	}
+
+	// Update values in batch
+	if err := state.urlCache.SetManyInt64(urlCache, delay.Delay); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (state *State) processURL(rawURL string, pub event.Publisher) error {
+func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[string]int64) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("error while parsing URL: %s", err)
@@ -139,7 +167,7 @@ func (state *State) processURL(rawURL string, pub event.Publisher) error {
 		}
 
 		// generally no extension means text/* content-type
-		if !extensionRegex.MatchString(components[lastIdx]) {
+		if !strings.Contains(components[lastIdx], ".") {
 			allowed = true
 		}
 	}
@@ -156,31 +184,21 @@ func (state *State) processURL(rawURL string, pub event.Publisher) error {
 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
 
-	// Check if URL should be scheduled
-	count, err := state.urlCache.GetInt64(rawURL)
-	if err != nil && err != cache.ErrNIL {
-		return err
+	// Compute url hash
+	c := fnv.New64()
+	if _, err := c.Write([]byte(rawURL)); err != nil {
+		return fmt.Errorf("error while computing url hash: %s", err)
 	}
-	if count > 0 {
+	urlHash := strconv.FormatUint(c.Sum64(), 10)
+
+	// Check if URL should be scheduled
+	if urlCache[urlHash] > 0 {
 		return fmt.Errorf("%s %w", u, errAlreadyScheduled)
 	}
 
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	// Update URL cache
-	delay, err := state.configClient.GetRefreshDelay()
-	if err != nil {
-		return err
-	}
-
-	ttl := delay.Delay
-	if ttl == -1 {
-		ttl = cache.NoTTL
-	}
-
-	if err := state.urlCache.SetInt64(rawURL, count+1, ttl); err != nil {
-		return err
-	}
+	urlCache[urlHash]++
 
 	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)

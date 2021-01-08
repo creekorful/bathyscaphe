@@ -24,9 +24,9 @@ func TestState_Name(t *testing.T) {
 	}
 }
 
-func TestState_CommonFlags(t *testing.T) {
+func TestState_Features(t *testing.T) {
 	s := State{}
-	test.CheckProcessCommonFlags(t, &s, []string{process.HubURIFlag, process.RedisURIFlag})
+	test.CheckProcessFeatures(t, &s, []process.Feature{process.EventFeature, process.CacheFeature})
 }
 
 func TestState_CustomFlags(t *testing.T) {
@@ -38,7 +38,7 @@ func TestState_Initialize(t *testing.T) {
 	test.CheckInitialize(t, &State{}, func(p *process_mock.MockProviderMockRecorder) {
 		p.Cache("configuration")
 		p.Publisher()
-		p.GetValues("default-value")
+		p.GetStrValues("default-value")
 	})
 }
 
