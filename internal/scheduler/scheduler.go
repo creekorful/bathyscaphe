@@ -11,9 +11,11 @@ import (
 	"github.com/creekorful/trandoshan/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"hash/fnv"
 	"mvdan.cc/xurls/v2"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -89,8 +91,20 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		return fmt.Errorf("error while extracting URLs")
 	}
 
+	// We are working using URL hash to reduce memory consumption.
+	// See: https://github.com/creekorful/trandoshan/issues/130
+	var urlHashes []string
+	for _, u := range urls {
+		c := fnv.New64()
+		if _, err := c.Write([]byte(u)); err != nil {
+			return fmt.Errorf("error while computing url hash: %s", err)
+		}
+
+		urlHashes = append(urlHashes, strconv.FormatUint(c.Sum64(), 10))
+	}
+
 	// Load values in batch
-	urlCache, err := state.urlCache.GetManyInt64(urls)
+	urlCache, err := state.urlCache.GetManyInt64(urlHashes)
 	if err != nil {
 		return err
 	}
@@ -175,14 +189,21 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
 
+	// Compute url hash
+	c := fnv.New64()
+	if _, err := c.Write([]byte(rawURL)); err != nil {
+		return fmt.Errorf("error while computing url hash: %s", err)
+	}
+	urlHash := strconv.FormatUint(c.Sum64(), 10)
+
 	// Check if URL should be scheduled
-	if urlCache[rawURL] > 0 {
+	if urlCache[urlHash] > 0 {
 		return fmt.Errorf("%s %w", u, errAlreadyScheduled)
 	}
 
 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
 
-	urlCache[rawURL]++
+	urlCache[urlHash]++
 
 	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
