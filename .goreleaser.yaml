@@ -1,0 +1,45 @@
+before:
+  hooks:
+    - go mod download
+builds:
+  - id: bs-blacklister
+    main: ./cmd/bs-blacklister/bs-blacklister.go
+    binary: bs-blacklister
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-configapi
+    main: ./cmd/bs-configapi/bs-configapi.go
+    binary: bs-configapi
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-crawler
+    main: ./cmd/bs-crawler/bs-crawler.go
+    binary: bs-crawler
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-indexer
+    main: ./cmd/bs-indexer/bs-indexer.go
+    binary: bs-indexer
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-scheduler
+    main: ./cmd/bs-scheduler/bs-scheduler.go
+    binary: bs-scheduler
+    goos:
+      - linux
+    goarch:
+      - amd64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-{{ .ShortCommit }}"
+release:
+  prerelease: true
