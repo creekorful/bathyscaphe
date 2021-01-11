@@ -27,6 +27,19 @@ func (state *State) Name() string {
 	return "blacklister"
 }
 
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The blacklisting component. It consumes timeout URL event and will try to
+crawl the hostname index page to determinate if the whole hostname does not
+respond. If the hostname does not respond after a retry policy, it will
+be blacklisted by the process and further crawling event involving the hostname
+will be discarded by the crawling process. This allow us to not waste time
+crawling for nothing.
+
+This process consumes the 'url.timeout' event.`
+}
+
 // Features return the process features
 func (state *State) Features() []process.Feature {
 	return []process.Feature{process.EventFeature, process.ConfigFeature, process.CacheFeature, process.CrawlingFeature}

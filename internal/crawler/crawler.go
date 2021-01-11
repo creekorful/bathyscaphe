@@ -32,6 +32,17 @@ func (state *State) Name() string {
 	return "crawler"
 }
 
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The crawling component. It consumes URL, crawl the resource, and
+publish the result (page content + headers).
+
+The crawler consumes the 'url.new' event and produces either:
+- 'url.timeout' event if the crawling has failed because of timeout issue
+- 'resource.new' event if the crawling has succeeded.`
+}
+
 // Features return the process features
 func (state *State) Features() []process.Feature {
 	return []process.Feature{process.EventFeature, process.ConfigFeature, process.CrawlingFeature}

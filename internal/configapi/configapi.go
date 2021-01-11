@@ -24,6 +24,19 @@ func (state *State) Name() string {
 	return "configapi"
 }
 
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The ConfigAPI component. It serves as a centralized K/V database
+with notification support.
+This component expose a REST API to allow other process to retrieve
+configuration as startup time, and to allow value update at runtime.
+Each time a configuration is update trough the API, an event will
+be dispatched so that running processes can update their local values.
+
+This component produces the 'config' event.`
+}
+
 // Features return the process features
 func (state *State) Features() []process.Feature {
 	return []process.Feature{process.EventFeature, process.CacheFeature}
