@@ -29,6 +29,15 @@ func (state *State) Name() string {
 	return "indexer"
 }
 
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The indexing component. It consumes crawled resources, format
+them and finally index them using the configured driver.
+
+This component consumes the 'resource.new' event.`
+}
+
 // Features return the process features
 func (state *State) Features() []process.Feature {
 	return []process.Feature{process.EventFeature, process.ConfigFeature}

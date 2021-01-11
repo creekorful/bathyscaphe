@@ -38,6 +38,18 @@ func (state *State) Name() string {
 	return "scheduler"
 }
 
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The scheduling component. It extracts URLs from crawled resources
+and apply a predicate to determinate if the URL is eligible
+for crawling. If it is, it will publish a event and update the
+scheduling cache.
+
+This component consumes the 'resource.new' event and produces
+the 'url.new' event.`
+}
+
 // Features return the process features
 func (state *State) Features() []process.Feature {
 	return []process.Feature{process.EventFeature, process.ConfigFeature, process.CacheFeature}

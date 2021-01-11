@@ -138,6 +138,7 @@ type SubscriberDef struct {
 // Process is a component of Bathyscaphe
 type Process interface {
 	Name() string
+	Description() string
 	Features() []Feature
 	CustomFlags() []cli.Flag
 	Initialize(provider Provider) error
@@ -148,9 +149,10 @@ type Process interface {
 // MakeApp return cli.App corresponding for given Process
 func MakeApp(process Process) *cli.App {
 	app := &cli.App{
-		Name:    fmt.Sprintf("bs-%s", process.Name()),
-		Version: version,
-		Usage:   fmt.Sprintf("Bathyscaphe %s component", process.Name()),
+		Name:        fmt.Sprintf("bs-%s", process.Name()),
+		Version:     version,
+		Usage:       fmt.Sprintf("Bathyscaphe %s component", process.Name()),
+		Description: process.Description(),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "log-level",
