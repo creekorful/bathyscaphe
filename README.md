@@ -9,7 +9,7 @@ Bathyscaphe is a Go written, fast, highly configurable, cloud-native dark web cr
 To start the crawler, one just need to execute the following command:
 
 ```sh
-$ ./scripts/start.sh
+$ ./scripts/docker/start.sh
 ```
 
 and wait for all containers to start.
@@ -21,7 +21,7 @@ and wait for all containers to start.
 
 # How to initiate crawling
 
-One can use the RabbitMQ dashhboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**
+One can use the RabbitMQ dashboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**
 .
 
 The object should look like this:
@@ -38,7 +38,7 @@ If one want to speed up the crawling, he can scale the instance of crawling comp
 This may be done by issuing the following command after the crawler is started:
 
 ```sh
-$ ./scripts/scale.sh crawler=5
+$ ./scripts/docker/scale.sh crawler=5
 ```
 
 this will set the number of crawler instance to 5.
