@@ -1,13 +1,13 @@
 package configapi
 
 import (
-	"github.com/creekorful/trandoshan/internal/cache"
-	"github.com/creekorful/trandoshan/internal/cache_mock"
-	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/event_mock"
-	"github.com/creekorful/trandoshan/internal/process"
-	"github.com/creekorful/trandoshan/internal/process_mock"
-	"github.com/creekorful/trandoshan/internal/test"
+	"github.com/creekorful/bathyscaphe/internal/cache"
+	"github.com/creekorful/bathyscaphe/internal/cache_mock"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/creekorful/bathyscaphe/internal/event_mock"
+	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/process_mock"
+	"github.com/creekorful/bathyscaphe/internal/test"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"io/ioutil"

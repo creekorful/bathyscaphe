@@ -13,12 +13,12 @@ RUN go mod download
 COPY . .
 
 # Test then build app
-RUN go build -v github.com/creekorful/trandoshan/cmd/tdsh-indexer
+RUN go build -v github.com/creekorful/bathyscaphe/cmd/bs-configapi
 
 # runtime image
 FROM alpine:latest
-COPY --from=builder /app/tdsh-indexer /app/
+COPY --from=builder /app/bs-configapi /app/
 
 WORKDIR /app/
 
-ENTRYPOINT ["./tdsh-indexer"]
+ENTRYPOINT ["./bs-configapi"]

@@ -1,17 +1,8 @@
-# Trandoshan dark web crawler
+# Bathyscaphe dark web crawler
 
-![CI](https://github.com/creekorful/trandoshan/workflows/CI/badge.svg)
+![CI](https://github.com/creekorful/bathyscaphe/workflows/CI/badge.svg)
 
-This repository is a complete rewrite of the Trandoshan dark web crawler. Everything has been written inside a single
-Git repository to ease maintenance.
-
-## Why a rewrite?
-
-The first version of Trandoshan [(available here)](https://github.com/trandoshan-io) is working great but not really
-professional, the code start to be a mess, hard to manage since split in multiple repositories, etc.
-
-I have therefore decided to create & maintain the project in this specific repository, where all components code will be
-available (as a Go module).
+Bathyscaphe is a Go written, fast, highly configurable, cloud-native dark web crawler.
 
 # How to start the crawler
 
@@ -30,7 +21,8 @@ and wait for all containers to start.
 
 # How to initiate crawling
 
-One can use the RabbitMQ dashhboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**.
+One can use the RabbitMQ dashhboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**
+.
 
 The object should look like this:
 

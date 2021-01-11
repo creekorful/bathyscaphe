@@ -2,11 +2,11 @@ package indexer
 
 import (
 	"fmt"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/constraint"
-	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/indexer/index"
-	"github.com/creekorful/trandoshan/internal/process"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/constraint"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/creekorful/bathyscaphe/internal/indexer/index"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"

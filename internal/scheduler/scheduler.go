@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
-	"github.com/creekorful/trandoshan/internal/cache"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/constraint"
-	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/cache"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/constraint"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"hash/fnv"
@@ -92,7 +92,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	}
 
 	// We are working using URL hash to reduce memory consumption.
-	// See: https://github.com/creekorful/trandoshan/issues/130
+	// See: https://github.com/creekorful/bathyscaphe/issues/130
 	var urlHashes []string
 	for _, u := range urls {
 		c := fnv.New64()
