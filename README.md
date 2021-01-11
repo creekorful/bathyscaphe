@@ -54,10 +54,10 @@ If you've made a change to one of the crawler component and wish to use the upda
 just need to issue the following command:
 
 ```sh
-$ ./script/build.sh
+$ goreleaser --snapshot --skip-publish --rm-dist
 ```
 
-this will rebuild all crawler images using local changes. After that just run start.sh again to have the updated version
+this will rebuild all images using local changes. After that just run start.sh again to have the updated version
 running.
 
 # Architecture
