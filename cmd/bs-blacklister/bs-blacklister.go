@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/creekorful/trandoshan/internal/blacklister"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/blacklister"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"os"
 )
 

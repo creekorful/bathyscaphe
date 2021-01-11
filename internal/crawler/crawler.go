@@ -2,12 +2,12 @@ package crawler
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/clock"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/constraint"
-	"github.com/creekorful/trandoshan/internal/event"
-	chttp "github.com/creekorful/trandoshan/internal/http"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/clock"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/constraint"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	chttp "github.com/creekorful/bathyscaphe/internal/http"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"

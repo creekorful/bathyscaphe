@@ -6,11 +6,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/cache"
-	"github.com/creekorful/trandoshan/internal/clock"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/event"
-	chttp "github.com/creekorful/trandoshan/internal/http"
+	"github.com/creekorful/bathyscaphe/internal/cache"
+	"github.com/creekorful/bathyscaphe/internal/clock"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	chttp "github.com/creekorful/bathyscaphe/internal/http"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -135,7 +135,7 @@ type SubscriberDef struct {
 	Handler  event.Handler
 }
 
-// Process is a component of Trandoshan
+// Process is a component of Bathyscaphe
 type Process interface {
 	Name() string
 	Features() []Feature
@@ -148,14 +148,20 @@ type Process interface {
 // MakeApp return cli.App corresponding for given Process
 func MakeApp(process Process) *cli.App {
 	app := &cli.App{
-		Name:    fmt.Sprintf("tdsh-%s", process.Name()),
+		Name:    fmt.Sprintf("bs-%s", process.Name()),
 		Version: version,
-		Usage:   fmt.Sprintf("Trandoshan %s component", process.Name()),
+		Usage:   fmt.Sprintf("Bathyscaphe %s component", process.Name()),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "log-level",
 				Usage: "Set the application log level",
 				Value: "info",
+			},
+		},
+		Authors: []*cli.Author{
+			{
+				Name:  "Aloïs Micard",
+				Email: "alois@micard.lu",
 			},
 		},
 		Action: execute(process),
