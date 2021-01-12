@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,13 +16,14 @@ type redisCache struct {
 }
 
 // NewRedisCache return a new Cache using redis as backend
-func NewRedisCache(URI string, password, keyPrefix string) (Cache, error) {
+func NewRedisCache(URI string, keyPrefix string) (Cache, error) {
+	opts, err := parseRedisOpts(URI)
+	if err != nil {
+		return nil, err
+	}
+
 	return &redisCache{
-		client: redis.NewClient(&redis.Options{
-			Addr:     URI,
-			Password: password,
-			DB:       0,
-		}),
+		client:    redis.NewClient(opts),
 		keyPrefix: keyPrefix,
 	}, nil
 }
@@ -103,4 +107,36 @@ func (rc *redisCache) getKey(key string) string {
 	}
 
 	return fmt.Sprintf("%s:%s", rc.keyPrefix, key)
+}
+
+func parseRedisOpts(URL string) (*redis.Options, error) {
+	u, err := url.Parse(URL)
+	if err != nil {
+		return nil, err
+	}
+
+	username := "default"
+	password := ""
+	if u := u.User; u != nil {
+		if u.Username() != "" {
+			username = u.Username()
+		}
+		if pass, exist := u.Password(); exist {
+			password = pass
+		}
+	}
+
+	db := 0
+	if u.Path != "/" {
+		if val, err := strconv.Atoi(strings.TrimPrefix(u.Path, "/")); err == nil {
+			db = val
+		}
+	}
+
+	return &redis.Options{
+		Addr:     u.Host,
+		Username: username,
+		Password: password,
+		DB:       db,
+	}, nil
 }
