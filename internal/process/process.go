@@ -27,7 +27,7 @@ import (
 type Feature int
 
 const (
-	version = "0.11.0"
+	version = "1.0.0-rc1"
 
 	// EventFeature is the feature to plug the process to the event server
 	EventFeature Feature = iota
@@ -43,7 +43,7 @@ const (
 
 	eventURIFlag     = "event-srv"
 	configAPIURIFlag = "config-api"
-	redisURIFlag     = "redis"
+	cacheSRVFlag     = "cache-srv"
 	torURIFlag       = "tor-proxy"
 	userAgentFlag    = "user-agent"
 )
@@ -101,7 +101,7 @@ func (p *defaultProvider) Publisher() (event.Publisher, error) {
 }
 
 func (p *defaultProvider) Cache(keyPrefix string) (cache.Cache, error) {
-	return cache.NewRedisCache(p.ctx.String(redisURIFlag), keyPrefix)
+	return cache.NewRedisCache(p.ctx.String(cacheSRVFlag), keyPrefix)
 }
 
 func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
@@ -283,8 +283,8 @@ func getFeaturesFlags() map[Feature][]cli.Flag {
 
 	flags[CacheFeature] = []cli.Flag{
 		&cli.StringFlag{
-			Name:     redisURIFlag,
-			Usage:    "URI to the Redis server",
+			Name:     cacheSRVFlag,
+			Usage:    "URI to the cache server",
 			Required: true,
 		},
 	}
