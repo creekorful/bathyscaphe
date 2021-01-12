@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./scripts/exec.sh scale "$@"
+./scripts/docker/exec.sh scale "$@"

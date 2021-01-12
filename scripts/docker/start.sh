@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./scripts/exec.sh up "$@"
+./scripts/docker/exec.sh up "$@"

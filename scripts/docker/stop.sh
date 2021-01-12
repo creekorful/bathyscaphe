@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./scripts/exec.sh stop "$@"
+./scripts/docker/exec.sh stop "$@"

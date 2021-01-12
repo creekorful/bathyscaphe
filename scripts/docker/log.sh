@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./scripts/exec.sh logs "$@"
+./scripts/docker/exec.sh logs "$@"
