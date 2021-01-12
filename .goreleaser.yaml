@@ -9,6 +9,8 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
   - id: bs-configapi
     main: ./cmd/bs-configapi/bs-configapi.go
     binary: bs-configapi
@@ -16,6 +18,8 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
   - id: bs-crawler
     main: ./cmd/bs-crawler/bs-crawler.go
     binary: bs-crawler
@@ -23,6 +27,8 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
   - id: bs-indexer
     main: ./cmd/bs-indexer/bs-indexer.go
     binary: bs-indexer
@@ -30,6 +36,8 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
   - id: bs-scheduler
     main: ./cmd/bs-scheduler/bs-scheduler.go
     binary: bs-scheduler
@@ -37,6 +45,8 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
 dockers:
   - goos: linux
     goarch: amd64
