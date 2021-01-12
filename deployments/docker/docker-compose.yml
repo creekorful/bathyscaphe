@@ -47,7 +47,7 @@ services:
       --event-srv amqp://guest:guest@rabbitmq:5672
       --event-prefetch 20
       --config-api http://configapi:8080
-      --redis redis:6379
+      --cache-srv redis://redis:6379
     restart: always
     depends_on:
       - rabbitmq
@@ -86,7 +86,7 @@ services:
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
-      --redis redis:6379
+      --cache-srv redis://redis:6379
       --default-value forbidden-hostnames="[]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": 0}"
@@ -103,7 +103,7 @@ services:
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
       --config-api http://configapi:8080
-      --redis redis:6379
+      --cache-srv redis://redis:6379
       --tor-proxy torproxy:9050
     restart: always
     depends_on:

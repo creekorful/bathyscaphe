@@ -43,8 +43,7 @@ const (
 
 	eventURIFlag     = "event-srv"
 	configAPIURIFlag = "config-api"
-	redisURIFlag     = "redis"
-	redisPassFlag    = "redis-pass"
+	cacheSRVFlag     = "cache-srv"
 	torURIFlag       = "tor-proxy"
 	userAgentFlag    = "user-agent"
 )
@@ -102,7 +101,7 @@ func (p *defaultProvider) Publisher() (event.Publisher, error) {
 }
 
 func (p *defaultProvider) Cache(keyPrefix string) (cache.Cache, error) {
-	return cache.NewRedisCache(p.ctx.String(redisURIFlag), p.ctx.String(redisPassFlag), keyPrefix)
+	return cache.NewRedisCache(p.ctx.String(cacheSRVFlag), keyPrefix)
 }
 
 func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
@@ -284,13 +283,9 @@ func getFeaturesFlags() map[Feature][]cli.Flag {
 
 	flags[CacheFeature] = []cli.Flag{
 		&cli.StringFlag{
-			Name:     redisURIFlag,
-			Usage:    "URI to the Redis server",
+			Name:     cacheSRVFlag,
+			Usage:    "URI to the cache server",
 			Required: true,
-		},
-		&cli.StringFlag{
-			Name:  redisPassFlag,
-			Usage: "Redis server password",
 		},
 	}
 
