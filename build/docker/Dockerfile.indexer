@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM scratch
 
 ADD bs-indexer /usr/bin/bs-indexer
 

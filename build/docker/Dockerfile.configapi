@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM scratch
 
 ADD bs-configapi /usr/bin/bs-configapi
 

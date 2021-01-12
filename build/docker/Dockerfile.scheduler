@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM scratch
 
 ADD bs-scheduler /usr/bin/bs-scheduler
 
