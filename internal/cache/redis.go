@@ -13,11 +13,12 @@ type redisCache struct {
 }
 
 // NewRedisCache return a new Cache using redis as backend
-func NewRedisCache(URI string, keyPrefix string) (Cache, error) {
+func NewRedisCache(URI string, password, keyPrefix string) (Cache, error) {
 	return &redisCache{
 		client: redis.NewClient(&redis.Options{
-			Addr: URI,
-			DB:   0,
+			Addr:     URI,
+			Password: password,
+			DB:       0,
 		}),
 		keyPrefix: keyPrefix,
 	}, nil
