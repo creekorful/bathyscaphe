@@ -1,0 +1,5 @@
+FROM alpine:latest
+
+ADD bs-indexer /usr/bin/bs-indexer
+
+ENTRYPOINT ["/usr/bin/bs-indexer"]

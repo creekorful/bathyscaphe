@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/creekorful/trandoshan/internal/crawler"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/crawler"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"os"
 )
 

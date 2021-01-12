@@ -1,0 +1,5 @@
+FROM alpine:latest
+
+ADD bs-blacklister /usr/bin/bs-blacklister
+
+ENTRYPOINT ["/usr/bin/bs-blacklister"]

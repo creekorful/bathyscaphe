@@ -2,9 +2,9 @@ package configapi
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/cache"
-	"github.com/creekorful/trandoshan/internal/event"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/cache"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -22,6 +22,19 @@ type State struct {
 // Name return the process name
 func (state *State) Name() string {
 	return "configapi"
+}
+
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The ConfigAPI component. It serves as a centralized K/V database
+with notification support.
+This component expose a REST API to allow other process to retrieve
+configuration as startup time, and to allow value update at runtime.
+Each time a configuration is update trough the API, an event will
+be dispatched so that running processes can update their local values.
+
+This component produces the 'config' event.`
 }
 
 // Features return the process features

@@ -1,0 +1,96 @@
+before:
+  hooks:
+    - go mod download
+builds:
+  - id: bs-blacklister
+    main: ./cmd/bs-blacklister/bs-blacklister.go
+    binary: bs-blacklister
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-configapi
+    main: ./cmd/bs-configapi/bs-configapi.go
+    binary: bs-configapi
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-crawler
+    main: ./cmd/bs-crawler/bs-crawler.go
+    binary: bs-crawler
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-indexer
+    main: ./cmd/bs-indexer/bs-indexer.go
+    binary: bs-indexer
+    goos:
+      - linux
+    goarch:
+      - amd64
+  - id: bs-scheduler
+    main: ./cmd/bs-scheduler/bs-scheduler.go
+    binary: bs-scheduler
+    goos:
+      - linux
+    goarch:
+      - amd64
+dockers:
+  - goos: linux
+    goarch: amd64
+    binaries:
+      - bs-blacklister
+    image_templates:
+      - "creekorful/bs-blacklister:latest"
+      - "creekorful/bs-blacklister:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-blacklister:{{ .Major }}"
+    skip_push: false
+    dockerfile: build/docker/Dockerfile.blacklister
+  - goos: linux
+    goarch: amd64
+    binaries:
+      - bs-configapi
+    image_templates:
+      - "creekorful/bs-configapi:latest"
+      - "creekorful/bs-configapi:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-configapi:{{ .Major }}"
+    skip_push: false
+    dockerfile: build/docker/Dockerfile.configapi
+  - goos: linux
+    goarch: amd64
+    binaries:
+      - bs-crawler
+    image_templates:
+      - "creekorful/bs-crawler:latest"
+      - "creekorful/bs-crawler:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-crawler:{{ .Major }}"
+    skip_push: false
+    dockerfile: build/docker/Dockerfile.crawler
+  - goos: linux
+    goarch: amd64
+    binaries:
+      - bs-indexer
+    image_templates:
+      - "creekorful/bs-indexer:latest"
+      - "creekorful/bs-indexer:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-indexer:{{ .Major }}"
+    skip_push: false
+    dockerfile: build/docker/Dockerfile.indexer
+  - goos: linux
+    goarch: amd64
+    binaries:
+      - bs-scheduler
+    image_templates:
+      - "creekorful/bs-scheduler:latest"
+      - "creekorful/bs-scheduler:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-scheduler:{{ .Major }}"
+    skip_push: false
+    dockerfile: build/docker/Dockerfile.scheduler
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-{{ .ShortCommit }}"
+release:
+  prerelease: true

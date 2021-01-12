@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/creekorful/trandoshan/internal/event"
+	"github.com/creekorful/bathyscaphe/internal/event"
 	"testing"
 	"time"
 )

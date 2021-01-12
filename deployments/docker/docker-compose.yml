@@ -29,7 +29,7 @@ services:
     volumes:
       - redisdata:/data
   crawler:
-    image: creekorful/tdsh-crawler:latest
+    image: creekorful/bs-crawler:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
@@ -41,20 +41,20 @@ services:
       - torproxy
       - configapi
   scheduler:
-    image: creekorful/tdsh-scheduler:latest
+    image: creekorful/bs-scheduler:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
       --event-prefetch 20
       --config-api http://configapi:8080
-      --redis redis:6379
+      --cache-srv redis://redis:6379
     restart: always
     depends_on:
       - rabbitmq
       - configapi
       - redis
   indexer-local:
-    image: creekorful/tdsh-indexer:latest
+    image: creekorful/bs-indexer:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
@@ -68,7 +68,7 @@ services:
       - rabbitmq
       - configapi
   indexer-es:
-    image: creekorful/tdsh-indexer:latest
+    image: creekorful/bs-indexer:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
@@ -82,11 +82,11 @@ services:
       - elasticsearch
       - configapi
   configapi:
-    image: creekorful/tdsh-configapi:latest
+    image: creekorful/bs-configapi:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
-      --redis redis:6379
+      --cache-srv redis://redis:6379
       --default-value forbidden-hostnames="[]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": 0}"
@@ -98,12 +98,12 @@ services:
     ports:
       - 15006:8080
   blacklister:
-    image: creekorful/tdsh-blacklister:latest
+    image: creekorful/bs-blacklister:latest
     command: >
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
       --config-api http://configapi:8080
-      --redis redis:6379
+      --cache-srv redis://redis:6379
       --tor-proxy torproxy:9050
     restart: always
     depends_on:

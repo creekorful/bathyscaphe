@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/creekorful/trandoshan/internal/process"
-	"github.com/creekorful/trandoshan/internal/scheduler"
+	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/scheduler"
 	"os"
 )
 

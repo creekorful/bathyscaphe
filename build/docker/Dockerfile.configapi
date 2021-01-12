@@ -1,0 +1,5 @@
+FROM alpine:latest
+
+ADD bs-configapi /usr/bin/bs-configapi
+
+ENTRYPOINT ["/usr/bin/bs-configapi"]

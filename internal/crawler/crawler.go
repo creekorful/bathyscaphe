@@ -2,12 +2,12 @@ package crawler
 
 import (
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/clock"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/constraint"
-	"github.com/creekorful/trandoshan/internal/event"
-	chttp "github.com/creekorful/trandoshan/internal/http"
-	"github.com/creekorful/trandoshan/internal/process"
+	"github.com/creekorful/bathyscaphe/internal/clock"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/constraint"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	chttp "github.com/creekorful/bathyscaphe/internal/http"
+	"github.com/creekorful/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"
@@ -30,6 +30,17 @@ type State struct {
 // Name return the process name
 func (state *State) Name() string {
 	return "crawler"
+}
+
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The crawling component. It consumes URL, crawl the resource, and
+publish the result (page content + headers).
+
+The crawler consumes the 'url.new' event and produces either:
+- 'url.timeout' event if the crawling has failed because of timeout issue
+- 'resource.new' event if the crawling has succeeded.`
 }
 
 // Features return the process features

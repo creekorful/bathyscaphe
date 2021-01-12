@@ -1,8 +1,8 @@
 package constraint
 
 import (
-	"github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/configapi/client_mock"
+	"github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/configapi/client_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
 )

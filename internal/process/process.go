@@ -6,11 +6,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/cache"
-	"github.com/creekorful/trandoshan/internal/clock"
-	configapi "github.com/creekorful/trandoshan/internal/configapi/client"
-	"github.com/creekorful/trandoshan/internal/event"
-	chttp "github.com/creekorful/trandoshan/internal/http"
+	"github.com/creekorful/bathyscaphe/internal/cache"
+	"github.com/creekorful/bathyscaphe/internal/clock"
+	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	"github.com/creekorful/bathyscaphe/internal/event"
+	chttp "github.com/creekorful/bathyscaphe/internal/http"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -27,7 +27,7 @@ import (
 type Feature int
 
 const (
-	version = "0.11.0"
+	version = "1.0.0-rc1"
 
 	// EventFeature is the feature to plug the process to the event server
 	EventFeature Feature = iota
@@ -43,7 +43,7 @@ const (
 
 	eventURIFlag     = "event-srv"
 	configAPIURIFlag = "config-api"
-	redisURIFlag     = "redis"
+	cacheSRVFlag     = "cache-srv"
 	torURIFlag       = "tor-proxy"
 	userAgentFlag    = "user-agent"
 )
@@ -101,7 +101,7 @@ func (p *defaultProvider) Publisher() (event.Publisher, error) {
 }
 
 func (p *defaultProvider) Cache(keyPrefix string) (cache.Cache, error) {
-	return cache.NewRedisCache(p.ctx.String(redisURIFlag), keyPrefix)
+	return cache.NewRedisCache(p.ctx.String(cacheSRVFlag), keyPrefix)
 }
 
 func (p *defaultProvider) HTTPClient() (chttp.Client, error) {
@@ -135,9 +135,10 @@ type SubscriberDef struct {
 	Handler  event.Handler
 }
 
-// Process is a component of Trandoshan
+// Process is a component of Bathyscaphe
 type Process interface {
 	Name() string
+	Description() string
 	Features() []Feature
 	CustomFlags() []cli.Flag
 	Initialize(provider Provider) error
@@ -148,14 +149,21 @@ type Process interface {
 // MakeApp return cli.App corresponding for given Process
 func MakeApp(process Process) *cli.App {
 	app := &cli.App{
-		Name:    fmt.Sprintf("tdsh-%s", process.Name()),
-		Version: version,
-		Usage:   fmt.Sprintf("Trandoshan %s component", process.Name()),
+		Name:        fmt.Sprintf("bs-%s", process.Name()),
+		Version:     version,
+		Usage:       fmt.Sprintf("Bathyscaphe %s component", process.Name()),
+		Description: process.Description(),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "log-level",
 				Usage: "Set the application log level",
 				Value: "info",
+			},
+		},
+		Authors: []*cli.Author{
+			{
+				Name:  "Aloïs Micard",
+				Email: "alois@micard.lu",
 			},
 		},
 		Action: execute(process),
@@ -275,8 +283,8 @@ func getFeaturesFlags() map[Feature][]cli.Flag {
 
 	flags[CacheFeature] = []cli.Flag{
 		&cli.StringFlag{
-			Name:     redisURIFlag,
-			Usage:    "URI to the Redis server",
+			Name:     cacheSRVFlag,
+			Usage:    "URI to the cache server",
 			Required: true,
 		},
 	}
