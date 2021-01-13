@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"

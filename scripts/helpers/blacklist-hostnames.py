@@ -46,11 +46,11 @@ print("there is {} forbidden hostnames defined in ConfigAPI".format(len(forbidde
 # Merge the lists while preventing duplicates
 for forbidden_hostname in forbidden_hostnames:
     add_if_not_exist(new_hostnames, forbidden_hostname['hostname'])
-print("there is {} forbidden hostnames now".format(len(forbidden_hostnames)))
+print("there is {} forbidden hostnames now".format(len(new_hostnames)))
 
 # Update ConfigAPI
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
-r = requests.put(config_api_uri + "/config/forbidden-hostnames", json.dumps(forbidden_hostnames), headers=headers)
+r = requests.put(config_api_uri + "/config/forbidden-hostnames", json.dumps(new_hostnames), headers=headers)
 
 if r.ok:
     print("successfully updated forbidden hostnames")

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blacklister-deployment
+  labels:
+    app: blacklister
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: blacklister
+  template:
+    metadata:
+      labels:
+        app: blacklister
+    spec:
+      containers:
+        - name: blacklister
+          image: darkspot/bs-blacklister:latest
+          args:
+            - --log-level
+            - debug
+            - --event-srv
+            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - --config-api
+            - http://configapi-service
+            - --cache-srv
+            - redis://default:WtVcUp9yebNnwjuE2LuumJM52AJ9sZ@redis-master:6379
+            - --tor-proxy
+            - torproxy-service:9050

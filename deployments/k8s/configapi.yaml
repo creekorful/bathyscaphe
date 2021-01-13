@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configapi-deployment
+  labels:
+    app: configapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: configapi
+  template:
+    metadata:
+      labels:
+        app: configapi
+    spec:
+      containers:
+        - name: configapi
+          image: darkspot/bs-configapi:latest
+          args:
+            - --log-level
+            - debug
+            - --event-srv
+            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - --cache-srv
+            - redis://default:WtVcUp9yebNnwjuE2LuumJM52AJ9sZ@redis-master:6379
+            - --default-value
+            - forbidden-hostnames=[]
+            - --default-value
+            - allowed-mime-types=[{"content-type":"text","extensions":["html","php","aspx", "htm"]}]
+            - --default-value
+            - refresh-delay={"delay":0}
+            - --default-value
+            - blacklist-config={"threshold":5, "ttl":1200}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: configapi-service
+spec:
+  selector:
+    app: configapi
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

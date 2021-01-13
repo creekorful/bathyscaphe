@@ -1,0 +1,2 @@
+# Config file to switch to single node
+replicas: 1

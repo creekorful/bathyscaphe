@@ -2,12 +2,12 @@ package crawler
 
 import (
 	"fmt"
-	"github.com/creekorful/bathyscaphe/internal/clock"
-	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
-	"github.com/creekorful/bathyscaphe/internal/constraint"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	chttp "github.com/creekorful/bathyscaphe/internal/http"
-	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/clock"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/constraint"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"

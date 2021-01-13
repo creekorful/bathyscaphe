@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: torproxy-deployment
+  labels:
+    app: torproxy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: torproxy
+  template:
+    metadata:
+      labels:
+        app: torproxy
+    spec:
+      containers:
+        - name: torproxy
+          image: dperson/torproxy:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: torproxy-service
+spec:
+  selector:
+    app: torproxy
+  ports:
+    - protocol: TCP
+      port: 9050

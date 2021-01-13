@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crawler-deployment
+  labels:
+    app: crawler
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      app: crawler
+  template:
+    metadata:
+      labels:
+        app: crawler
+    spec:
+      containers:
+        - name: crawler
+          image: darkspot/bs-crawler:latest
+          args:
+            - --log-level
+            - debug
+            - --event-srv
+            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - --tor-proxy
+            - torproxy-service:9050
+            - --config-api
+            - http://configapi-service

@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
 	"testing"
 	"time"
 )

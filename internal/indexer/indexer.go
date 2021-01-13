@@ -2,11 +2,11 @@ package indexer
 
 import (
 	"fmt"
-	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
-	"github.com/creekorful/bathyscaphe/internal/constraint"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	"github.com/creekorful/bathyscaphe/internal/indexer/index"
-	"github.com/creekorful/bathyscaphe/internal/process"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/constraint"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/indexer/index"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"

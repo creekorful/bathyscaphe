@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/indexer"
-	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/indexer"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"os"
 )
 

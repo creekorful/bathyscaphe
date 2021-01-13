@@ -1,8 +1,8 @@
 package test
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/process"
-	"github.com/creekorful/bathyscaphe/internal/process_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/process_mock"
 	"github.com/golang/mock/gomock"
 	"reflect"
 	"testing"

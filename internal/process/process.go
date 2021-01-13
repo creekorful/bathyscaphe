@@ -6,11 +6,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/creekorful/bathyscaphe/internal/cache"
-	"github.com/creekorful/bathyscaphe/internal/clock"
-	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	chttp "github.com/creekorful/bathyscaphe/internal/http"
+	"github.com/darkspot-org/bathyscaphe/internal/cache"
+	"github.com/darkspot-org/bathyscaphe/internal/clock"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -27,7 +27,7 @@ import (
 type Feature int
 
 const (
-	version = "1.0.0-rc1"
+	version = "1.0.0-rc2"
 
 	// EventFeature is the feature to plug the process to the event server
 	EventFeature Feature = iota

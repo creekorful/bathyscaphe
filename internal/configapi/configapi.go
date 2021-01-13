@@ -2,9 +2,9 @@ package configapi
 
 import (
 	"fmt"
-	"github.com/creekorful/bathyscaphe/internal/cache"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/cache"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"

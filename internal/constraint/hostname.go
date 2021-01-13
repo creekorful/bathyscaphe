@@ -1,7 +1,7 @@
 package constraint
 
 import (
-	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"net/url"
 	"strings"
 )

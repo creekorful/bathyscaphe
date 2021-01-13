@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-deployment
+  labels:
+    app: scheduler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: darkspot/bs-scheduler:latest
+          args:
+            - --log-level
+            - debug
+            - --event-srv
+            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - --event-prefetch
+            - '20'
+            - --config-api
+            - http://configapi-service
+            - --cache-srv
+            - redis://default:WtVcUp9yebNnwjuE2LuumJM52AJ9sZ@redis-master:6379

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-es-deployment
+  labels:
+    app: indexer-es
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: indexer-es
+  template:
+    metadata:
+      labels:
+        app: indexer-es
+    spec:
+      containers:
+        - name: indexer
+          image: darkspot/bs-indexer:latest
+          args:
+            - --log-level
+            - debug
+            - --event-srv
+            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - --event-prefetch
+            - '20'
+            - --config-api
+            - http://configapi-service
+            - --index-driver
+            - elastic
+            - --index-dest
+            - http://elasticsearch-master:9200
