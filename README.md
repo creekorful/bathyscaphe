@@ -38,7 +38,7 @@ If one want to speed up the crawling, he can scale the instance of crawling comp
 This may be done by issuing the following command after the crawler is started:
 
 ```sh
-$ ./scripts/docker/scale.sh crawler=5
+$ ./scripts/docker/start.sh -d --scale crawler=5
 ```
 
 this will set the number of crawler instance to 5.
