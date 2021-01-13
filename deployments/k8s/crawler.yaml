@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: crawler
-          image: creekorful/bs-crawler:latest
+          image: darkspot/bs-crawler:latest
           args:
             - --log-level
             - debug

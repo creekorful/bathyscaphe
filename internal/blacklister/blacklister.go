@@ -2,11 +2,11 @@ package blacklister
 
 import (
 	"fmt"
-	"github.com/creekorful/bathyscaphe/internal/cache"
-	configapi "github.com/creekorful/bathyscaphe/internal/configapi/client"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	chttp "github.com/creekorful/bathyscaphe/internal/http"
-	"github.com/creekorful/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/cache"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"net/http"

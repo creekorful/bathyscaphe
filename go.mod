@@ -1,4 +1,4 @@
-module github.com/creekorful/bathyscaphe
+module github.com/darkspot-org/bathyscaphe
 
 go 1.14
 

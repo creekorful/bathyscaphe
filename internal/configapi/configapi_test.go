@@ -1,13 +1,13 @@
 package configapi
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/cache"
-	"github.com/creekorful/bathyscaphe/internal/cache_mock"
-	"github.com/creekorful/bathyscaphe/internal/event"
-	"github.com/creekorful/bathyscaphe/internal/event_mock"
-	"github.com/creekorful/bathyscaphe/internal/process"
-	"github.com/creekorful/bathyscaphe/internal/process_mock"
-	"github.com/creekorful/bathyscaphe/internal/test"
+	"github.com/darkspot-org/bathyscaphe/internal/cache"
+	"github.com/darkspot-org/bathyscaphe/internal/cache_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/process_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/test"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"io/ioutil"

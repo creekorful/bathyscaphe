@@ -1,8 +1,8 @@
 package constraint
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/configapi/client"
-	"github.com/creekorful/bathyscaphe/internal/configapi/client_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/configapi/client_mock"
 	"github.com/golang/mock/gomock"
 	"testing"
 )

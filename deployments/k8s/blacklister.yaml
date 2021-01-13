@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: blacklister
-          image: creekorful/bs-blacklister:latest
+          image: darkspot/bs-blacklister:latest
           args:
             - --log-level
             - debug

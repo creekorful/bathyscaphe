@@ -1,6 +1,6 @@
 # Bathyscaphe dark web crawler
 
-![CI](https://github.com/creekorful/bathyscaphe/workflows/CI/badge.svg)
+![CI](https://github.com/darkspot-org/bathyscaphe/workflows/CI/badge.svg)
 
 Bathyscaphe is a Go written, fast, highly configurable, cloud-native dark web crawler.
 

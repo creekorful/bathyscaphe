@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/event"
-	"github.com/creekorful/bathyscaphe/internal/event_mock"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"sync"
 	"testing"

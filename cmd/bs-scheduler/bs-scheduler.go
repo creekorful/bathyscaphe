@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/creekorful/bathyscaphe/internal/process"
-	"github.com/creekorful/bathyscaphe/internal/scheduler"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
+	"github.com/darkspot-org/bathyscaphe/internal/scheduler"
 	"os"
 )
 
