@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2021-03-05
+
+First stable release.
+
 ## [1.0.0-rc2] - 2021-01-13
 
 ### Added
@@ -21,7 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial stable release candidate.
 
-[Unreleased]: https://github.com/darkspot-org/bathyscaphe/compare/v1.0.0-rc2...HEAD
+[Unreleased]: https://github.com/darkspot-org/bathyscaphe/compare/v1.0.0...HEAD
+
+[1.0.0]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0.0-rc2...v1.0.0
 
 [1.0.0-rc2]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0.0-rc1...v1.0.0-rc2
 
