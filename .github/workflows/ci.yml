@@ -3,7 +3,8 @@ name: Continuous Integration
 on:
   push:
     branches:
-      - master
+      - main
+      - devel
   pull_request:
 
 env:
