@@ -2,8 +2,9 @@ package configapi
 
 import (
 	"fmt"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -134,7 +135,7 @@ func (state *State) setConfiguration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// publish event to notify config changed
-	if err := state.pub.PublishJSON(event.ConfigExchange, event.RawMessage{
+	if err := state.pub.PublishRaw(eventdef.ConfigExchange, &event.RawMessage{
 		Body:    b,
 		Headers: map[string]interface{}{"Config-Key": key},
 	}); err != nil {

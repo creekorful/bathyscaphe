@@ -2,11 +2,12 @@ package scheduler
 
 import (
 	"errors"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	"github.com/darkspot-org/bathyscaphe/internal/cache_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client_mock"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/darkspot-org/bathyscaphe/internal/process_mock"
@@ -178,7 +179,7 @@ func TestProcessURL(t *testing.T) {
 		configClientMock.EXPECT().GetAllowedMimeTypes().Return([]client.MimeType{{Extensions: []string{"html", "php"}}}, nil)
 		configClientMock.EXPECT().GetForbiddenHostnames().Return([]client.ForbiddenHostname{}, nil)
 
-		pubMock.EXPECT().PublishEvent(&event.NewURLEvent{URL: url}).Return(nil)
+		pubMock.EXPECT().PublishEvent(&eventdef.NewURLEvent{URL: url}).Return(nil)
 
 		state := State{configClient: configClientMock}
 		if err := state.processURL(url, pubMock, urlCache); err != nil {
@@ -206,10 +207,10 @@ func TestHandleNewResourceEvent(t *testing.T) {
 	urlCacheMock := cache_mock.NewMockCache(mockCtrl)
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(msg, &eventdef.NewResourceEvent{}).
+		SetArg(1, eventdef.NewResourceEvent{
 			URL: "https://l.facebookcorewwwi.onion/test.php",
 			Body: `
 <a href=\"https://facebook.onion/test.php?id=1\">This is a little test</a>. 
@@ -235,7 +236,7 @@ This domain is blacklisted: https://m.fbi.onion/test.php
 		}, nil)
 	configClientMock.EXPECT().GetRefreshDelay().Return(client.RefreshDelay{Delay: 0}, nil)
 
-	subscriberMock.EXPECT().PublishEvent(&event.NewURLEvent{
+	subscriberMock.EXPECT().PublishEvent(&eventdef.NewURLEvent{
 		URL: "https://facebook.onion/test.php?id=1",
 	})
 

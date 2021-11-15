@@ -15,6 +15,10 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d h1:U+s90UTSYgptZMwQh2aRr3LuazLJIa+Pg3Kc1ylSYVY=
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
+github.com/creekorful/event v0.1.0 h1:/Pnh6rAvEnCssS0z6u8esFi9uqo51a6aBeRgPwEjeB4=
+github.com/creekorful/event v0.1.0/go.mod h1:Za4oteYTv0QhYTqKCH1kJKryy5fzNgpMsd5C/6BeW44=
+github.com/creekorful/event v0.2.0 h1:5ZpPqZXxwcCAc2nmieBxg6nqECqnMQSLYOgW1DvAciM=
+github.com/creekorful/event v0.2.0/go.mod h1:Za4oteYTv0QhYTqKCH1kJKryy5fzNgpMsd5C/6BeW44=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=

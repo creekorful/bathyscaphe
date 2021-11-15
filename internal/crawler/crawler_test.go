@@ -2,10 +2,11 @@ package crawler
 
 import (
 	"errors"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/clock_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client_mock"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/http"
 	"github.com/darkspot-org/bathyscaphe/internal/http_mock"
@@ -133,17 +134,17 @@ func TestHandleNewURLEvent(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		msg := event.RawMessage{}
+		msg := &event.RawMessage{}
 		subscriberMock.EXPECT().
-			Read(&msg, &event.NewURLEvent{}).
-			SetArg(1, event.NewURLEvent{URL: test.url}).
+			Read(msg, &eventdef.NewURLEvent{}).
+			SetArg(1, eventdef.NewURLEvent{URL: test.url}).
 			Return(nil)
 
 		// mock crawling
 		switch test.err {
 		case http.ErrTimeout:
 			httpClientMock.EXPECT().Get(test.url).Return(httpResponseMock, http.ErrTimeout)
-			subscriberMock.EXPECT().PublishEvent(&event.TimeoutURLEvent{URL: test.url}).Return(nil)
+			subscriberMock.EXPECT().PublishEvent(&eventdef.TimeoutURLEvent{URL: test.url}).Return(nil)
 			break
 		default:
 			httpResponseMock.EXPECT().Headers().Return(test.responseHeaders)
@@ -164,7 +165,7 @@ func TestHandleNewURLEvent(t *testing.T) {
 			clockMock.EXPECT().Now().Return(tn)
 
 			// if test should pass expect event publishing
-			subscriberMock.EXPECT().PublishEvent(&event.NewResourceEvent{
+			subscriberMock.EXPECT().PublishEvent(&eventdef.NewResourceEvent{
 				URL:     test.url,
 				Body:    test.responseBody,
 				Headers: test.responseHeaders,
@@ -193,10 +194,10 @@ func TestHandleNewURLEventHostnameForbidden(t *testing.T) {
 		configClient: configClientMock,
 	}
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewURLEvent{}).
-		SetArg(1, event.NewURLEvent{URL: "https://l.facebookcorewwwi.onion/test.php"}).
+		Read(msg, &eventdef.NewURLEvent{}).
+		SetArg(1, eventdef.NewURLEvent{URL: "https://l.facebookcorewwwi.onion/test.php"}).
 		Return(nil)
 
 	configClientMock.EXPECT().GetForbiddenHostnames().

@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/golang/mock/gomock"
 	"sync"
@@ -34,7 +34,7 @@ func TestClient(t *testing.T) {
 		t.Fail()
 	}
 
-	msg := event.RawMessage{
+	msg := &event.RawMessage{
 		Body:    []byte("[{\"content-type\": \"application/json\", \"extensions\": [\"json\"]}]"),
 		Headers: map[string]interface{}{"Config-Key": AllowedMimeTypesKey},
 	}

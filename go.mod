@@ -6,6 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.6.0
 	github.com/PuerkitoBio/purell v1.1.1
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/creekorful/event v0.2.0
 	github.com/go-redis/redis/v8 v8.4.4
 	github.com/golang/mock v1.4.4
 	github.com/gorilla/mux v1.8.0

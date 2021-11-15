@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/purell"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/constraint"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -81,7 +82,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.NewResourceExchange, Queue: "schedulingQueue", Handler: state.handleNewResourceEvent},
+		{Exchange: eventdef.NewResourceExchange, Queue: "schedulingQueue", Handler: state.handleNewResourceEvent},
 	}
 }
 
@@ -90,9 +91,9 @@ func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
-func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.NewResourceEvent
-	if err := subscriber.Read(&msg, &evt); err != nil {
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg *event.RawMessage) error {
+	var evt eventdef.NewResourceEvent
+	if err := subscriber.Read(msg, &evt); err != nil {
 		return err
 	}
 
@@ -212,14 +213,14 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 
 	urlCache[urlHash]++
 
-	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
+	if err := pub.PublishEvent(&eventdef.NewURLEvent{URL: rawURL}); err != nil {
 		return fmt.Errorf("error while publishing URL: %s", err)
 	}
 
 	return nil
 }
 
-func extractURLS(msg *event.NewResourceEvent) ([]string, error) {
+func extractURLS(msg *eventdef.NewResourceEvent) ([]string, error) {
 	// Extract & normalize URLs
 	xu := xurls.Strict()
 	urls := xu.FindAllString(msg.Body, -1)

@@ -2,9 +2,10 @@ package indexer
 
 import (
 	"errors"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client_mock"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/indexer/index"
 	"github.com/darkspot-org/bathyscaphe/internal/indexer/index_mock"
@@ -80,10 +81,10 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 
 	tn := time.Now()
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(msg, &eventdef.NewResourceEvent{}).
+		SetArg(1, eventdef.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -126,10 +127,10 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 
 	tn := time.Now()
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(msg, &eventdef.NewResourceEvent{}).
+		SetArg(1, eventdef.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -183,10 +184,10 @@ Thanks to https://help.facebook.onion/ for the hosting :D
 
 	tn := time.Now()
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(msg, &eventdef.NewResourceEvent{}).
+		SetArg(1, eventdef.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},
@@ -241,10 +242,10 @@ This is sparta (hosted on https://example.org)
 
 	tn := time.Now()
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.NewResourceEvent{}).
-		SetArg(1, event.NewResourceEvent{
+		Read(msg, &eventdef.NewResourceEvent{}).
+		SetArg(1, eventdef.NewResourceEvent{
 			URL:     "https://example.onion",
 			Body:    body,
 			Headers: map[string]string{"Server": "Traefik", "Content-Type": "application/html"},

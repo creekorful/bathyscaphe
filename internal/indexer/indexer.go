@@ -2,9 +2,10 @@ package indexer
 
 import (
 	"fmt"
+	"github.com/creekorful/event"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/constraint"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/indexer/index"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
@@ -82,7 +83,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.NewResourceExchange, Queue: fmt.Sprintf("%sIndexingQueue", state.indexDriver), Handler: state.handleNewResourceEvent},
+		{Exchange: eventdef.NewResourceExchange, Queue: fmt.Sprintf("%sIndexingQueue", state.indexDriver), Handler: state.handleNewResourceEvent},
 	}
 }
 
@@ -91,9 +92,9 @@ func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
-func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.NewResourceEvent
-	if err := subscriber.Read(&msg, &evt); err != nil {
+func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg *event.RawMessage) error {
+	var evt eventdef.NewResourceEvent
+	if err := subscriber.Read(msg, &evt); err != nil {
 		return err
 	}
 

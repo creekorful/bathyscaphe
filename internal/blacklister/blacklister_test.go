@@ -2,10 +2,11 @@ package blacklister
 
 import (
 	"errors"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache_mock"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/configapi/client_mock"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/http"
 	"github.com/darkspot-org/bathyscaphe/internal/http_mock"
@@ -59,10 +60,10 @@ func TestHandleTimeoutURLEventNoTimeout(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.TimeoutURLEvent{}).
-		SetArg(1, event.TimeoutURLEvent{
+		Read(msg, &eventdef.TimeoutURLEvent{}).
+		SetArg(1, eventdef.TimeoutURLEvent{
 			URL: "https://down-example.onion:8080/reset-password?username=test",
 		}).Return(nil)
 
@@ -87,10 +88,10 @@ func TestHandleTimeoutURLEventNoDispatch(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.TimeoutURLEvent{}).
-		SetArg(1, event.TimeoutURLEvent{
+		Read(msg, &eventdef.TimeoutURLEvent{}).
+		SetArg(1, eventdef.TimeoutURLEvent{
 			URL: "https://down-example.onion/login.php",
 		}).Return(nil)
 
@@ -120,10 +121,10 @@ func TestHandleTimeoutURLEvent(t *testing.T) {
 	httpClientMock := http_mock.NewMockClient(mockCtrl)
 	httpResponseMock := http_mock.NewMockResponse(mockCtrl)
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.TimeoutURLEvent{}).
-		SetArg(1, event.TimeoutURLEvent{
+		Read(msg, &eventdef.TimeoutURLEvent{}).
+		SetArg(1, eventdef.TimeoutURLEvent{
 			URL: "https://down-example.onion/test.html",
 		}).Return(nil)
 
@@ -164,10 +165,10 @@ func TestHandleTimeoutURLEventNoDuplicates(t *testing.T) {
 	configClientMock := client_mock.NewMockClient(mockCtrl)
 	hostnameCacheMock := cache_mock.NewMockCache(mockCtrl)
 
-	msg := event.RawMessage{}
+	msg := &event.RawMessage{}
 	subscriberMock.EXPECT().
-		Read(&msg, &event.TimeoutURLEvent{}).
-		SetArg(1, event.TimeoutURLEvent{
+		Read(msg, &eventdef.TimeoutURLEvent{}).
+		SetArg(1, eventdef.TimeoutURLEvent{
 			URL: "https://facebookcorewwwi.onion/morning-routine.php?id=12",
 		}).Return(nil)
 

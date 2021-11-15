@@ -1,6 +1,6 @@
 package event
 
-//go:generate mockgen -destination=../event_mock/event_mock.go -package=event_mock . Publisher,Subscriber
+//go:generate mockgen -destination=../event_mock/event_mock.go -package=event_mock github.com/creekorful/event Publisher,Subscriber
 
 import "time"
 

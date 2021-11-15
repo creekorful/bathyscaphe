@@ -2,10 +2,11 @@ package crawler
 
 import (
 	"fmt"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/clock"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/constraint"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
@@ -79,7 +80,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.NewURLExchange, Queue: "crawlingQueue", Handler: state.handleNewURLEvent},
+		{Exchange: eventdef.NewURLExchange, Queue: "crawlingQueue", Handler: state.handleNewURLEvent},
 	}
 }
 
@@ -88,9 +89,9 @@ func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
-func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.NewURLEvent
-	if err := subscriber.Read(&msg, &evt); err != nil {
+func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg *event.RawMessage) error {
+	var evt eventdef.NewURLEvent
+	if err := subscriber.Read(msg, &evt); err != nil {
 		return err
 	}
 
@@ -107,7 +108,7 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 	if err != nil {
 		if err == chttp.ErrTimeout {
 			// indicate that crawling has failed
-			_ = subscriber.PublishEvent(&event.TimeoutURLEvent{URL: evt.URL})
+			_ = subscriber.PublishEvent(&eventdef.TimeoutURLEvent{URL: evt.URL})
 		}
 
 		return err
@@ -140,7 +141,7 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 		return err
 	}
 
-	res := event.NewResourceEvent{
+	res := eventdef.NewResourceEvent{
 		URL:     evt.URL,
 		Body:    string(b),
 		Headers: r.Headers(),

@@ -1,9 +1,9 @@
 package configapi
 
 import (
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	"github.com/darkspot-org/bathyscaphe/internal/cache_mock"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/event_mock"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/darkspot-org/bathyscaphe/internal/process_mock"
@@ -87,7 +87,7 @@ func TestSetConfiguration(t *testing.T) {
 	pubMock := event_mock.NewMockPublisher(mockCtrl)
 
 	configCacheMock.EXPECT().SetBytes("hello", []byte("{\"ttl\": \"10s\"}"), cache.NoTTL).Return(nil)
-	pubMock.EXPECT().PublishJSON("config", event.RawMessage{
+	pubMock.EXPECT().PublishRaw("config", &event.RawMessage{
 		Body:    []byte("{\"ttl\": \"10s\"}"),
 		Headers: map[string]interface{}{"Config-Key": "hello"},
 	}).Return(nil)

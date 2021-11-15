@@ -2,9 +2,10 @@ package blacklister
 
 import (
 	"fmt"
+	"github.com/creekorful/event"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
@@ -76,7 +77,7 @@ func (state *State) Initialize(provider process.Provider) error {
 // Subscribers return the process subscribers
 func (state *State) Subscribers() []process.SubscriberDef {
 	return []process.SubscriberDef{
-		{Exchange: event.TimeoutURLExchange, Queue: "blacklistingQueue", Handler: state.handleTimeoutURLEvent},
+		{Exchange: eventdef.TimeoutURLExchange, Queue: "blacklistingQueue", Handler: state.handleTimeoutURLEvent},
 	}
 }
 
@@ -85,9 +86,9 @@ func (state *State) HTTPHandler() http.Handler {
 	return nil
 }
 
-func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg event.RawMessage) error {
-	var evt event.TimeoutURLEvent
-	if err := subscriber.Read(&msg, &evt); err != nil {
+func (state *State) handleTimeoutURLEvent(subscriber event.Subscriber, msg *event.RawMessage) error {
+	var evt eventdef.TimeoutURLEvent
+	if err := subscriber.Read(msg, &evt); err != nil {
 		return err
 	}
 

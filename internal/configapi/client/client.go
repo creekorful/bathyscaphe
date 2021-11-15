@@ -6,7 +6,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/darkspot-org/bathyscaphe/internal/event"
+	"github.com/creekorful/event"
+	eventdef "github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"
@@ -96,7 +97,7 @@ func NewConfigClient(configAPIURL string, subscriber event.Subscriber, keys []st
 	}
 
 	// Subscribe for config changed
-	if err := client.sub.SubscribeAll(event.ConfigExchange, client.handleConfigEvent); err != nil {
+	if err := client.sub.SubscribeAll(eventdef.ConfigExchange, client.handleConfigEvent); err != nil {
 		return nil, err
 	}
 
@@ -254,7 +255,7 @@ func (c *client) setValue(key string, value []byte) error {
 	return nil
 }
 
-func (c *client) handleConfigEvent(_ event.Subscriber, msg event.RawMessage) error {
+func (c *client) handleConfigEvent(_ event.Subscriber, msg *event.RawMessage) error {
 	// Make sure we have the header
 	configKey, ok := msg.Headers["Config-Key"].(string)
 	if !ok {
