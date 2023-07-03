@@ -51,41 +51,41 @@ dockers:
   - goos: linux
     goarch: amd64
     image_templates:
-      - "darkspot/bs-blacklister:latest"
-      - "darkspot/bs-blacklister:{{ replace .Tag \"v\" \"\" }}"
-      - "darkspot/bs-blacklister:{{ .Major }}"
+      - "creekorful/bs-blacklister:latest"
+      - "creekorful/bs-blacklister:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-blacklister:{{ .Major }}"
     skip_push: false
     dockerfile: build/docker/Dockerfile.blacklister
   - goos: linux
     goarch: amd64
     image_templates:
-      - "darkspot/bs-configapi:latest"
-      - "darkspot/bs-configapi:{{ replace .Tag \"v\" \"\" }}"
-      - "darkspot/bs-configapi:{{ .Major }}"
+      - "creekorful/bs-configapi:latest"
+      - "creekorful/bs-configapi:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-configapi:{{ .Major }}"
     skip_push: false
     dockerfile: build/docker/Dockerfile.configapi
   - goos: linux
     goarch: amd64
     image_templates:
-      - "darkspot/bs-crawler:latest"
-      - "darkspot/bs-crawler:{{ replace .Tag \"v\" \"\" }}"
-      - "darkspot/bs-crawler:{{ .Major }}"
+      - "creekorful/bs-crawler:latest"
+      - "creekorful/bs-crawler:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-crawler:{{ .Major }}"
     skip_push: false
     dockerfile: build/docker/Dockerfile.crawler
   - goos: linux
     goarch: amd64
     image_templates:
-      - "darkspot/bs-indexer:latest"
-      - "darkspot/bs-indexer:{{ replace .Tag \"v\" \"\" }}"
-      - "darkspot/bs-indexer:{{ .Major }}"
+      - "creekorful/bs-indexer:latest"
+      - "creekorful/bs-indexer:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-indexer:{{ .Major }}"
     skip_push: false
     dockerfile: build/docker/Dockerfile.indexer
   - goos: linux
     goarch: amd64
     image_templates:
-      - "darkspot/bs-scheduler:latest"
-      - "darkspot/bs-scheduler:{{ replace .Tag \"v\" \"\" }}"
-      - "darkspot/bs-scheduler:{{ .Major }}"
+      - "creekorful/bs-scheduler:latest"
+      - "creekorful/bs-scheduler:{{ replace .Tag \"v\" \"\" }}"
+      - "creekorful/bs-scheduler:{{ .Major }}"
     skip_push: false
     dockerfile: build/docker/Dockerfile.scheduler
 checksum:

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: indexer
-          image: darkspot/bs-indexer:latest
+          image: creekorful/bs-indexer:latest
           args:
             - --log-level
             - debug

@@ -25,10 +25,10 @@ First stable release.
 
 Initial stable release candidate.
 
-[Unreleased]: https://github.com/darkspot-org/bathyscaphe/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/creekorful/bathyscaphe/compare/v1.0.0...HEAD
 
 [1.0.0]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0.0-rc2...v1.0.0
 
 [1.0.0-rc2]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0.0-rc1...v1.0.0-rc2
 
-[1.0.0-rc1]: https://github.com/darkspot-org/bathyscaphe/releases/tag/v1.0.0-rc1
+[1.0.0-rc1]: https://github.com/creekorful/bathyscaphe/releases/tag/v1.0.0-rc1

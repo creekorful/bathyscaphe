@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: configapi
-          image: darkspot/bs-configapi:latest
+          image: creekorful/bs-configapi:latest
           args:
             - --log-level
             - debug

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: scheduler
-          image: darkspot/bs-scheduler:latest
+          image: creekorful/bs-scheduler:latest
           args:
             - --log-level
             - debug
