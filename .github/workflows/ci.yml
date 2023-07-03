@@ -39,7 +39,7 @@ jobs:
           go get -v github.com/golang/mock/mockgen@v1.4.4
 
       - name: Lint source code
-        run: go get -v ./...
+        run: go vet -v ./...
 
       - name: Run Tests
         run: |
