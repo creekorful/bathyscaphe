@@ -38,13 +38,14 @@ jobs:
         run: |
           go get -v github.com/golang/mock/mockgen@v1.4.4
 
+      - name: Generate mock file
+        run: go generate -v ./...
+
       - name: Lint source code
         run: go vet -v ./...
 
       - name: Run Tests
-        run: |
-          go generate ./...
-          go test -race --coverprofile=coverage.coverprofile --covermode=atomic -v ./...
+        run: go test -race --coverprofile=coverage.coverprofile --covermode=atomic -v ./...
 
       - name: Update go report card
         if: success() && matrix.os == 'ubuntu-latest'
