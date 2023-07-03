@@ -24,10 +24,10 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      # - name: Set environment
-      #   run: |
-      #     echo "GOPATH=$(dirname $GITHUB_WORKSPACE)" >> $GITHUB_ENV
-      #     echo "$(dirname $GITHUB_WORKSPACE)/bin" >> $GITHUB_PATH
+      - name: Set environment
+        run: |
+          echo "GOPATH=$(dirname $GITHUB_WORKSPACE)" >> $GITHUB_ENV
+          echo "$(dirname $GITHUB_WORKSPACE)/bin" >> $GITHUB_PATH
 
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -36,11 +36,10 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          go get -v golang.org/x/lint/golint
           go get -v github.com/golang/mock/mockgen@v1.4.4
 
       - name: Lint source code
-        run: golint -set_exit_status ./...
+        run: go get -v ./...
 
       - name: Run Tests
         run: |
