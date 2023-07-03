@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-        go: [ "1.20" ]
+        go: [ '1.20' ]
     name: ${{ matrix.os }} @ Go ${{ matrix.go }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -24,10 +24,10 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Set environment
-        run: |
-          echo "GOPATH=$(dirname $GITHUB_WORKSPACE)" >> $GITHUB_ENV
-          echo "$(dirname $GITHUB_WORKSPACE)/bin" >> $GITHUB_PATH
+      # - name: Set environment
+      #   run: |
+      #     echo "GOPATH=$(dirname $GITHUB_WORKSPACE)" >> $GITHUB_ENV
+      #     echo "$(dirname $GITHUB_WORKSPACE)/bin" >> $GITHUB_PATH
 
       - name: Checkout Code
         uses: actions/checkout@v2
